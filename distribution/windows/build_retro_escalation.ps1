@@ -11,6 +11,9 @@ $workRoot = Join-Path $repoRoot '.artifacts\pyinstaller'
 $appName = 'Retro-Escalation'
 $appOutput = Join-Path $OutputRoot $appName
 $version = '11.1.0-re.1-dev'
+$assetsData = "$(Join-Path $repoRoot 'assets');assets"
+$localesData = "$(Join-Path $repoRoot 'locales');locales"
+$themeAssetsData = "$(Join-Path $repoRoot 'theme_assets');theme_assets"
 
 if (-not (Test-Path -LiteralPath $python)) {
     throw 'The repository virtual environment is missing. Create .venv and install .[pyinst].'
@@ -29,9 +32,9 @@ try {
         --distpath $OutputRoot `
         --workpath (Join-Path $workRoot 'work') `
         --specpath $workRoot `
-        --add-data 'assets;assets' `
-        --add-data 'locales;locales' `
-        --add-data 'theme_assets;theme_assets' `
+        --add-data $assetsData `
+        --add-data $localesData `
+        --add-data $themeAssetsData `
         --windowed `
         --icon 'assets\oscr_icon_small.ico' `
         'retro_escalation.py'
