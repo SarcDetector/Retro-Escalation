@@ -1,0 +1,76 @@
+name: Linux portable build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - retro-escalation
+    paths:
+      - ".github/workflows/linux-portable.yml"
+      - "assets/**"
+      - "distribution/linux/**"
+      - "docs/TESTING.md"
+      - "locales/**"
+      - "main.py"
+      - "pyproject.toml"
+      - "re_oscr/**"
+      - "retro_escalation.py"
+      - "tests/**"
+      - "theme_assets/**"
+
+permissions:
+  contents: read
+
+jobs:
+  linux-x86-64:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install Linux desktop runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0
+
+      - name: Install application and packager
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -e ".[pyinst]"
+
+      - name: Run regression tests
+        run: .venv/bin/python -m unittest discover -s tests -v
+
+      - name: Build portable archive
+        run: |
+          chmod +x distribution/linux/build_retro_escalation.sh
+          distribution/linux/build_retro_escalation.sh \
+            --output-root .artifacts/linux-package \
+            --package
+
+      - name: Verify packaged startup
+        run: |
+          config_dir="$(mktemp -d)"
+          trap 'rm -rf "$config_dir"' EXIT
+          .artifacts/linux-package/RE-OSCR/RE-OSCR \
+            --config_dir "$config_dir" \
+            --startup-check
+
+      - name: Upload Linux tester package
+        uses: actions/upload-artifact@v4
+        with:
+          name: RE-OSCR-${{ github.sha }}-linux-x86_64
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            .artifacts/linux-package/*.tar.gz
+            .artifacts/linux-package/*.sha256

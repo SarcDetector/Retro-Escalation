@@ -1,4 +1,7 @@
+import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -26,6 +29,29 @@ class RetroEscalationLauncherTests(unittest.TestCase):
             RetroEscalationLauncher.migrate_legacy_config_dir(config_dir, (legacy_dir,))
 
             self.assertTrue((config_dir / "OSCR_UI_settings.ini").is_file())
+
+    def test_startup_check_exits_cleanly(self):
+        project_root = Path(__file__).resolve().parents[1]
+        environment = os.environ.copy()
+        environment["QT_QPA_PLATFORM"] = "offscreen"
+        with tempfile.TemporaryDirectory() as config_dir:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(project_root / "retro_escalation.py"),
+                    "--config_dir",
+                    config_dir,
+                    "--startup-check",
+                ],
+                cwd=project_root,
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

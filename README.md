@@ -16,7 +16,7 @@ Current development features include:
 - Isolated RE-OSCR settings that do not modify an installed OSCR application.
 - League Standings browsing with season/map selection, handle search, local-log loading, and
   selected-parse open/save actions.
-- A portable Windows tester build.
+- Portable Windows and Linux tester builds.
 
 - [Project scope](docs/PROJECT_SCOPE.md)
 - [Tester plan](docs/TESTING.md)
@@ -53,6 +53,23 @@ Run the offline regression suite with:
 
 The generated `RE-OSCR.exe` stores settings beside the executable and does not use the official
 application's settings directory.
+
+## Linux portable build
+
+Linux packages are built natively on Ubuntu 22.04 by the `Linux portable build` GitHub Actions
+workflow. The resulting `linux-x86_64.tar.gz` archive can be downloaded from the workflow run.
+
+To build on a Linux workstation instead:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e ".[pyinst]"
+./distribution/linux/build_retro_escalation.sh --output-root dist --package
+```
+
+Extract the archive into a user-writable directory and run `./RE-OSCR`. Portable Linux settings
+are stored beside the executable. See [`distribution/linux/README.md`](distribution/linux/README.md)
+for runtime requirements and compatibility notes.
 
 ## Origin and licensing
 

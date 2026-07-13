@@ -1,10 +1,12 @@
-"""Portable Windows entry point for experimental Retro Escalation builds."""
+"""Portable entry point for experimental Retro Escalation builds."""
 
 from argparse import ArgumentParser
 from multiprocessing import freeze_support, get_start_method, set_start_method
 from pathlib import Path
 from shutil import copytree
 import sys
+
+from PySide6.QtCore import QTimer
 
 from re_oscr import REOSCRApplication
 from main import Launcher
@@ -50,12 +52,18 @@ class RetroEscalationLauncher:
             '--config_dir', type=str, required=False,
             default=RetroEscalationLauncher.default_config_dir(),
             help='Change configuration directory (must be readable and writable)')
+        argparser.add_argument(
+            '--startup-check', action='store_true',
+            help='Create the application and exit automatically (used by package validation)')
         args, _ = argparser.parse_known_args()
-        exit_code = REOSCRApplication(
+        application = REOSCRApplication(
             args=args,
             app_dir_path=Launcher.base_path(),
             version=RetroEscalationLauncher.__version__,
-        ).run()
+        )
+        if args.startup_check:
+            QTimer.singleShot(250, application.app.quit)
+        exit_code = application.run()
         sys.exit(exit_code)
 
 
