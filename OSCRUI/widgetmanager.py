@@ -42,6 +42,9 @@ class WidgetManager():
         self.variant_combo: QComboBox
         self.ladder_table: QTableView
         self.ladder_search: QLineEdit
+        self.league_open_local_button: QPushButton
+        self.league_open_parse_button: QPushButton
+        self.league_save_parse_button: QPushButton
 
         self.live_parser_button: QPushButton
         self.sto_log_path_entry: QLineEdit

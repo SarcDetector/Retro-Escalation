@@ -706,6 +706,8 @@ class OSCRUI():
         self.league.ladder_table_model.init_fonts(
             self.theme.get_font('table_header'), self.theme.get_font('table'))
         ladder_table.setModel(self.league.ladder_table_sort)
+        ladder_table.doubleClicked.connect(
+            lambda _index: self.league.download_and_view_combat())
         self.widgets.ladder_table = ladder_table
         layout.addWidget(ladder_table, stretch=1)
 
@@ -729,12 +731,17 @@ class OSCRUI():
             self.theme, search_style, 'button', seperator='•')
         control_layout.addLayout(search_button_layout, 0, 1, alignment=AVCENTER)
         control_button_style = {
-            tr('View Parse'): {'callback': self.league.download_and_view_combat},
+            tr('Open Local Log...'): {'callback': self.sidebar.browse_and_analyze_log},
+            tr('Open Selected Parse'): {'callback': self.league.download_and_view_combat},
+            tr('Save Selected Parse...'): {'callback': self.league.download_and_save_combat},
             tr('More'): {'callback': self.league.extend_ladder, 'style': {'margin-right': 0}}
         }
-        control_button_layout = create_button_series(
-            self.theme, control_button_style, 'button', seperator='•')
+        control_button_layout, league_buttons = create_button_series(
+            self.theme, control_button_style, 'button', seperator='•', ret=True)
         control_layout.addLayout(control_button_layout, 0, 3, alignment=AVCENTER)
+        self.widgets.league_open_local_button = league_buttons[0]
+        self.widgets.league_open_parse_button = league_buttons[1]
+        self.widgets.league_save_parse_button = league_buttons[2]
         layout.addLayout(control_layout)
 
         l_frame.setLayout(layout)

@@ -2,9 +2,10 @@
 
 ## Status
 
-The restart-based theme foundation is implemented. Command Console is currently a palette preview
-on OSCR's existing layouts; the full visual treatment and tester build are not implemented yet.
-This document defines the acceptance matrix for the first experimental build.
+The restart-based theme foundation and portable tester build are implemented. Command Console is
+currently a palette preview on OSCR's existing layouts. League Standings can load local logs and
+open or save downloaded parses. This document defines the acceptance matrix for experimental
+builds.
 
 ## Test environments
 
@@ -75,11 +76,21 @@ Run every item once in Default and once in Command Console.
 
 ### League
 
-- [ ] Load the map list.
-- [ ] Fetch a ladder.
+- [x] Load the map list. (Live offscreen probe)
+- [x] Fetch a ladder. (Live offscreen probe)
 - [ ] Search and clear.
 - [ ] Load more rows.
-- [ ] Open a parse where permitted.
+- [x] Open a selected parse where permitted. (Automated and live offscreen probe)
+- [x] Open a local log directly from League Standings. (Automated)
+- [x] Save a downloaded parse to a chosen path. (Automated)
+
+The optional live probe exercises the public League API and is intentionally excluded from the
+offline unit-test suite:
+
+```powershell
+python -m tests.league_live_probe --standings
+python -m tests.league_live_probe --local "C:\path\to\CombatLog.log"
+```
 
 ### Settings
 

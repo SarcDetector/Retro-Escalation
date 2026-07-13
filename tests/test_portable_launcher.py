@@ -12,7 +12,7 @@ class RetroEscalationLauncherTests(unittest.TestCase):
         self.assertNotEqual(config_dir.name, "OSCR_UI")
 
     def test_development_build_version_identifies_fork(self):
-        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0-re.1-dev")
+        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0-re.2-dev")
 
 
 if __name__ == "__main__":

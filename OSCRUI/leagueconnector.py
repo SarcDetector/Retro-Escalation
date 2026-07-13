@@ -1,8 +1,9 @@
 """Backend interface to the OSCR web server"""
 
-from gzip import compress as gzip__compress, decompress as gzip__decompress
+from gzip import BadGzipFile, compress as gzip__compress, decompress as gzip__decompress
 from json import JSONDecodeError, loads as json__loads
 from pathlib import Path
+from shutil import copyfile
 from tempfile import NamedTemporaryFile as TempFile
 from typing import Callable
 
@@ -14,6 +15,7 @@ from .apiclient import Ladder, OSCRApiClient, UploadResult
 from .config import OSCRConfig, OSCRSettings
 from .datamodels import LeagueTableModel, SortingProxy
 from .dialogs import DialogsWrapper, UploadresultDialog
+from .iofunctions import browse_path
 from .parserbridge import ParserBridge
 from .textedit import format_datetime_str
 from .theme import AppTheme
@@ -161,9 +163,16 @@ class OSCRLeagueConnector(QObject):
         result = self._api.download_combatlog(id)
         if result is None:
             return
-        with TempFile(mode='wb', dir=str(self._config.templog_folder_path), delete=False) as f:
-            f.write(gzip__decompress(result))
-        return Path(f.name)
+        try:
+            decompressed_log = gzip__decompress(result)
+            with TempFile(
+                    mode='wb', suffix='.log', dir=str(self._config.templog_folder_path),
+                    delete=False) as f:
+                f.write(decompressed_log)
+            return Path(f.name)
+        except (BadGzipFile, EOFError, OSError) as error:
+            self.handle_fetch_error(error)
+            return None
 
     def ladder_entries(
             self, id: int, page: int = 1,
@@ -348,16 +357,89 @@ class OSCRLeagueConnector(QObject):
         """
         Download a combat log and view its contents in the overview / analysis pages.
         """
-        selection = self._widgets.ladder_table.selectedIndexes()
-        if len(selection) < 1 or self._thread is None or self._thread.isRunning():
+        log_id = self._selected_combatlog_id()
+        if log_id is None:
             return
-        original_index = self.ladder_table_sort.mapToSource(selection[0])
-        log_id = self.ladder_table_model.combatlog_id_list[original_index.row()]
+        if self._thread is not None and self._thread.isRunning():
+            self.status_message.emit(
+                tr('League busy'), tr('Please wait for the last league request to finish.'))
+            return
         self._thread = FetchThread(
             self.download, args=(log_id,),
-            callback=lambda log_path: self._parser.analyze_log_file(log_path, hidden_path=True))
+            callback=lambda log_path: self._handle_download_for_view(log_path, log_id))
         self._thread.start()
         self.status_message.emit(tr('Downloading log file'), tr('Log file id:') + f' "{log_id}"')
+
+    def download_and_save_combat(self):
+        """Download the selected League parse and prompt for a permanent local filename."""
+        log_id = self._selected_combatlog_id()
+        if log_id is None:
+            return
+        if self._thread is not None and self._thread.isRunning():
+            self.status_message.emit(
+                tr('League busy'), tr('Please wait for the last league request to finish.'))
+            return
+        self._thread = FetchThread(
+            self.download, args=(log_id,),
+            callback=lambda log_path: self._handle_download_for_save(log_path, log_id))
+        self._thread.start()
+        self.status_message.emit(tr('Downloading log file'), tr('Log file id:') + f' "{log_id}"')
+
+    def _selected_combatlog_id(self) -> int | None:
+        """Return the backing combatlog id for the selected sorted League row."""
+        selection = self._widgets.ladder_table.selectedIndexes()
+        if not selection:
+            self._dialogs.show_message(
+                tr('Select a parse'),
+                tr('Select a League Standings row before opening or saving its parse.'),
+                'warning')
+            return None
+        original_index = self.ladder_table_sort.mapToSource(selection[0])
+        row = original_index.row()
+        if row < 0 or row >= len(self.ladder_table_model.combatlog_id_list):
+            self._dialogs.show_message(
+                tr('Parse unavailable'),
+                tr('The selected League row does not contain a downloadable parse.'),
+                'warning')
+            return None
+        return self.ladder_table_model.combatlog_id_list[row]
+
+    def _handle_download_for_view(self, log_path: Path | None, log_id: int):
+        """Open a completed League download through the existing parser bridge."""
+        if log_path is None:
+            self.status_message.emit(
+                tr('Download failed'), tr('Could not download the selected League parse.'))
+            return
+        self.status_message.emit(
+            tr('Parse downloaded'), tr('Opening League parse id:') + f' "{log_id}"')
+        self._parser.analyze_log_file(Path(log_path), hidden_path=True)
+
+    def _handle_download_for_save(self, log_path: Path | None, log_id: int):
+        """Save a completed League download outside the temporary settings directory."""
+        if log_path is None:
+            self.status_message.emit(
+                tr('Download failed'), tr('Could not download the selected League parse.'))
+            return
+
+        configured_path = Path(self._settings.log_path).expanduser()
+        if configured_path.is_file() or configured_path.suffix:
+            configured_path = configured_path.parent
+        if not configured_path.exists():
+            configured_path = Path(self._config.home_dir)
+        target_path = browse_path(
+            configured_path / f'OSCR-League-Parse-{log_id}.log',
+            'Logfile (*.log);;Any File (*.*)', save=True)
+        if target_path is None:
+            self.status_message.emit(tr('Save cancelled'), '')
+            return
+        try:
+            copyfile(log_path, target_path)
+        except OSError as error:
+            self._dialogs.show_error(
+                tr('Save Error'), tr('Saving the downloaded League parse failed.'), str(error))
+            self.status_message.emit(tr('Save failed'), str(target_path))
+            return
+        self.status_message.emit(tr('Parse saved'), str(target_path))
 
     def upload_callback(self):
         """

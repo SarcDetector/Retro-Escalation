@@ -32,6 +32,9 @@ def main() -> int:
     assert ui.settings.theme_id == expected_theme_id
     assert ui.widgets.theme_selector.currentData() == expected_theme_id
     assert ui.widgets.theme_selector.count() == 2
+    assert ui.widgets.league_open_local_button.text() == "Open Local Log..."
+    assert ui.widgets.league_open_parse_button.text() == "Open Selected Parse"
+    assert ui.widgets.league_save_parse_button.text() == "Save Selected Parse..."
 
     expected_stored_theme_id = expected_theme_id
     if select_theme_id != "-":

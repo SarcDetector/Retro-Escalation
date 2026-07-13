@@ -85,16 +85,29 @@ class OSCRLeftSidebar():
         self.setup_left_sidebar_league(league_frame)
         self.setup_left_sidebar_about(about_frame)
 
-    def browse_log(self):
+    def browse_log(self, analyze: bool | None = None) -> Path | None:
         """
-        Callback for browse button.
+        Prompts for a local combat log and optionally analyzes it immediately.
+
+        ``analyze=None`` preserves the existing auto-scan setting. Callers such as the League
+        page can pass ``True`` to provide an explicit "open local log" action.
         """
-        current_path = Path(self.log_path_widget.text()).absolute().parent
+        configured_path = self.log_path_widget.text().strip()
+        if not configured_path:
+            configured_path = self._settings.log_path or self._config.home_dir
+        current_path = Path(configured_path).expanduser()
+        if current_path.is_file() or current_path.suffix:
+            current_path = current_path.parent
         path = browse_path(current_path, 'Logfile (*.log);;Any File (*.*)')
         if path is not None:
             self.log_path_widget.setText(str(path))
-            if self._settings.auto_scan:
-                self._parser.analyze_log_file(str(path))
+            if analyze is True or (analyze is None and self._settings.auto_scan):
+                self._parser.analyze_log_file(path)
+        return path
+
+    def browse_and_analyze_log(self):
+        """Open a local combat log from anywhere in the UI and analyze it."""
+        self.browse_log(analyze=True)
 
     def setup_left_sidebar_log(self, parent_frame: QFrame):
         """

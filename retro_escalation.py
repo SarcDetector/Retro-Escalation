@@ -10,7 +10,7 @@ from main import Launcher
 
 
 class RetroEscalationLauncher:
-    __version__ = '11.1.0-re.1-dev'
+    __version__ = '11.1.0-re.2-dev'
 
     @staticmethod
     def default_config_dir() -> str:
