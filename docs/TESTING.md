@@ -3,10 +3,11 @@
 ## Status
 
 The restart-based theme foundation and portable tester build are implemented. Command Console now
-has its own application shell plus dedicated Overview and Analysis presentations while retaining
-the shared parser, models, and callbacks. League, Settings, and Live Parser still use inherited page
-layouts inside the new shell. League Standings can load local logs and open or save downloaded
-parses. This document defines the acceptance matrix for experimental builds.
+has its own application shell plus dedicated Overview, Analysis, and League Standings presentations
+while retaining the shared parser, models, and callbacks. Settings and Live Parser still use
+inherited page layouts inside the new shell. League Standings can browse maps, search ladders, load
+local logs, and open or save downloaded parses. This document defines the acceptance matrix for
+experimental builds.
 
 ## Test environments
 
@@ -81,11 +82,12 @@ Run every item once in Default and once in Command Console.
 
 ### League
 
-- [x] Load the map list. (Live offscreen probe)
-- [x] Fetch a ladder. (Live offscreen probe)
-- [ ] Search and clear.
+- [x] Load the map list. (Live offscreen probe and manual source-app visual check)
+- [x] Fetch a ladder. (Live offscreen probe and manual source-app visual check)
+- [x] Search by handle. (Manual source-app visual check)
+- [ ] Clear a live search.
 - [ ] Load more rows.
-- [x] Open a selected parse where permitted. (Automated and live offscreen probe)
+- [x] Open a selected parse where permitted. (Automated, live probe, and manual source-app check)
 - [x] Open a local log directly from League Standings. (Automated)
 - [x] Save a downloaded parse to a chosen path. (Automated)
 

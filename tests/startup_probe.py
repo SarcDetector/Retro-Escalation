@@ -34,9 +34,11 @@ def main() -> int:
     assert ui.settings.theme_id == expected_theme_id
     assert ui.widgets.theme_selector.currentData() == expected_theme_id
     assert ui.widgets.theme_selector.count() == 2
-    assert ui.widgets.league_open_local_button.text() == "Open Local Log..."
-    assert ui.widgets.league_open_parse_button.text() == "Open Selected Parse"
-    assert ui.widgets.league_save_parse_button.text() == "Save Selected Parse..."
+    assert ui.widgets.ladder_table.objectName() == "leagueStandingsTable"
+    assert ui.widgets.ladder_search.objectName() == "leagueSearchEntry"
+    assert ui.widgets.league_search_button is not None
+    assert ui.widgets.league_clear_button is not None
+    assert ui.widgets.league_more_button is not None
 
     command_shell = ui.window.findChild(QWidget, "commandConsoleApplicationShell")
     default_shell = ui.window.findChild(QWidget, "defaultApplicationShell")
@@ -53,6 +55,17 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisTitle").text() == "ANALYSIS"
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisGraphPanel") is not None
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisTelemetryPanel") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleLeagueHeading") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleLeagueTitle").text() == (
+            "LEAGUE STANDINGS")
+        assert ui.window.findChild(QWidget, "commandConsoleLeagueTablePanel") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleLeagueControlDeck") is not None
+        assert ui.widgets.league_search_button.text() == "SEARCH"
+        assert ui.widgets.league_clear_button.text() == "RESET"
+        assert ui.widgets.league_open_local_button.text() == "OPEN LOCAL"
+        assert ui.widgets.league_open_parse_button.text() == "OPEN SELECTED"
+        assert ui.widgets.league_save_parse_button.text() == "SAVE SELECTED"
+        assert ui.widgets.league_more_button.text() == "LOAD MORE"
         assert len(ui.widgets.main_menu_buttons) == 4
         assert all(button.isCheckable() for button in ui.widgets.main_menu_buttons)
         assert ui.widgets.main_menu_buttons[0].isChecked()
@@ -83,6 +96,14 @@ def main() -> int:
         ui.app.processEvents()
         assert ui.widgets.main_tabber.currentIndex() == 0
         assert ui.widgets.main_menu_buttons[0].isChecked()
+        ui.widgets.switch_main_tab(2)
+        ui.app.processEvents()
+        assert ui.widgets.main_tabber.currentIndex() == 2
+        assert ui.widgets.sidebar_tabber.currentIndex() == 1
+        ui.widgets.ladder_search.setText("tester")
+        assert ui.league.current_filter_term == "tester"
+        ui.widgets.ladder_search.clear()
+        assert ui.league.current_filter_term == ""
     else:
         assert default_shell is not None
         assert command_shell is None
@@ -91,8 +112,16 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "defaultAnalysisGraph") is not None
         assert ui.window.findChild(QWidget, "defaultAnalysisTelemetry") is not None
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisHeading") is None
+        assert ui.window.findChild(QWidget, "commandConsoleLeagueHeading") is None
+        assert ui.window.findChild(QWidget, "commandConsoleLeagueControlDeck") is None
         assert [button.text() for button in ui.widgets.analysis_menu_buttons] == [
             "Damage Out", "Damage Taken", "Heals Out", "Heals In"]
+        assert ui.widgets.league_search_button.text() == "Search"
+        assert ui.widgets.league_clear_button.text() == "Clear"
+        assert ui.widgets.league_open_local_button.text() == "Open Local Log..."
+        assert ui.widgets.league_open_parse_button.text() == "Open Selected Parse"
+        assert ui.widgets.league_save_parse_button.text() == "Save Selected Parse..."
+        assert ui.widgets.league_more_button.text() == "More"
 
     assert ui.widgets.analysis_graph_tabber.count() == 4
     assert ui.widgets.analysis_tree_tabber.count() == 4

@@ -5,7 +5,7 @@ import sys
 
 from PySide6.QtWidgets import (
     QApplication, QWidget, QLineEdit, QFrame, QScrollArea, QSplitter,
-    QTabWidget, QTableView, QVBoxLayout, QHBoxLayout, QGridLayout)
+    QTabWidget, QVBoxLayout, QHBoxLayout, QGridLayout)
 from PySide6.QtCore import QDir, QSize, QTimer, QThread
 from PySide6.QtGui import (
     QCloseEvent, QFontDatabase, QIntValidator, QKeySequence, QResizeEvent, QShortcut)
@@ -29,10 +29,10 @@ from .translation import init_translation, tr
 from .widgetbuilder import (
     ABOTTOM, ACENTER, AHCENTER, ALEFT, ARIGHT, ATOP, AVCENTER, SMAXMAX, SMAXMIN,
     SMINMAX, SMINMIN, SMIXMAX, SCROLLOFF, SCROLLON,
-    create_annotated_slider, create_button, create_button_series, create_combo_box, create_entry,
+    create_annotated_slider, create_button, create_combo_box, create_entry,
     create_frame, create_icon_button, create_label)
 from .widgetmanager import WidgetManager
-from .views import AnalysisView, OverviewView
+from .views import AnalysisView, LeagueView, OverviewView
 from .widgets import FlipButton
 
 # only for developing; allows to terminate the qt event loop with keyboard interrupt
@@ -482,60 +482,16 @@ class REOSCRApplication():
         ).build(self.widgets.main_tab_frames[1])
 
     def setup_league_standings_frame(self):
-        """
-        Sets up the frame housing the detailed analysis table and graph
-        """
-        l_frame = self.widgets.main_tab_frames[2]
-        m = self.theme['defaults']['csp']
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, m, 0, m)
-        layout.setSpacing(m)
-
-        ladder_table = QTableView()
-        table_style = {'border-style': 'solid', 'border-width': '@bw', 'border-color': '@bc'}
-        self.tables.style_table(ladder_table, table_style, single_row_selection=True)
-        self.league.ladder_table_model.init_fonts(
-            self.theme.get_font('table_header'), self.theme.get_font('table'))
-        ladder_table.setModel(self.league.ladder_table_sort)
-        ladder_table.doubleClicked.connect(
-            lambda _index: self.league.download_and_view_combat())
-        self.widgets.ladder_table = ladder_table
-        layout.addWidget(ladder_table, stretch=1)
-
-        control_layout = QGridLayout()
-        control_layout.setContentsMargins(0, 0, 0, 0)
-        control_layout.setSpacing(0)
-        control_layout.setColumnStretch(2, 1)
-        search_bar = create_entry(
-            self.theme, placeholder=tr('name@handle'), style_override={'margin-top': 0})
-        search_bar.textChanged.connect(lambda t: setattr(self.league, 'current_filter_term', t))
-        control_layout.addWidget(search_bar, 0, 0, alignment=AVCENTER)
-        self.widgets.ladder_search = search_bar
-        search_style = {
-            tr('Search'): {'callback': self.league.search_league_table},
-            tr('Clear'): {
-                'callback': self.clear_league_table_filter,
-                'style': {'margin-right': 0}
-            }
-        }
-        search_button_layout = create_button_series(
-            self.theme, search_style, 'button', seperator='•')
-        control_layout.addLayout(search_button_layout, 0, 1, alignment=AVCENTER)
-        control_button_style = {
-            tr('Open Local Log...'): {'callback': self.sidebar.browse_and_analyze_log},
-            tr('Open Selected Parse'): {'callback': self.league.download_and_view_combat},
-            tr('Save Selected Parse...'): {'callback': self.league.download_and_save_combat},
-            tr('More'): {'callback': self.league.extend_ladder, 'style': {'margin-right': 0}}
-        }
-        control_button_layout, league_buttons = create_button_series(
-            self.theme, control_button_style, 'button', seperator='•', ret=True)
-        control_layout.addLayout(control_button_layout, 0, 3, alignment=AVCENTER)
-        self.widgets.league_open_local_button = league_buttons[0]
-        self.widgets.league_open_parse_button = league_buttons[1]
-        self.widgets.league_save_parse_button = league_buttons[2]
-        layout.addLayout(control_layout)
-
-        l_frame.setLayout(layout)
+        """Sets up the League Standings browser."""
+        LeagueView(
+            theme=self.theme,
+            widgets=self.widgets,
+            league=self.league,
+            tables=self.tables,
+            sidebar=self.sidebar,
+            clear_filter_callback=self.clear_league_table_filter,
+            command_console=self.active_theme_id == COMMAND_CONSOLE_THEME_ID,
+        ).build(self.widgets.main_tab_frames[2])
 
     def create_master_layout(self) -> tuple[QVBoxLayout, QFrame]:
         """

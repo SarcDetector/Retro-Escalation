@@ -10,10 +10,11 @@ Current development features include:
 - A restart-selected Default or Command Console theme.
 - A dedicated Command Console application shell with five segmented navigation controls and a
   five-colour context rail.
-- Dedicated Command Console Overview and Analysis layouts that retain the inherited parser,
-  charts, tables, tree drill-down, copy, upload, and collapse behavior.
+- Dedicated Command Console Overview, Analysis, and League Standings layouts that retain the
+  inherited parser, charts, tables, tree drill-down, copy, upload, search, and collapse behavior.
 - Isolated RE-OSCR settings that do not modify an installed OSCR application.
-- League Standings browsing with local-log loading and selected-parse open/save actions.
+- League Standings browsing with season/map selection, handle search, local-log loading, and
+  selected-parse open/save actions.
 - A portable Windows tester build.
 
 - [Project scope](docs/PROJECT_SCOPE.md)

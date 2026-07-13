@@ -116,7 +116,7 @@ Exit criteria:
 
 ## Milestone 2: Command Console shell and core telemetry views
 
-Status: implemented for the `11.1.0.dev4+re.oscr` development build.
+Status: implemented on the current development branch.
 
 Goal: prove that RE-OSCR can own a structurally distinct application shell and page presentation
 without changing parser logic or losing the inherited workflows.
@@ -128,9 +128,12 @@ In scope:
 - A dedicated masthead with original RE branding and no copied logos, fonts, or interface artwork.
 - Five large segmented controls for Overview, Analysis, League, Settings, and Live Parser.
 - A five-colour context rail surrounding the existing collapsible sidebar.
-- Dedicated Overview and Analysis presentation modules with rounded chart and table panels.
+- Dedicated Overview, Analysis, and League Standings presentation modules with rounded chart and
+  table panels.
 - Command-style Overview graph modes while retaining all three inherited plots.
 - Command-style Analysis modes while retaining Damage Out, Damage Taken, Heals Out, and Heals In.
+- Command-style League ladder browser while retaining season/map selection, sorting, handle search,
+  row expansion, local-log loading, and selected-parse open/save actions.
 - Player and NPC tree drill-down, event graph selection, freeze, clear, copy, and focus controls.
 - Pyqtgraph backgrounds, axes, legends, bars, lines, and a five-player colour cycle.
 - Shared parser callbacks, models, sorting, copying, uploading, and saved splitter state.
@@ -144,7 +147,7 @@ Out of scope:
 - Splitting telemetry into new table models or changing data columns.
 - Rebuilding Settings into categories or cards.
 - Adding the browser prototype's Analysis readout panel.
-- Rebuilding the inherited League, Settings, or Live Parser page layouts.
+- Rebuilding the inherited Settings or Live Parser page layouts.
 - Five-rail palette presets and user-entered colours.
 - Custom background selection.
 - Runtime theme switching.
@@ -158,7 +161,9 @@ Exit criteria:
 - All three Overview plot modes remain reachable.
 - All four Analysis modes synchronize their graph and tree panels.
 - Damage and healing models retain their distinct headers and drill-down behavior.
-- The Default startup probe still exposes the inherited shell, Overview, and Analysis controls.
+- League map selection, ladder retrieval, handle filtering, and selected-parse loading remain usable.
+- The Default startup probe still exposes the inherited shell, Overview, Analysis, and League
+  controls.
 - No parser outputs differ between Default and Command Console for the same logs and settings.
 
 ## Milestone 3: tester release
