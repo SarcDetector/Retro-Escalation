@@ -14,6 +14,7 @@ $version = '11.1.0-re.1-dev'
 $assetsData = "$(Join-Path $repoRoot 'assets');assets"
 $localesData = "$(Join-Path $repoRoot 'locales');locales"
 $themeAssetsData = "$(Join-Path $repoRoot 'theme_assets');theme_assets"
+$iconPath = Join-Path $repoRoot 'assets\oscr_icon_small.ico'
 
 if (-not (Test-Path -LiteralPath $python)) {
     throw 'The repository virtual environment is missing. Create .venv and install .[pyinst].'
@@ -36,7 +37,7 @@ try {
         --add-data $localesData `
         --add-data $themeAssetsData `
         --windowed `
-        --icon 'assets\oscr_icon_small.ico' `
+        --icon $iconPath `
         'retro_escalation.py'
     if ($LASTEXITCODE -ne 0) {
         throw "PyInstaller failed with exit code $LASTEXITCODE."
