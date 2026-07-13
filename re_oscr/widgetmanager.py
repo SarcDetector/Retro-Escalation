@@ -10,6 +10,14 @@ class WidgetManager():
     """
     Class to store and manage widgets.
     """
+    OVERVIEW_METRIC_COLUMN_GROUPS = (
+        {0, 1, 3, 7, 8, 9, 10, 11, 14},
+        {0, 1, 2, 3, 4, 7, 8, 9, 17, 18, 22, 23},
+        {1, 5, 6, 10, 14, 15, 16, 19},
+        {1, 10, 11, 12, 13, 20, 21},
+        set(range(24)),
+    )
+
     def __init__(self, global_settings: OSCRSettings):
         self.main_menu_buttons: list[QPushButton] = list()
         self.main_tabber: QTabWidget
@@ -36,6 +44,13 @@ class WidgetManager():
         self.overview_tab_frames: list[QFrame] = list()
         self.overview_table_button: FlipButton
         self.overview_splitter: QSplitter
+        self.overview_table: QTableView | None = None
+        self.overview_encounter_title: QLabel | None = None
+        self.overview_encounter_meta: QLabel | None = None
+        self.overview_context_values: list[QLabel] = list()
+        self.overview_stat_values: list[QLabel] = list()
+        self.overview_metric_buttons: list[QPushButton] = list()
+        self.overview_metric_mode: int = 0
 
         self.analysis_splitter: QSplitter
         self.analysis_menu_buttons: list[QPushButton] = list()
@@ -96,6 +111,59 @@ class WidgetManager():
                 button.setChecked(True)
             else:
                 button.setChecked(False)
+
+    def switch_overview_metric_group(self, group_index: int):
+        """Show a readable Overview metric group while keeping the complete dataset available."""
+        safe_index = max(0, min(group_index, len(self.OVERVIEW_METRIC_COLUMN_GROUPS) - 1))
+        self.overview_metric_mode = safe_index
+        visible_columns = self.OVERVIEW_METRIC_COLUMN_GROUPS[safe_index]
+        if self.overview_table is not None and self.overview_table.model() is not None:
+            for column in range(self.overview_table.model().columnCount()):
+                self.overview_table.setColumnHidden(column, column not in visible_columns)
+            self.overview_table.resizeColumnsToContents()
+        for index, button in enumerate(self.overview_metric_buttons):
+            button.setChecked(index == safe_index)
+
+    def update_overview_telemetry(
+            self, map_name: str, difficulty: str, log_duration: float,
+            player_duration: float, rows: list[list]):
+        """Update Command Console encounter identity and summary displays from Overview rows."""
+        if self.overview_encounter_title is None:
+            return
+        difficulty_label = difficulty.strip().upper() if difficulty else 'UNCLASSIFIED'
+        self.overview_encounter_title.setText(f'{map_name.upper()} [{difficulty_label}]')
+        if self.overview_encounter_meta is not None:
+            self.overview_encounter_meta.setText(
+                f'PARSE READY // ACTIVE PLAYER WINDOW {player_duration:.1f}S')
+        context = (
+            difficulty_label,
+            f'{len(rows)} OPERATOR{"S" if len(rows) != 1 else ""}',
+            f'{log_duration:.1f}S LOG',
+        )
+        for label, text in zip(self.overview_context_values, context):
+            label.setText(text)
+
+        values = (
+            sum(float(row[0]) for row in rows if len(row) > 0),
+            sum(float(row[3]) for row in rows if len(row) > 3),
+            max((float(row[8]) for row in rows if len(row) > 8), default=0),
+            sum(float(row[11]) for row in rows if len(row) > 11),
+        )
+        for label, value in zip(self.overview_stat_values, values):
+            label.setText(self._format_telemetry_value(value))
+        self.switch_overview_metric_group(self.overview_metric_mode)
+
+    @staticmethod
+    def _format_telemetry_value(value: float) -> str:
+        """Format a telemetry magnitude for compact summary cards."""
+        absolute = abs(value)
+        if absolute >= 1_000_000_000:
+            return f'{value / 1_000_000_000:.2f}B'
+        if absolute >= 1_000_000:
+            return f'{value / 1_000_000:.2f}M'
+        if absolute >= 1_000:
+            return f'{value / 1_000:.1f}K'
+        return f'{value:,.0f}'
 
     def switch_main_tab(self, tab_index: int):
         """

@@ -36,6 +36,7 @@ COMMAND_CONSOLE_OVERRIDES = {
         'color_cycler': COMMAND_CONSOLE_ACCENTS + (
             '#65b87a', '#e8c96a', '#c383d6', '#7bdce3', '#f07a82',
         ),
+        'overview_bar_colours': True,
     },
 }
 

@@ -252,6 +252,7 @@ class ParserBridge(QObject):
             self.current_combat_id = combat.id
 
         overview_table = list()
+        table_cell_data = list()
         dps_graph_data = dict()
         dmg_bar_data = dict()
         time_data = dict()
@@ -269,8 +270,12 @@ class ParserBridge(QObject):
         else:
             self.overview_table_model.clear()
             self._graphs.clear_overview_plots()
-        self._widgets.log_duration_value.setText(f'{combat.meta['log_duration']:.1f}s')
-        self._widgets.player_duration_value.setText(f'{combat.meta['player_duration']:.1f}s')
+        log_duration = float(combat.meta['log_duration'])
+        player_duration = float(combat.meta['player_duration'])
+        self._widgets.log_duration_value.setText(f'{log_duration:.1f}s')
+        self._widgets.player_duration_value.setText(f'{player_duration:.1f}s')
+        self._widgets.update_overview_telemetry(
+            combat.map, combat.difficulty or '', log_duration, player_duration, table_cell_data)
         self.populate_analysis(combat)
         self._tables.refresh_tables(
             self.damage_out_model.player_index, self.damage_in_model.player_index,

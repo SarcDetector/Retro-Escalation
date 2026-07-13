@@ -2,8 +2,8 @@
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QFrame, QGridLayout, QHeaderView, QHBoxLayout, QLabel, QSplitter, QTableView, QTabWidget,
-    QVBoxLayout)
+    QFrame, QGridLayout, QHeaderView, QHBoxLayout, QLabel, QPushButton, QSplitter, QTableView,
+    QTabWidget, QVBoxLayout)
 
 from ..datamodels import SortingProxy
 from ..themes.command_console import COMMAND_CONSOLE_ACCENTS
@@ -36,6 +36,7 @@ class OverviewView:
         layout.setSpacing(round(10 * self.theme.scale) if self.command_console else 0)
         if self.command_console:
             layout.addWidget(self._build_heading())
+            layout.addWidget(self._build_summary_deck())
 
         switch_layout = QGridLayout()
         switch_layout.setContentsMargins(0, 0, 0, 0)
@@ -51,7 +52,7 @@ class OverviewView:
                   'background-color: #263944; min-height: 7px; margin: 3px 18px;}')
         splitter.setChildrenCollapsible(False)
         self.widgets.overview_splitter = splitter
-        layout.addWidget(splitter)
+        layout.addWidget(splitter, 1)
 
         self.graphs.create_overview_plots()
         overview_tabber = QTabWidget(parent_frame)
@@ -89,23 +90,108 @@ class OverviewView:
         frame.setStyleSheet(
             'QFrame#commandConsoleOverviewHeading {'
             'background-color: transparent; border: none; border-left: 5px solid #ff8a2a;}')
-        layout = QVBoxLayout()
+        layout = QHBoxLayout()
         layout.setContentsMargins(round(15 * self.theme.scale), 0, 0, 0)
-        layout.setSpacing(round(3 * self.theme.scale))
+        layout.setSpacing(round(14 * self.theme.scale))
+
+        identity_layout = QVBoxLayout()
+        identity_layout.setContentsMargins(0, 0, 0, 0)
+        identity_layout.setSpacing(round(3 * self.theme.scale))
         eyebrow = QLabel('ACTIVE ENCOUNTER // TELEMETRY OVERVIEW')
         eyebrow.setObjectName('commandConsoleOverviewEyebrow')
         eyebrow.setStyleSheet(
             'color: #77dbe2; background: transparent; border: none;'
             f'font-family: Roboto Mono; font-size: {round(9 * self.theme.scale)}px;')
-        layout.addWidget(eyebrow)
-        title = QLabel('OVERVIEW')
+        identity_layout.addWidget(eyebrow)
+        title = QLabel('AWAITING COMBAT DATA')
         title.setObjectName('commandConsoleOverviewTitle')
         title.setStyleSheet(
             'color: #f4efe6; background: transparent; border: none;'
             f'font-family: Overpass; font-size: {round(25 * self.theme.scale)}px; font-weight: 700;')
-        layout.addWidget(title)
+        identity_layout.addWidget(title)
+        meta = QLabel('SELECT OR ANALYZE A COMBAT LOG TO BEGIN')
+        meta.setObjectName('commandConsoleOverviewMeta')
+        meta.setStyleSheet(
+            'color: #8fa2ad; background: transparent; border: none;'
+            f'font-family: Roboto Mono; font-size: {round(9 * self.theme.scale)}px;')
+        identity_layout.addWidget(meta)
+        layout.addLayout(identity_layout, 1)
+
+        context_layout = QHBoxLayout()
+        context_layout.setContentsMargins(0, 0, 0, 0)
+        context_layout.setSpacing(round(6 * self.theme.scale))
+        context_values = list()
+        for index, text in enumerate(('NO PARSE', '0 OPERATORS', '0.0S LOG')):
+            label = QLabel(text)
+            label.setObjectName(f'commandConsoleOverviewContext{index}')
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            label.setMinimumHeight(round(28 * self.theme.scale))
+            label.setStyleSheet(
+                'color: #aebdc5; background-color: #121d25; border: 1px solid #30424e;'
+                f'border-radius: {round(7 * self.theme.scale)}px; padding: 2px 9px;'
+                f'font-family: Roboto Mono; font-size: {round(9 * self.theme.scale)}px;')
+            context_layout.addWidget(label)
+            context_values.append(label)
+        layout.addLayout(context_layout)
+
+        self.widgets.overview_encounter_title = title
+        self.widgets.overview_encounter_meta = meta
+        self.widgets.overview_context_values = context_values
         frame.setLayout(layout)
         return frame
+
+    def _build_summary_deck(self) -> QFrame:
+        deck = QFrame()
+        deck.setObjectName('commandConsoleOverviewSummaryDeck')
+        deck.setStyleSheet('QFrame#commandConsoleOverviewSummaryDeck {border: none; background: transparent;}')
+        layout = QGridLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setHorizontalSpacing(round(8 * self.theme.scale))
+        layout.setVerticalSpacing(round(8 * self.theme.scale))
+        specifications = (
+            ('TEAM DPS', 'COMBINED OUTPUT'),
+            ('TOTAL DAMAGE', 'CUMULATIVE OUT'),
+            ('PEAK HIT', 'LARGEST STRIKE'),
+            ('TEAM HEALING', 'TOTAL RESTORED'),
+        )
+        value_labels = list()
+        for index, ((heading, detail), accent) in enumerate(
+                zip(specifications, COMMAND_CONSOLE_ACCENTS)):
+            card = QFrame()
+            card.setObjectName(f'commandConsoleOverviewStatCard{index}')
+            card.setStyleSheet(
+                f'QFrame#commandConsoleOverviewStatCard{index} {{background-color: #101820;'
+                f'border: 1px solid #263944; border-left: 5px solid {accent};'
+                f'border-radius: {round(11 * self.theme.scale)}px;}}')
+            card_layout = QVBoxLayout()
+            card_layout.setContentsMargins(
+                round(12 * self.theme.scale), round(8 * self.theme.scale),
+                round(12 * self.theme.scale), round(8 * self.theme.scale))
+            card_layout.setSpacing(round(2 * self.theme.scale))
+            heading_label = QLabel(heading)
+            heading_label.setStyleSheet(
+                'color: #8fa2ad; background: transparent; border: none;'
+                f'font-family: Roboto Mono; font-size: {round(8 * self.theme.scale)}px;')
+            card_layout.addWidget(heading_label)
+            value_label = QLabel('\u2014')
+            value_label.setObjectName(f'commandConsoleOverviewStatValue{index}')
+            value_label.setStyleSheet(
+                'color: #f4efe6; background: transparent; border: none;'
+                f'font-family: Roboto Mono; font-size: {round(20 * self.theme.scale)}px;'
+                'font-weight: 700;')
+            card_layout.addWidget(value_label)
+            detail_label = QLabel(detail)
+            detail_label.setStyleSheet(
+                'color: #667b87; background: transparent; border: none;'
+                f'font-family: Roboto Mono; font-size: {round(8 * self.theme.scale)}px;')
+            card_layout.addWidget(detail_label)
+            card.setLayout(card_layout)
+            layout.addWidget(card, 0, index)
+            layout.setColumnStretch(index, 1)
+            value_labels.append(value_label)
+        deck.setLayout(layout)
+        self.widgets.overview_stat_values = value_labels
+        return deck
 
     def _build_switcher(self, switch_layout: QGridLayout) -> None:
         switch_layout.setColumnStretch(0, 1)
@@ -168,6 +254,9 @@ class OverviewView:
         table_layout = QVBoxLayout()
         panel_margin = round(7 * self.theme.scale) if self.command_console else 0
         table_layout.setContentsMargins(panel_margin, panel_margin, panel_margin, panel_margin)
+        table_layout.setSpacing(round(5 * self.theme.scale) if self.command_console else 0)
+        if self.command_console:
+            table_layout.addWidget(self._build_table_controls())
         sorting_proxy = SortingProxy()
         self.parser.overview_table_model.init_fonts(
             self.theme.get_font('table_header'), self.theme.get_font('table'))
@@ -179,8 +268,58 @@ class OverviewView:
         self.tables.style_table(table)
         table_layout.addWidget(table)
         self.tables.overview_table = table
+        self.widgets.overview_table = table
         table_frame.setLayout(table_layout)
+        if self.command_console:
+            self.widgets.switch_overview_metric_group(0)
         return table_frame
+
+    def _build_table_controls(self) -> QFrame:
+        frame = QFrame()
+        frame.setObjectName('commandConsoleOverviewMetricBar')
+        frame.setStyleSheet(
+            'QFrame#commandConsoleOverviewMetricBar {'
+            'background-color: #0b1116; border: none; border-bottom: 1px solid #293944;}')
+        layout = QHBoxLayout()
+        layout.setContentsMargins(
+            round(7 * self.theme.scale), round(3 * self.theme.scale),
+            round(7 * self.theme.scale), round(7 * self.theme.scale))
+        layout.setSpacing(round(5 * self.theme.scale))
+
+        identity_layout = QVBoxLayout()
+        identity_layout.setContentsMargins(0, 0, 0, 0)
+        identity_layout.setSpacing(0)
+        eyebrow = QLabel('TELEMETRY MATRIX // COMPLETE DATASET')
+        eyebrow.setStyleSheet(
+            'color: #77dbe2; background: transparent; border: none;'
+            f'font-family: Roboto Mono; font-size: {round(8 * self.theme.scale)}px;')
+        identity_layout.addWidget(eyebrow)
+        title = QLabel('CREW PERFORMANCE')
+        title.setObjectName('commandConsoleOverviewTableTitle')
+        title.setStyleSheet(
+            'color: #f4efe6; background: transparent; border: none;'
+            f'font-family: Overpass; font-size: {round(13 * self.theme.scale)}px; font-weight: 700;')
+        identity_layout.addWidget(title)
+        layout.addLayout(identity_layout, 1)
+
+        buttons = list()
+        names = ('SUMMARY', 'DAMAGE OUT', 'DAMAGE IN', 'HEALING', 'ALL METRICS')
+        object_names = ('Summary', 'DamageOut', 'DamageIn', 'Healing', 'All')
+        for index, (name, object_name, accent) in enumerate(
+                zip(names, object_names, COMMAND_CONSOLE_ACCENTS)):
+            button = QPushButton(f'T{index + 1}  {name}')
+            button.setObjectName(f'commandConsoleOverviewMetric{object_name}')
+            button.setCheckable(True)
+            button.setMinimumHeight(round(30 * self.theme.scale))
+            button.setStyleSheet(self._metric_button_style(accent))
+            button.clicked.connect(
+                lambda _checked=False, tab_index=index:
+                    self.widgets.switch_overview_metric_group(tab_index))
+            layout.addWidget(button)
+            buttons.append(button)
+        self.widgets.overview_metric_buttons = buttons
+        frame.setLayout(layout)
+        return frame
 
     def _mode_button_style(self, accent: str) -> str:
         radius = round(9 * self.theme.scale)
@@ -192,4 +331,16 @@ class OverviewView:
             f'font-family: Overpass; font-size: {font_size}px; font-weight: 600;}}'
             f'QPushButton:hover {{color: #f4efe6; border-color: {accent};}}'
             f'QPushButton:checked {{color: #11171b; background-color: {accent};'
+            f'border-color: {accent};}}')
+
+    def _metric_button_style(self, accent: str) -> str:
+        radius = round(7 * self.theme.scale)
+        font_size = round(9 * self.theme.scale)
+        return (
+            'QPushButton {'
+            'background-color: #121d25; color: #9fb0b9; border: 1px solid #30424e;'
+            f'border-radius: {radius}px; padding: 4px 8px;'
+            f'font-family: Roboto Mono; font-size: {font_size}px; font-weight: 600;}}'
+            f'QPushButton:hover {{color: #f4efe6; border-color: {accent};}}'
+            f'QPushButton:checked {{color: #10161b; background-color: {accent};'
             f'border-color: {accent};}}')

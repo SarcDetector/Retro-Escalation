@@ -66,6 +66,30 @@ def main() -> int:
         assert not sidebar_host.isHidden()
         assert ui.window.findChild(QWidget, "commandConsoleOverviewGraphPanel") is not None
         assert ui.window.findChild(QWidget, "commandConsoleOverviewTablePanel") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleOverviewSummaryDeck") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleOverviewMetricBar") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleOverviewTitle").text() == (
+            "AWAITING COMBAT DATA")
+        assert len(ui.widgets.overview_stat_values) == 4
+        assert [button.text() for button in ui.widgets.overview_metric_buttons] == [
+            "T1  SUMMARY", "T2  DAMAGE OUT", "T3  DAMAGE IN", "T4  HEALING",
+            "T5  ALL METRICS"]
+        assert ui.widgets.overview_metric_buttons[0].isChecked()
+        telemetry_row = [float(index + 1) for index in range(24)]
+        ui.parser.overview_table_model.set_data(
+            [telemetry_row], [f"Metric {index}" for index in range(24)], ["Test@handle"])
+        ui.widgets.update_overview_telemetry(
+            "Infected Space", "Elite", 38.6, 20.7, [telemetry_row])
+        ui.app.processEvents()
+        assert ui.window.findChild(QWidget, "commandConsoleOverviewTitle").text() == (
+            "INFECTED SPACE [ELITE]")
+        assert ui.widgets.overview_stat_values[0].text() == "1"
+        assert not ui.widgets.overview_table.isColumnHidden(0)
+        assert ui.widgets.overview_table.isColumnHidden(2)
+        ui.widgets.switch_overview_metric_group(4)
+        assert not any(ui.widgets.overview_table.isColumnHidden(index) for index in range(24))
+        ui.widgets.switch_overview_metric_group(0)
+        ui.parser.overview_table_model.clear()
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisHeading") is not None
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisTitle").text() == "ANALYSIS"
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisGraphPanel") is not None
@@ -149,6 +173,9 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "defaultAnalysisGraph") is not None
         assert ui.window.findChild(QWidget, "defaultAnalysisTelemetry") is not None
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisHeading") is None
+        assert ui.window.findChild(QWidget, "commandConsoleOverviewSummaryDeck") is None
+        assert ui.window.findChild(QWidget, "commandConsoleOverviewMetricBar") is None
+        assert ui.widgets.overview_metric_buttons == []
         assert ui.window.findChild(QWidget, "commandConsoleLeagueHeading") is None
         assert ui.window.findChild(QWidget, "commandConsoleLeagueControlDeck") is None
         assert ui.window.findChild(QWidget, "commandConsoleSettingsHeading") is None

@@ -66,6 +66,8 @@ class ThemeRegistryTests(unittest.TestCase):
             command.theme["plot"]["color_cycler"][:5],
             ("#ff8a2a", "#d4ad3f", "#9a6bc4", "#4fc3cc", "#d94b55"),
         )
+        self.assertNotIn("overview_bar_colours", default.theme["plot"])
+        self.assertTrue(command.theme["plot"]["overview_bar_colours"])
 
     def test_unknown_theme_falls_back_to_default(self):
         with self.assertLogs("re_oscr.themes.registry", level="WARNING"):
