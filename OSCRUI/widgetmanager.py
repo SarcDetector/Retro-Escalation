@@ -45,6 +45,8 @@ class WidgetManager():
 
         self.live_parser_button: QPushButton
         self.sto_log_path_entry: QLineEdit
+        self.theme_selector: QComboBox
+        self.theme_restart_label: QLabel
 
         self._global_settings: OSCRSettings = global_settings
 

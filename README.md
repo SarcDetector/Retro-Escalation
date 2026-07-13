@@ -4,9 +4,10 @@ Retro Escalation is an experimental GPLv3 development fork of
 [STOCD/OSCR-UI](https://github.com/STOCD/OSCR-UI). The project is exploring a startup-selected
 theme system while preserving OSCR's parser behavior and existing default interface.
 
-The first milestone is intentionally limited to theme infrastructure. The broader Command Console
-browser prototype is a design reference, not a promise that the initial desktop build will replace
-OSCR's layouts.
+The current milestone provides a restart-based built-in theme selector with guaranteed Default
+fallback. Command Console is presently a palette preview on OSCR's existing layouts. The broader
+browser prototype remains a design reference rather than a promise that the desktop build will
+replace OSCR's layouts.
 
 - [Project scope](docs/PROJECT_SCOPE.md)
 - [Tester plan](docs/TESTING.md)

@@ -23,6 +23,7 @@ from .sidebar import OSCRLeftSidebar
 from .statusbar import StatusBar
 from .textedit import format_path
 from .theme import AppTheme
+from .themes import DEFAULT_THEME_ID, available_themes, resolve_theme
 from .translation import init_translation, tr
 from .widgetbuilder import (
     ABOTTOM, ACENTER, AHCENTER, ALEFT, ARIGHT, ATOP, AVCENTER, OVERTICAL, SMAXMAX, SMAXMIN,
@@ -64,7 +65,12 @@ class OSCRUI():
         self.init_config()
         init_translation(self.settings.language)
         QDir.addSearchPath('assets_folder', os.path.join(app_dir_path, 'assets'))
-        self.theme: AppTheme = AppTheme(self.config.ui_scale)
+        theme_resolution = resolve_theme(
+            self.settings.theme_id, self.config.ui_scale, Path(app_dir_path))
+        self.theme: AppTheme = theme_resolution.theme
+        self.active_theme_id: str = theme_resolution.definition.theme_id
+        if self.settings.theme_id != self.active_theme_id:
+            self.settings.theme_id = self.active_theme_id
 
         # Setting up GUI including app modules
         self.app, self.window = self.create_main_window()
@@ -1035,9 +1041,33 @@ class OSCRUI():
             lambda index: self.settings.set('language', language_codes[index]))
         sec_1.addWidget(language_combo, 18, 1, alignment=ALEFT | AVCENTER)
 
+        theme_label = create_label(self.theme, tr('Theme:'), 'label_subhead')
+        sec_1.addWidget(theme_label, 19, 0, alignment=ARIGHT)
+        theme_field = QHBoxLayout()
+        theme_field.setContentsMargins(0, 0, 0, 0)
+        theme_field.setSpacing(self.theme['defaults']['csp'])
+        theme_selector = create_combo_box(
+            self.theme, style_override={'font': '@small_text'})
+        for definition in available_themes():
+            theme_selector.addItem(tr(definition.display_name), definition.theme_id)
+        theme_index = theme_selector.findData(self.settings.theme_id)
+        if theme_index < 0:
+            theme_index = theme_selector.findData(DEFAULT_THEME_ID)
+        theme_selector.setCurrentIndex(theme_index)
+        theme_selector.currentIndexChanged.connect(
+            lambda index: self.settings.set('theme_id', theme_selector.itemData(index)))
+        theme_field.addWidget(theme_selector)
+        theme_restart_label = create_label(
+            self.theme, tr('Applies after restart.'), 'label_light',
+            style_override={'font': '@small_text'})
+        theme_field.addWidget(theme_restart_label)
+        sec_1.addLayout(theme_field, 19, 1, alignment=ALEFT | AVCENTER)
+        self.widgets.theme_selector = theme_selector
+        self.widgets.theme_restart_label = theme_restart_label
+
         league_row_label = create_label(
             self.theme, tr('Number of league table rows to fetch:'), 'label_subhead')
-        sec_1.addWidget(league_row_label, 19, 0, alignment=ARIGHT)
+        sec_1.addWidget(league_row_label, 20, 0, alignment=ARIGHT)
         league_row_validator = QIntValidator()
         league_row_validator.setRange(1, 150)
         league_row_entry = create_entry(
@@ -1046,7 +1076,7 @@ class OSCRUI():
         league_row_entry.setSizePolicy(SMIXMAX)
         league_row_entry.editingFinished.connect(
             lambda: self.settings.set('league_table_rows', int(league_row_entry.text())))
-        sec_1.addWidget(league_row_entry, 19, 1, alignment=AVCENTER)
+        sec_1.addWidget(league_row_entry, 20, 1, alignment=AVCENTER)
         scroll_layout.addLayout(sec_1)
 
         # seperator

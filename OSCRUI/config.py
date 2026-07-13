@@ -42,7 +42,7 @@ class OSCRSettings():
                  'state__overview_splitter', 'liveparser__auto_enabled', 'liveparser__columns',
                  'liveparser__copy_kills', 'liveparser__graph_active', 'liveparser__graph_field',
                  'liveparser__player_display', 'liveparser__window_scale',
-                 'liveparser__window_opacity')
+                 'liveparser__window_opacity', 'theme_id')
 
     def __init__(self, settings_file_path: Path):
         self.analysis_graph: bool = True
@@ -62,6 +62,7 @@ class OSCRSettings():
         self.overview_sort_order: str = 'Descending'
         self.seconds_between_combats: int = 45
         self.sto_log_path: str = ''
+        self.theme_id: str = 'default'
         self.ui_scale: float = 1.0
 
         self.state__analysis_splitter: QByteArray = QByteArray()

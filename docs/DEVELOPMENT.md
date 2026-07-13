@@ -33,8 +33,9 @@ GitHub runs the same command on Windows for every branch push and pull request.
 - OSCR-UI 11.1.0 fresh-setting defaults and settings type persistence.
 - The complete existing Default palette, including the ten chart colours.
 - Theme stylesheet generation and scaling.
-- Construction of the real four-page OSCR window with a fresh configuration.
+- Built-in theme registry construction, failure logging, and guaranteed Default fallback.
+- Theme selection persistence without changing the active theme before restart.
+- Construction of the real four-page OSCR window in both built-in themes.
 
-These checks are deliberately in place before adding the theme registry. Later milestones should
-extend them with selection persistence, restart behavior, unknown-theme fallback, and an explicit
-comparison showing identical parser results in Default and Command Console.
+Later milestones should extend these checks with an explicit comparison showing identical parser
+results in Default and Command Console.

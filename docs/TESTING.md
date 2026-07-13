@@ -2,8 +2,9 @@
 
 ## Status
 
-No Retro Escalation desktop changes are implemented yet. This document defines the acceptance
-matrix that must be completed before distributing the first experimental build.
+The restart-based theme foundation is implemented. Command Console is currently a palette preview
+on OSCR's existing layouts; the full visual treatment and tester build are not implemented yet.
+This document defines the acceptance matrix for the first experimental build.
 
 ## Test environments
 
@@ -39,14 +40,14 @@ it.
 
 ## Startup and recovery
 
-- [ ] Fresh settings start in Default.
-- [ ] Existing OSCR-UI 11.1.0 settings start without migration errors.
-- [ ] Command Console selection is stored on normal shutdown.
-- [ ] Command Console appears after restart.
-- [ ] Returning to Default works after restart.
-- [ ] Unknown theme ID falls back to Default.
-- [ ] Missing theme asset falls back safely or displays a defined neutral substitute.
-- [ ] A theme exception is logged without preventing application startup.
+- [x] Fresh settings start in Default. (Automated)
+- [x] Existing OSCR-UI 11.1.0 settings start without migration errors. (Automated)
+- [x] Command Console selection is stored on normal shutdown. (Automated)
+- [x] Command Console appears after restart. (Automated)
+- [x] Returning to Default works after restart. (Automated)
+- [x] Unknown theme ID falls back to Default. (Automated)
+- [x] Missing theme asset falls back safely. (Automated)
+- [x] A theme exception is logged without preventing theme resolution. (Automated)
 
 ## Application smoke matrix
 

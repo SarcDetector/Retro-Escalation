@@ -48,6 +48,8 @@ separate, substantially larger project.
 
 ## Milestone 0: protected baseline
 
+Status: complete on the `retro-escalation` branch.
+
 Goal: establish evidence that the fork still behaves like OSCR-UI 11.1.0 before theme work.
 
 Deliverables:
@@ -66,6 +68,8 @@ Exit criteria:
 - No generated logs, personal settings, or parse data are committed.
 
 ## Milestone 1: startup theme foundation
+
+Status: implemented; awaiting the first packaged manual verification.
 
 Goal: select a built-in theme at application startup without changing any layout.
 

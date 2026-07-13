@@ -15,6 +15,7 @@ class OSCRSettingsTests(unittest.TestCase):
             self.assertEqual(settings.combats_to_parse, 10)
             self.assertEqual(settings.graph_resolution, 0.2)
             self.assertEqual(settings.language, "en")
+            self.assertEqual(settings.theme_id, "default")
             self.assertEqual(settings.ui_scale, 1.0)
             self.assertEqual(settings.dmg_columns, [True] * 21)
             self.assertEqual(settings.heal_columns, [True] * 13)
@@ -27,6 +28,7 @@ class OSCRSettingsTests(unittest.TestCase):
             settings.combats_to_parse = 7
             settings.graph_resolution = 0.5
             settings.language = "de"
+            settings.theme_id = "command_console"
             settings.ui_scale = 1.2
             settings.dmg_columns[3] = False
             settings.favorite_ladders = ["alpha", "beta"]
@@ -39,9 +41,22 @@ class OSCRSettingsTests(unittest.TestCase):
             self.assertEqual(restored.combats_to_parse, 7)
             self.assertEqual(restored.graph_resolution, 0.5)
             self.assertEqual(restored.language, "de")
+            self.assertEqual(restored.theme_id, "command_console")
             self.assertEqual(restored.ui_scale, 1.2)
             self.assertFalse(restored.dmg_columns[3])
             self.assertEqual(restored.favorite_ladders, ["alpha", "beta"])
+
+    def test_settings_file_without_theme_value_migrates_to_default(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_path = Path(temp_dir, "legacy-settings.ini")
+            legacy = OSCRSettings(settings_path)
+            legacy._settings.setValue("ui_scale", 1.25)
+            legacy._settings.sync()
+
+            migrated = OSCRSettings(settings_path)
+
+            self.assertEqual(migrated.ui_scale, 1.25)
+            self.assertEqual(migrated.theme_id, "default")
 
 
 if __name__ == "__main__":
