@@ -53,7 +53,7 @@ Copy-Item -LiteralPath (Join-Path $repoRoot 'docs\TESTING.md') -Destination $app
 
 $commit = (& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot rev-parse HEAD).Trim()
 $buildInfo = @"
-RE-OSCR — Retro Escalation $version
+RE-OSCR - Retro Escalation $version
 OSCR-UI baseline: 11.1.0
 Commit: $commit
 Built: $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))
