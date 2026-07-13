@@ -1,81 +1,57 @@
-# Retro Escalation
+# RE-OSCR — Retro Escalation
 
-Retro Escalation is an experimental GPLv3 development fork of
-[STOCD/OSCR-UI](https://github.com/STOCD/OSCR-UI). The project is exploring a startup-selected
-theme system while preserving OSCR's parser behavior and existing default interface.
+RE-OSCR is an alternative desktop frontend for the Open Source Combatlog Reader (`OSCR`) parser
+used with Star Trek Online combat logs. Retro Escalation keeps the official `STO-OSCR` parser as
+an external dependency and concentrates its changes in presentation, workflow, accessibility, and
+packaging.
 
-The current milestone provides a restart-based built-in theme selector with guaranteed Default
-fallback. Command Console is presently a palette preview on OSCR's existing layouts. The broader
-browser prototype remains a design reference rather than a promise that the desktop build will
-replace OSCR's layouts.
+Current development features include:
+
+- A restart-selected Default or Command Console theme.
+- Isolated RE-OSCR settings that do not modify an installed OSCR application.
+- League Standings browsing with local-log loading and selected-parse open/save actions.
+- A portable Windows tester build.
 
 - [Project scope](docs/PROJECT_SCOPE.md)
 - [Tester plan](docs/TESTING.md)
-- [Development baseline](docs/DEVELOPMENT.md)
-- Baseline: OSCR-UI 11.1.0
+- [Development guide](docs/DEVELOPMENT.md)
 
-## Upstream application
+## Parser dependency
 
-[![PyPI version](https://badge.fury.io/py/OSCR-UI.svg)](https://badge.fury.io/py/OSCR-UI)
+RE-OSCR uses `STO-OSCR==11.0.0`. The `OSCR` name remains attached to the parser and its combat
+analysis models. Retro Escalation does not currently fork or modify parser logic.
 
-User Interface for the OSCR parser. 
+## Running from source
 
-# Companion Web Application
+Python 3.13 or newer is required.
 
-The STOCD team provides a companion web application for OSCR located at [oscr.stobuilds.com](https://oscr.stobuilds.com).
-This allows users to view and download combat log data without OSCR installed, however uploads
-and more detailed analysis of combat logs requires OSCR or a parser that supports
-interracting with OSCR's backend such as [CLA](https://github.com/AnotherNathan/STO_CombatLogAnalyzer).
-
-# Windows Users
-
-For Windows users we have an installer available on the [Releases](https://github.com/STOCD/OSCR-UI/releases) page.
-
-# Installation
-
-## PyPI
-
-```bash
-python3 -m pip install OSCR-UI
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[pyinst]"
+.\.venv\Scripts\re-oscr.exe
 ```
 
-#### Externally Managed Python Environments (Arch)
-The recommended way is using `pipx` to install from PyPi without `--break-system-packages`, if you don't already have it, you can install it through pacman.
-```bash
-pacman -Sy python-pipx
-pipx install OSCR-UI
+Run the offline regression suite with:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-## Github
+## Windows portable build
 
-```bash
-python3 -m pip install git+https://github.com/STOCD/OSCR-UI.git
+```powershell
+.\distribution\windows\build_retro_escalation.ps1 `
+    -OutputRoot "E:\re-oscar\re-oscr theme switching" `
+    -Package
 ```
 
-# Running
+The generated `RE-OSCR.exe` stores settings beside the executable and does not use the official
+application's settings directory.
 
-```bash
-oscr
-```
+## Origin and licensing
 
-# Development
+RE-OSCR began as a downstream fork of
+[STOCD/OSCR-UI 11.1.0](https://github.com/STOCD/OSCR-UI). Its source history and GPLv3 licensing
+are retained. It is an independent community frontend and is not an official STOCD release.
 
-*It is recommended to use a python virtual environment to house this app.*
-
-```bash
-# Clone the repository
-git clone https://github.com/STOCD/OSCR-UI.git
-cd OSCR-UI
-
-# Set up the virtual environment
-virtualenv venv
-
-# Windows
-.\venv\Scripts\activate
-
-# Linux
-source ./venv/bin/activate
-
-# Install OSCR + Requirements.
-python3 -m pip install .
-```
+The parser is provided by the separate [STOCD/OSCR](https://github.com/STOCD/OSCR) project.

@@ -8,9 +8,9 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $python = Join-Path $repoRoot '.venv\Scripts\python.exe'
 $workRoot = Join-Path $repoRoot '.artifacts\pyinstaller'
-$appName = 'Retro-Escalation'
+$appName = 'RE-OSCR'
 $appOutput = Join-Path $OutputRoot $appName
-$version = '11.1.0-re.2-dev'
+$version = '11.1.0.dev3+re.oscr'
 $assetsData = "$(Join-Path $repoRoot 'assets');assets"
 $localesData = "$(Join-Path $repoRoot 'locales');locales"
 $themeAssetsData = "$(Join-Path $repoRoot 'theme_assets');theme_assets"
@@ -53,7 +53,7 @@ Copy-Item -LiteralPath (Join-Path $repoRoot 'docs\TESTING.md') -Destination $app
 
 $commit = (& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot rev-parse HEAD).Trim()
 $buildInfo = @"
-Retro Escalation $version
+RE-OSCR — Retro Escalation $version
 OSCR-UI baseline: 11.1.0
 Commit: $commit
 Built: $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))

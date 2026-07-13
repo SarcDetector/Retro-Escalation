@@ -13,8 +13,8 @@ class OSCRConfig():
         self.excluded_event_ids: list[str] = ['Autodesc.Combatevent.Falling']
         self.home_dir: Path = Path()
         self.icon_size: int = 24
-        self.link_downloads: str = 'https://github.com/STOCD/OSCR-UI/releases'
-        self.link_github: str = 'https://github.com/STOCD/OSCR-UI'
+        self.link_downloads: str = 'https://github.com/SarcDetector/Retro-Escalation/releases'
+        self.link_github: str = 'https://github.com/SarcDetector/Retro-Escalation'
         self.link_stobuilds: str = 'https://discord.gg/stobuilds'
         self.link_stocd: str = 'https://github.com/STOCD'
         self.link_website: str = 'https://oscr.stobuilds.com'
@@ -22,7 +22,8 @@ class OSCRConfig():
         self.live_parser_scale: float = 1.0
         self.minimum_window_width: int = 1280
         self.minimum_window_height: int = 720
-        self.settings_file: str = 'OSCR_UI_settings.ini'
+        self.settings_file: str = 'RE_OSCR_settings.ini'
+        self.legacy_settings_files: tuple[str, ...] = ('OSCR_UI_settings.ini',)
         self.templog_folder_name: str = '_temp'
         self.templog_folder_path: Path = Path()
         self.ui_scale: float = 1.0

@@ -3,12 +3,12 @@ from multiprocessing import freeze_support, set_start_method, get_start_method
 import os
 import sys
 
-from OSCRUI import OSCRUI
+from re_oscr import REOSCRApplication
 
 
 class Launcher():
 
-    __version__ = '11.1.0'
+    __version__ = '11.1.0.dev3+re.oscr'
 
     @staticmethod
     def base_path() -> str:
@@ -25,12 +25,14 @@ class Launcher():
 
     @staticmethod
     def launch():
-        argparser = ArgumentParser(prog='OSCR UI', description='The OSCR parser app.')
+        argparser = ArgumentParser(
+            prog='RE-OSCR',
+            description='Retro Escalation frontend for the Open Source Combatlog Reader parser.')
         argparser.add_argument(
             '--config_dir', type=str, required=False,
             help='Change configuration directory (must be readable and writable)')
         args, _ = argparser.parse_known_args()
-        exit_code = OSCRUI(
+        exit_code = REOSCRApplication(
             args=args, app_dir_path=Launcher.base_path(), version=Launcher.__version__).run()
         sys.exit(exit_code)
 

@@ -2,17 +2,18 @@
 
 ## Purpose
 
-Retro Escalation will test whether OSCR-UI can support a startup-selected visual theme without
-changing parser behavior or degrading the existing interface. Work begins from the unmodified
-OSCR-UI 11.1.0 release.
+RE-OSCR is an independently maintained alternative frontend for the official `STO-OSCR` parser.
+It began from the OSCR-UI 11.1.0 frontend baseline, but its development and release process does
+not depend on upstream accepting a theme, plugin, or modular-UI architecture.
 
-The first implementation is a fork experiment. Upstream acceptance is not required to develop or
-test it. Architectural changes that prove small, safe, and generally useful may later be proposed
-to STOCD independently of the Retro Escalation artwork.
+The official parser remains an external dependency. RE-OSCR does not fork or modify its parser
+logic; this project owns the frontend experience, workflows, themes, and packaging around it.
 
 ## Product terminology
 
-- **Default**: the current OSCR-UI appearance and behavior.
+- **RE-OSCR**: the Retro Escalation frontend application and distributable.
+- **OSCR**: the separate parser dependency and its analysis models.
+- **Default**: the inherited OSCR-UI 11.1.0 appearance and behavior.
 - **Command Console**: the optional Retro Escalation visual theme.
 - **Theme system**: startup selection, validation, asset routing, and construction of an
   `AppTheme` instance.
@@ -26,31 +27,34 @@ to STOCD independently of the Retro Escalation artwork.
 - Default must retain its existing theme data, assets, layout, and behavior.
 - Theme selection takes effect after restart; hot switching is not required.
 - Unknown, missing, incompatible, or malformed theme selections fall back to Default.
-- A theme failure must never prevent the user from reaching OSCR with Default styling.
-- Existing settings files without a theme value continue to load normally.
+- A theme failure must never prevent the user from reaching RE-OSCR with Default styling.
+- Existing settings files without a theme value continue to load normally, and the legacy
+  `OSCR_UI_settings.ini` filename is migrated once to `RE_OSCR_settings.ini`.
 - Existing callbacks, models, sorting, copying, exporting, league operations, and Live Parser
   behavior remain in scope for regression testing.
 - Modified distributions remain GPLv3 and include corresponding source and modification notices.
 
 ## Baseline observations
 
-- Theme construction is centralized in `OSCRUI/app.py`.
+- Theme construction is centralized in `re_oscr/app.py`.
 - `AppTheme` already accepts alternate theme data and theme options.
 - Tables, graphs, dialogs, the sidebar, status bar, and Live Parser already receive an `AppTheme`
   instance explicitly.
 - Styling is nevertheless broad: theme values or styles are consumed at roughly 246 source
   locations.
-- Main-window and page layouts are constructed directly in the 1,140-line `OSCRUI/app.py`.
-- OSCR-UI 11.1.0 has packaging workflows but no committed automated test suite.
+- Main-window and page layouts are constructed directly in `re_oscr/app.py`.
+- The inherited OSCR-UI 11.1.0 frontend had packaging workflows but no committed automated test
+  suite.
 
-These observations make a built-in theme registry feasible while making a full replacement UI a
-separate, substantially larger project.
+These observations made a built-in theme registry feasible as RE-OSCR's first step. Progressive
+replacement of inherited layouts remains a larger set of later milestones.
 
 ## Milestone 0: protected baseline
 
 Status: complete on the `retro-escalation` branch.
 
-Goal: establish evidence that the fork still behaves like OSCR-UI 11.1.0 before theme work.
+Goal: establish evidence that the inherited frontend still behaves like OSCR-UI 11.1.0 before
+RE-OSCR theme work.
 
 Deliverables:
 
@@ -69,14 +73,14 @@ Exit criteria:
 
 ## Milestone 1: startup theme foundation
 
-Status: implemented; awaiting the first packaged manual verification.
+Status: implemented and included in the portable tester build.
 
 Goal: select a built-in theme at application startup without changing any layout.
 
 Proposed architecture:
 
 ```text
-OSCRUI/
+re_oscr/
   theme.py                 Existing AppTheme and Default theme
   themes/
     __init__.py
@@ -106,13 +110,13 @@ Exit criteria:
 
 - A fresh install starts in Default.
 - Existing settings files start in Default.
-- Selecting Command Console, closing OSCR normally, and reopening selects Command Console.
+- Selecting Command Console, closing RE-OSCR normally, and reopening selects Command Console.
 - Invalid IDs and deliberately broken test themes start safely in Default.
 - Switching back to Default restores the original appearance after restart.
 
 ## Milestone 2: Command Console coverage on existing layouts
 
-Goal: express the Retro Escalation identity using OSCR's current widgets and layouts.
+Goal: express the Retro Escalation identity using the inherited frontend widgets and layouts.
 
 In scope:
 
@@ -169,7 +173,7 @@ Exit criteria:
 - Custom background selection and persistence.
 - External declarative theme packages.
 - Theme manifests and compatibility versions.
-- Alternative UI providers or plugin APIs.
+- Third-party UI-provider or executable-plugin APIs.
 - Dashboard cards, grouped telemetry, reorganized Settings, and other structural concepts from the
   browser prototype.
 

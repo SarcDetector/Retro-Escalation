@@ -1,1 +1,1 @@
-"""Regression tests for the Retro Escalation OSCR-UI fork."""
+"""Regression tests for the RE-OSCR frontend."""

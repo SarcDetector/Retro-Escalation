@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from shutil import copy2
 import sys
 
 from PySide6.QtWidgets import (
@@ -38,7 +39,7 @@ from .widgets import AnalysisPlot, BannerLabel, FlipButton
 # signal(SIGINT, SIG_DFL)
 
 
-class OSCRUI():
+class REOSCRApplication():
 
     def __init__(self, args, app_dir_path: str, version: str) -> None:
         """
@@ -60,6 +61,7 @@ class OSCRUI():
         if self.config.config_dir is None:
             # TODO show error message
             sys.exit(1)
+        self.migrate_legacy_settings()
         self.settings = OSCRSettings(Path(self.config.config_dir, self.config.settings_file))
         self.init_settings()
         self.init_config()
@@ -170,6 +172,20 @@ class OSCRUI():
         except OSError as e:
             return e
 
+    def migrate_legacy_settings(self):
+        """Copy a previous frontend settings file to the RE-OSCR name once."""
+        settings_path = self.config.config_dir / self.config.settings_file
+        if settings_path.exists():
+            return
+        for legacy_filename in self.config.legacy_settings_files:
+            legacy_path = self.config.config_dir / legacy_filename
+            if legacy_path.is_file():
+                try:
+                    copy2(legacy_path, settings_path)
+                except OSError:
+                    return
+                return
+
     def get_config_dir_path(self, override: str | None = None) -> Path | None:
         """
         Identifies appropriate config directory and returns path to that directory. Returns `None`
@@ -186,22 +202,22 @@ class OSCRUI():
             for env_name in ('APPDATA', 'USERPROFILE'):
                 config_basedir = os.getenv(env_name)
                 if config_basedir is not None:
-                    config_dir = Path(config_basedir, 'OSCR_UI')
+                    config_dir = Path(config_basedir, 'RE_OSCR')
                     if self.setup_config_dir(config_dir) is None:
                         return config_dir
         else:
             config_basedir = os.getenv('XDG_CONFIG_HOME')
             if config_basedir is not None:
-                config_dir = Path(config_basedir, 'OSCR_UI')
+                config_dir = Path(config_basedir, 'RE_OSCR')
                 if self.setup_config_dir(config_dir) is None:
                     return config_dir
             home_dir = os.getenv('HOME')
             if home_dir is None:
                 return
-            config_dir = Path(home_dir, '.config', 'OSCR_UI')
+            config_dir = Path(home_dir, '.config', 'RE_OSCR')
             if self.setup_config_dir(config_dir) is None:
                 return config_dir
-            config_dir = Path(home_dir, '.oscr_ui')
+            config_dir = Path(home_dir, '.re_oscr')
             if self.setup_config_dir(config_dir) is None:
                 return config_dir
 
@@ -312,7 +328,7 @@ class OSCRUI():
                 self.config.ui_scale * self.config.minimum_window_width,
                 self.config.ui_scale * self.config.minimum_window_height)
         window.setWindowIcon(load_icon('oscr_icon_small.png', self.app_dir))
-        window.setWindowTitle('Open Source Combatlog Reader')
+        window.setWindowTitle('RE-OSCR — Retro Escalation')
         if self.settings.state__geometry:
             window.restoreGeometry(self.settings.state__geometry)
         window.closeEvent = self.main_window_close_callback

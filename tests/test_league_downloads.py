@@ -5,8 +5,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from OSCRUI.leagueconnector import OSCRLeagueConnector
-from OSCRUI.sidebar import OSCRLeftSidebar
+from re_oscr.leagueconnector import OSCRLeagueConnector
+from re_oscr.sidebar import OSCRLeftSidebar
 
 
 class _PathEntry:
@@ -82,7 +82,7 @@ class LeagueDownloadTests(unittest.TestCase):
             target = Path(temp_dir, "saved.log")
             downloaded.write_bytes(b"downloaded parse")
 
-            with patch("OSCRUI.leagueconnector.browse_path", return_value=target):
+            with patch("re_oscr.leagueconnector.browse_path", return_value=target):
                 connector._handle_download_for_save(downloaded, 46434)
 
             self.assertEqual(target.read_bytes(), b"downloaded parse")
@@ -112,7 +112,7 @@ class LocalLogLoadingTests(unittest.TestCase):
             sidebar._config = SimpleNamespace(home_dir=temp_dir)
             sidebar.log_path_widget = _PathEntry(temp_dir)
 
-            with patch("OSCRUI.sidebar.browse_path", return_value=log_path):
+            with patch("re_oscr.sidebar.browse_path", return_value=log_path):
                 selected = sidebar.browse_log(analyze=True)
 
             self.assertEqual(selected, log_path)

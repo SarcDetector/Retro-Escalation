@@ -3,15 +3,15 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from OSCRUI.theme import AppTheme
-from OSCRUI.themes import (
+from re_oscr.theme import AppTheme
+from re_oscr.themes import (
     COMMAND_CONSOLE_THEME_ID,
     DEFAULT_THEME_ID,
     ThemeDefinition,
     available_themes,
     resolve_theme,
 )
-from OSCRUI.themes.registry import THEME_REGISTRY
+from re_oscr.themes.registry import THEME_REGISTRY
 
 
 class DefaultThemeTests(unittest.TestCase):
@@ -68,7 +68,7 @@ class ThemeRegistryTests(unittest.TestCase):
         )
 
     def test_unknown_theme_falls_back_to_default(self):
-        with self.assertLogs("OSCRUI.themes.registry", level="WARNING"):
+        with self.assertLogs("re_oscr.themes.registry", level="WARNING"):
             resolution = resolve_theme("missing-theme", 1.0)
 
         self.assertTrue(resolution.fallback_used)
@@ -81,7 +81,7 @@ class ThemeRegistryTests(unittest.TestCase):
 
         broken = ThemeDefinition("broken", "Broken", broken_factory)
         with patch.dict(THEME_REGISTRY, {"broken": broken}):
-            with self.assertLogs("OSCRUI.themes.registry", level="ERROR"):
+            with self.assertLogs("re_oscr.themes.registry", level="ERROR"):
                 resolution = resolve_theme("broken", 1.0)
 
         self.assertTrue(resolution.fallback_used)
@@ -89,7 +89,7 @@ class ThemeRegistryTests(unittest.TestCase):
 
     def test_missing_theme_asset_directory_falls_back_to_default(self):
         with TemporaryDirectory() as temp_dir:
-            with self.assertLogs("OSCRUI.themes.registry", level="ERROR"):
+            with self.assertLogs("re_oscr.themes.registry", level="ERROR"):
                 resolution = resolve_theme(
                     COMMAND_CONSOLE_THEME_ID, 1.0, Path(temp_dir))
 

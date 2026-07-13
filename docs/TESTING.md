@@ -3,7 +3,7 @@
 ## Status
 
 The restart-based theme foundation and portable tester build are implemented. Command Console is
-currently a palette preview on OSCR's existing layouts. League Standings can load local logs and
+currently a palette preview on RE-OSCR's inherited layouts. League Standings can load local logs and
 open or save downloaded parses. This document defines the acceptance matrix for experimental
 builds.
 
@@ -11,10 +11,10 @@ builds.
 
 Record the following for every report:
 
-- Retro Escalation version or commit.
+- RE-OSCR version or commit.
 - Operating system and version.
 - Display resolution and scaling percentage.
-- OSCR UI scale and Live Parser scale.
+- RE-OSCR UI scale and Live Parser scale.
 - Selected theme.
 - Whether the settings file was new, migrated, or manually edited.
 
@@ -42,7 +42,7 @@ it.
 ## Startup and recovery
 
 - [x] Fresh settings start in Default. (Automated)
-- [x] Existing OSCR-UI 11.1.0 settings start without migration errors. (Automated)
+- [x] Legacy `OSCR_UI_settings.ini` settings migrate to `RE_OSCR_settings.ini`. (Automated)
 - [x] Command Console selection is stored on normal shutdown. (Automated)
 - [x] Command Console appears after restart. (Automated)
 - [x] Returning to Default works after restart. (Automated)
@@ -127,7 +127,7 @@ python -m tests.league_live_probe --local "C:\path\to\CombatLog.log"
 Build/commit:
 Operating system:
 Display resolution and scaling:
-OSCR UI scale:
+RE-OSCR UI scale:
 Theme:
 Page or window:
 

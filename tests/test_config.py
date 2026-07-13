@@ -2,10 +2,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from OSCRUI.config import OSCRSettings
+from re_oscr.config import OSCRConfig, OSCRSettings
 
 
 class OSCRSettingsTests(unittest.TestCase):
+    def test_frontend_settings_use_re_oscr_name_with_legacy_migration_source(self):
+        config = OSCRConfig()
+
+        self.assertEqual(config.settings_file, "RE_OSCR_settings.ini")
+        self.assertEqual(config.legacy_settings_files, ("OSCR_UI_settings.ini",))
+
     def test_fresh_settings_match_oscr_11_1_defaults(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             settings = OSCRSettings(Path(temp_dir, "settings.ini"))

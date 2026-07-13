@@ -320,11 +320,12 @@ class OSCRLeftSidebar():
         left_layout.setSpacing(m)
         left_layout.setAlignment(ATOP)
 
-        head_label = create_label(self._theme, tr('About OSCR:'), 'label_heading')
+        head_label = create_label(self._theme, tr('About RE-OSCR:'), 'label_heading')
         left_layout.addWidget(head_label)
         about_label = create_label(self._theme, tr(
-            'Open Source Combatlog Reader (OSCR), developed by the STO Community Developers in '
-            'cooperation with the STO Builds Discord.'))
+            'RE-OSCR (Retro Escalation) is an alternative frontend for the Open Source Combatlog '
+            'Reader (OSCR) parser, developed by the STO Community Developers in cooperation with '
+            'the STO Builds Discord.'))
         about_label.setWordWrap(True)
         about_label.setMinimumWidth(50)  # to fix the word wrap
         about_label.setSizePolicy(SMINMAX)

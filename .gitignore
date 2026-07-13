@@ -9,7 +9,7 @@
 .artifacts
 .idea
 .python-version
-.retro-escalation-settings
+.re-oscr-settings
 .venv
 __pycache__
 build

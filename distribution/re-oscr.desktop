@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=RE-OSCR
+Comment=Retro Escalation frontend for the Open Source Combatlog Reader parser
+Icon=/usr/share/icons/hicolor/64x64/apps/oscr_icon_small.png
+Exec=re-oscr
+Terminal=False
+Categories=Utility;Scanning;GameTool;DataVisualization;
+StartupWMClass=RE-OSCR — Retro Escalation

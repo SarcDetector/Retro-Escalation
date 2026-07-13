@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from OSCRUI.app import OSCRUI  # noqa: E402
+from re_oscr.app import REOSCRApplication  # noqa: E402
 
 
 def main() -> int:
@@ -24,7 +24,7 @@ def main() -> int:
 
     project_root = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory(prefix="retro-escalation-probe-") as config_dir:
-        ui = OSCRUI(
+        ui = REOSCRApplication(
             args=SimpleNamespace(config_dir=config_dir),
             app_dir_path=str(project_root),
             version="league-live-probe",

@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from OSCRUI.app import OSCRUI  # noqa: E402
-from OSCRUI.config import OSCRSettings  # noqa: E402
-from OSCRUI.themes import COMMAND_CONSOLE_THEME_ID, DEFAULT_THEME_ID  # noqa: E402
+from re_oscr.app import REOSCRApplication  # noqa: E402
+from re_oscr.config import OSCRSettings  # noqa: E402
+from re_oscr.themes import COMMAND_CONSOLE_THEME_ID, DEFAULT_THEME_ID  # noqa: E402
 
 
 def main() -> int:
@@ -18,14 +18,14 @@ def main() -> int:
     select_theme_id = sys.argv[3]
     project_root = Path(__file__).resolve().parents[1]
 
-    ui = OSCRUI(
+    ui = REOSCRApplication(
         args=SimpleNamespace(config_dir=config_dir),
         app_dir_path=str(project_root),
         version="theme-startup-test",
     )
     ui.app.processEvents()
 
-    assert ui.window.windowTitle() == "Open Source Combatlog Reader"
+    assert ui.window.windowTitle() == "RE-OSCR — Retro Escalation"
     assert ui.window.isVisible()
     assert ui.widgets.main_tabber.count() == 4
     assert ui.active_theme_id == expected_theme_id
@@ -49,7 +49,7 @@ def main() -> int:
     ui.app.processEvents()
     ui.app.quit()
 
-    restored = OSCRSettings(Path(config_dir, "OSCR_UI_settings.ini"))
+    restored = OSCRSettings(Path(config_dir, "RE_OSCR_settings.ini"))
     assert restored.theme_id == expected_stored_theme_id
     return 0
 
