@@ -114,7 +114,7 @@ Exit criteria:
 - Invalid IDs and deliberately broken test themes start safely in Default.
 - Switching back to Default restores the original appearance after restart.
 
-## Milestone 2: Command Console shell and Overview vertical slice
+## Milestone 2: Command Console shell and core telemetry views
 
 Status: implemented for the `11.1.0.dev4+re.oscr` development build.
 
@@ -128,8 +128,10 @@ In scope:
 - A dedicated masthead with original RE branding and no copied logos, fonts, or interface artwork.
 - Five large segmented controls for Overview, Analysis, League, Settings, and Live Parser.
 - A five-colour context rail surrounding the existing collapsible sidebar.
-- A dedicated Overview presentation module with rounded chart and table panels.
+- Dedicated Overview and Analysis presentation modules with rounded chart and table panels.
 - Command-style Overview graph modes while retaining all three inherited plots.
+- Command-style Analysis modes while retaining Damage Out, Damage Taken, Heals Out, and Heals In.
+- Player and NPC tree drill-down, event graph selection, freeze, clear, copy, and focus controls.
 - Pyqtgraph backgrounds, axes, legends, bars, lines, and a five-player colour cycle.
 - Shared parser callbacks, models, sorting, copying, uploading, and saved splitter state.
 - An unchanged Default shell and Overview structure selected through the same startup registry.
@@ -142,7 +144,7 @@ Out of scope:
 - Splitting telemetry into new table models or changing data columns.
 - Rebuilding Settings into categories or cards.
 - Adding the browser prototype's Analysis readout panel.
-- Rebuilding the inherited Analysis, League, Settings, or Live Parser page layouts.
+- Rebuilding the inherited League, Settings, or Live Parser page layouts.
 - Five-rail palette presets and user-entered colours.
 - Custom background selection.
 - Runtime theme switching.
@@ -154,7 +156,9 @@ Exit criteria:
 - The context rail collapses and restores through the existing sidebar callback.
 - A local Infected Space log browses, analyzes, and populates charts and tables.
 - All three Overview plot modes remain reachable.
-- The Default startup probe still exposes the inherited shell and Overview controls.
+- All four Analysis modes synchronize their graph and tree panels.
+- Damage and healing models retain their distinct headers and drill-down behavior.
+- The Default startup probe still exposes the inherited shell, Overview, and Analysis controls.
 - No parser outputs differ between Default and Command Console for the same logs and settings.
 
 ## Milestone 3: tester release

@@ -49,15 +49,36 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "commandConsoleColourRail") is not None
         assert ui.window.findChild(QWidget, "commandConsoleOverviewGraphPanel") is not None
         assert ui.window.findChild(QWidget, "commandConsoleOverviewTablePanel") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleAnalysisHeading") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleAnalysisTitle").text() == "ANALYSIS"
+        assert ui.window.findChild(QWidget, "commandConsoleAnalysisGraphPanel") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleAnalysisTelemetryPanel") is not None
         assert len(ui.widgets.main_menu_buttons) == 4
         assert all(button.isCheckable() for button in ui.widgets.main_menu_buttons)
         assert ui.widgets.main_menu_buttons[0].isChecked()
         assert ui.widgets.overview_menu_buttons[0].text() == "A1  DPS BAR"
+        assert [button.text() for button in ui.widgets.analysis_menu_buttons] == [
+            "B1  DAMAGE OUT", "B2  DAMAGE TAKEN", "B3  HEALS OUT", "B4  HEALS IN"]
+        assert len(ui.window.findChildren(QWidget, "analysisFreezeButton")) == 4
+        assert len(ui.window.findChildren(QWidget, "analysisClearButton")) == 4
 
         ui.widgets.main_menu_buttons[1].click()
         ui.app.processEvents()
         assert ui.widgets.main_tabber.currentIndex() == 1
         assert ui.widgets.main_menu_buttons[1].isChecked()
+        for index, button in enumerate(ui.widgets.analysis_menu_buttons):
+            button.click()
+            ui.app.processEvents()
+            assert ui.widgets.analysis_graph_tabber.currentIndex() == index
+            assert ui.widgets.analysis_tree_tabber.currentIndex() == index
+            assert button.isChecked()
+        ui.widgets.switch_analysis_tab(0)
+        ui.widgets.collapse_analysis_graph()
+        assert ui.widgets.analysis_graph_tabber.isHidden()
+        assert not ui.settings.analysis_graph
+        ui.widgets.expand_analysis_graph()
+        assert not ui.widgets.analysis_graph_tabber.isHidden()
+        assert ui.settings.analysis_graph
         ui.widgets.main_menu_buttons[0].click()
         ui.app.processEvents()
         assert ui.widgets.main_tabber.currentIndex() == 0
@@ -67,6 +88,15 @@ def main() -> int:
         assert command_shell is None
         assert not any(button.isCheckable() for button in ui.widgets.main_menu_buttons)
         assert ui.widgets.overview_menu_buttons[0].text() == "DPS Bar"
+        assert ui.window.findChild(QWidget, "defaultAnalysisGraph") is not None
+        assert ui.window.findChild(QWidget, "defaultAnalysisTelemetry") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleAnalysisHeading") is None
+        assert [button.text() for button in ui.widgets.analysis_menu_buttons] == [
+            "Damage Out", "Damage Taken", "Heals Out", "Heals In"]
+
+    assert ui.widgets.analysis_graph_tabber.count() == 4
+    assert ui.widgets.analysis_tree_tabber.count() == 4
+    assert ui.widgets.analysis_copy_combobox.count() == 5
 
     expected_stored_theme_id = expected_theme_id
     if select_theme_id != "-":

@@ -3,10 +3,10 @@
 ## Status
 
 The restart-based theme foundation and portable tester build are implemented. Command Console now
-has its own application shell and Overview presentation while retaining the shared parser, models,
-and callbacks. Analysis, League, Settings, and Live Parser still use inherited page layouts inside
-the new shell. League Standings can load local logs and open or save downloaded parses. This
-document defines the acceptance matrix for experimental builds.
+has its own application shell plus dedicated Overview and Analysis presentations while retaining
+the shared parser, models, and callbacks. League, Settings, and Live Parser still use inherited page
+layouts inside the new shell. League Standings can load local logs and open or save downloaded
+parses. This document defines the acceptance matrix for experimental builds.
 
 ## Test environments
 
@@ -69,10 +69,13 @@ Run every item once in Default and once in Command Console.
 
 ### Analysis
 
-- [ ] Open Damage Out, Damage Taken, Heals Out, and Heals In.
-- [ ] Expand Player and NPC trees through multiple levels.
-- [ ] Select rows and add/remove graph series.
-- [ ] Freeze and clear graphs.
+- [x] Open Damage Out, Damage Taken, Heals Out, and Heals In. (Automated)
+- [x] Expand a Player tree to ability rows. (Manual source-app visual check)
+- [ ] Expand Player and NPC trees through every available level.
+- [x] Select an ability row and add its graph series. (Manual source-app visual check)
+- [x] Freeze and unfreeze a graph. (Manual source-app visual check)
+- [ ] Clear graph series.
+- [x] Collapse and restore the graph panel. (Automated and manual source-app visual check)
 - [ ] Exercise every copy mode.
 - [ ] Sort and horizontally scroll tables.
 

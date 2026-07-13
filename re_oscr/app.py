@@ -4,8 +4,8 @@ from shutil import copy2
 import sys
 
 from PySide6.QtWidgets import (
-    QApplication, QWidget, QLayout, QLineEdit, QFrame, QScrollArea, QSplitter,
-    QTabWidget, QTableView, QTreeView, QVBoxLayout, QHBoxLayout, QGridLayout)
+    QApplication, QWidget, QLineEdit, QFrame, QScrollArea, QSplitter,
+    QTabWidget, QTableView, QVBoxLayout, QHBoxLayout, QGridLayout)
 from PySide6.QtCore import QDir, QSize, QTimer, QThread
 from PySide6.QtGui import (
     QCloseEvent, QFontDatabase, QIntValidator, QKeySequence, QResizeEvent, QShortcut)
@@ -14,7 +14,6 @@ from OSCR import LIVE_TABLE_HEADER, TABLE_HEADER, TREE_HEADER, HEAL_TREE_HEADER
 from .analysisgraphs import AnalysisGraphs
 from .analysistables import AnalysisTables
 from .config import OSCRConfig, OSCRSettings
-from .datamodels import TreeModel, TreeSelectionModel
 from .dialogs import DetectionInfoDialog, DialogsWrapper, UploadresultDialog
 from .iofunctions import browse_path, get_asset_path, load_icon_series, load_icon
 from .liveparser import LiveParserWindow
@@ -28,13 +27,13 @@ from .theme import AppTheme
 from .themes import COMMAND_CONSOLE_THEME_ID, DEFAULT_THEME_ID, available_themes, resolve_theme
 from .translation import init_translation, tr
 from .widgetbuilder import (
-    ABOTTOM, ACENTER, AHCENTER, ALEFT, ARIGHT, ATOP, AVCENTER, OVERTICAL, SMAXMAX, SMAXMIN,
+    ABOTTOM, ACENTER, AHCENTER, ALEFT, ARIGHT, ATOP, AVCENTER, SMAXMAX, SMAXMIN,
     SMINMAX, SMINMIN, SMIXMAX, SCROLLOFF, SCROLLON,
     create_annotated_slider, create_button, create_button_series, create_combo_box, create_entry,
     create_frame, create_icon_button, create_label)
 from .widgetmanager import WidgetManager
-from .views import OverviewView
-from .widgets import AnalysisPlot, FlipButton
+from .views import AnalysisView, OverviewView
+from .widgets import FlipButton
 
 # only for developing; allows to terminate the qt event loop with keyboard interrupt
 # from signal import signal, SIGINT, SIG_DFL
@@ -467,177 +466,20 @@ class REOSCRApplication():
             command_console=self.active_theme_id == COMMAND_CONSOLE_THEME_ID,
         ).build(self.widgets.main_tab_frames[0])
 
-    def create_analysis_tab(
-            self, graph_frame: QFrame, tree_frame: QFrame, tree_model: TreeModel,
-            is_heal_table: bool) -> tuple[QTreeView, AnalysisPlot]:
-        """
-        Creates analysis graph and table, prepares and returns them.
-
-        Parameters:
-        - :param graph_frame: frame to put the graph into
-        - :param tree_frame: frame to put the tree table into
-        - :param tree_model: data model for the tree table
-        - :param is_heal_table: initializes `tree_model` with heal header if `True`; initializes
-        `tree_model` with damage header if `False`
-        """
-        csp = self.theme['defaults']['csp'] * self.config.ui_scale
-        graph_layout = QHBoxLayout()
-        graph_layout.setContentsMargins(csp, csp, csp, 0)
-        graph_layout.setSpacing(csp)
-
-        plot_bundle_frame = create_frame(self.theme, size_policy=SMINMAX)
-        plot_bundle_layout = QVBoxLayout()
-        plot_bundle_layout.setContentsMargins(0, 0, 0, 0)
-        plot_bundle_layout.setSpacing(0)
-        plot_bundle_layout.setSizeConstraint(QLayout.SizeConstraint.SetMaximumSize)
-        plot_legend_frame = create_frame(self.theme)
-        plot_legend_layout = QHBoxLayout()
-        plot_legend_layout.setContentsMargins(0, 0, 0, 0)
-        plot_legend_layout.setSpacing(2 * self.theme['defaults']['margin'])
-        plot_legend_frame.setLayout(plot_legend_layout)
-        plot_widget = AnalysisPlot(self.theme, self.theme['plot']['color_cycler'])
-        plot_widget.setStyleSheet(self.theme.get_style('plot_widget_nullifier'))
-        plot_widget.setSizePolicy(SMINMAX)
-        plot_bundle_layout.addWidget(plot_widget)
-        plot_bundle_layout.addWidget(plot_legend_frame, alignment=AHCENTER)
-        plot_bundle_frame.setLayout(plot_bundle_layout)
-        graph_layout.addWidget(plot_bundle_frame, stretch=1)
-
-        plot_button_frame = create_frame(self.theme, size_policy=SMAXMIN)
-        plot_button_layout = QVBoxLayout()
-        plot_button_layout.setContentsMargins(0, 0, 0, 0)
-        plot_button_layout.setSpacing(0)
-        plot_button_layout.setAlignment(AVCENTER)
-        freeze_button = create_icon_button(self.theme, 'freeze', tr('Freeze Graph'))
-        freeze_button.setCheckable(True)
-        freeze_button.setChecked(True)
-        freeze_button.clicked.connect(plot_widget.toggle_freeze)
-        plot_button_layout.addWidget(freeze_button, alignment=ABOTTOM)
-        clear_button = create_icon_button(self.theme, 'clear-plot', tr('Clear Graph'))
-        clear_button.clicked.connect(plot_widget.clear)
-        plot_button_layout.addWidget(clear_button, alignment=ATOP)
-        plot_button_frame.setLayout(plot_button_layout)
-        graph_layout.addWidget(plot_button_frame, stretch=0)
-        graph_frame.setLayout(graph_layout)
-
-        tree_layout = QVBoxLayout()
-        tree_layout.setContentsMargins(0, 0, 0, 0)
-        tree_layout.setSpacing(0)
-        tree = self.tables.create_analysis_table('tree_table')
-        if is_heal_table:
-            tree_model.header_data = tr(HEAL_TREE_HEADER)
-        else:
-            tree_model.header_data = tr(TREE_HEADER)
-        tree_model.init_fonts(
-            self.theme.get_font('tree_table_header'), self.theme.get_font('tree_table'),
-            self.theme.get_font('tree_table_cells'))
-        tree.setModel(tree_model)
-        tree.setSelectionModel(TreeSelectionModel(tree_model))
-        tree.clicked.connect(lambda index, pw=plot_widget: pw.add_bar(index.internalPointer()))
-        tree_layout.addWidget(tree)
-        tree_frame.setLayout(tree_layout)
-        return tree, plot_widget
-
     def setup_analysis_frame(self):
         """
         Sets up the frame housing the detailed analysis table and graph
         """
-        a_frame = self.widgets.main_tab_frames[1]
-        dout_graph_frame = create_frame(self.theme)
-        dtaken_graph_frame = create_frame(self.theme)
-        hout_graph_frame = create_frame(self.theme)
-        hin_graph_frame = create_frame(self.theme)
-        dout_tree_frame = create_frame(self.theme)
-        dtaken_tree_frame = create_frame(self.theme)
-        hout_tree_frame = create_frame(self.theme)
-        hin_tree_frame = create_frame(self.theme)
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        switch_layout = QGridLayout()
-        switch_layout.setContentsMargins(0, 0, 0, 0)
-        layout.addLayout(switch_layout)
-        splitter = QSplitter(OVERTICAL)
-        splitter.setStyleSheet(self.theme.get_style_class('QSplitter', 'splitter'))
-        splitter.setChildrenCollapsible(False)
-        self.widgets.analysis_splitter = splitter
-        layout.addWidget(splitter)
-
-        a_graph_tabber = QTabWidget(a_frame)
-        a_graph_tabber.setStyleSheet(self.theme.get_style_class('QTabWidget', 'tabber'))
-        a_graph_tabber.tabBar().hide()
-        a_graph_tabber.addTab(dout_graph_frame, 'DOUT')
-        a_graph_tabber.addTab(dtaken_graph_frame, 'DTAKEN')
-        a_graph_tabber.addTab(hout_graph_frame, 'HOUT')
-        a_graph_tabber.addTab(hin_graph_frame, 'HIN')
-        self.widgets.analysis_graph_tabber = a_graph_tabber
-        splitter.addWidget(a_graph_tabber)
-        if not self.settings.analysis_graph:
-            self.widgets.analysis_graph_button.flip()
-        a_tree_tabber = QTabWidget(a_frame)
-        a_tree_tabber.setStyleSheet(self.theme.get_style_class('QTabWidget', 'tabber'))
-        a_tree_tabber.tabBar().hide()
-        a_tree_tabber.addTab(dout_tree_frame, 'DOUT')
-        a_tree_tabber.addTab(dtaken_tree_frame, 'DTAKEN')
-        a_tree_tabber.addTab(hout_tree_frame, 'HOUT')
-        a_tree_tabber.addTab(hin_tree_frame, 'HIN')
-        self.widgets.analysis_tree_tabber = a_tree_tabber
-        splitter.addWidget(a_tree_tabber)
-
-        switch_layout.setColumnStretch(0, 1)
-        switch_frame = create_frame(self.theme)
-        switch_layout.addWidget(switch_frame, 0, 1, alignment=ACENTER)
-        switch_layout.setColumnStretch(1, 1)
-
-        switch_style = {
-            'default': {'margin-left': '@margin', 'margin-right': '@margin'},
-            tr('Damage Out'): {
-                'callback': lambda _: self.widgets.switch_analysis_tab(0), 'align': ACENTER,
-                'toggle': True},
-            tr('Damage Taken'): {
-                'callback': lambda _: self.widgets.switch_analysis_tab(1), 'align': ACENTER,
-                'toggle': False},
-            tr('Heals Out'): {
-                'callback': lambda _: self.widgets.switch_analysis_tab(2), 'align': ACENTER,
-                'toggle': False},
-            tr('Heals In'): {
-                'callback': lambda _: self.widgets.switch_analysis_tab(3), 'align': ACENTER,
-                'toggle': False}
-        }
-        switcher, buttons = create_button_series(self.theme, switch_style, 'tab_button', ret=True)
-        switcher.setContentsMargins(0, self.theme['defaults']['margin'], 0, 0)
-        switch_frame.setLayout(switcher)
-        self.widgets.analysis_menu_buttons = buttons
-        copy_layout = QHBoxLayout()
-        copy_layout.setContentsMargins(0, 0, 0, 0)
-        copy_layout.setSpacing(self.theme['defaults']['csp'])
-        copy_combobox = create_combo_box(self.theme)
-        copy_combobox.addItems((
-            tr('Selection'), tr('Global Max One Hit'), tr('Max One Hit'), tr('Magnitude'),
-            tr('Magnitude / s')))
-        copy_layout.addWidget(copy_combobox)
-        self.widgets.analysis_copy_combobox = copy_combobox
-        copy_button = create_icon_button(self.theme, 'copy', 'Copy Data')
-        copy_button.clicked.connect(self.copy_analysis_callback)
-        copy_layout.addWidget(copy_button)
-        switch_layout.addLayout(copy_layout, 0, 2, alignment=ARIGHT | ABOTTOM)
-        switch_layout.setColumnStretch(2, 1)
-
-        self.tables.damage_out_table, _ = self.create_analysis_tab(
-            dout_graph_frame, dout_tree_frame, self.parser.damage_out_model, is_heal_table=False)
-        self.tables.damage_in_table, _ = self.create_analysis_tab(
-            dtaken_graph_frame, dtaken_tree_frame, self.parser.damage_in_model, is_heal_table=False)
-        self.tables.heal_out_table, _ = self.create_analysis_tab(
-            hout_graph_frame, hout_tree_frame, self.parser.heal_out_model, is_heal_table=True)
-        self.tables.heal_in_table, _ = self.create_analysis_tab(
-            hin_graph_frame, hin_tree_frame, self.parser.heal_in_model, is_heal_table=True)
-
-        a_frame.setLayout(layout)
-        if self.settings.state__analysis_splitter:
-            splitter.restoreState(self.settings.state__analysis_splitter)
-        else:
-            h = splitter.height()
-            splitter.setSizes((h * 0.5, h * 0.5))
+        AnalysisView(
+            theme=self.theme,
+            config=self.config,
+            settings=self.settings,
+            widgets=self.widgets,
+            parser=self.parser,
+            tables=self.tables,
+            copy_callback=self.copy_analysis_callback,
+            command_console=self.active_theme_id == COMMAND_CONSOLE_THEME_ID,
+        ).build(self.widgets.main_tab_frames[1])
 
     def setup_league_standings_frame(self):
         """
