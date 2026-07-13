@@ -61,13 +61,27 @@ class ThemeRegistryTests(unittest.TestCase):
         self.assertFalse(default.fallback_used)
         self.assertFalse(command.fallback_used)
         self.assertEqual(default.theme["defaults"]["oscr"], "#c82934")
-        self.assertEqual(command.theme["defaults"]["oscr"], "#ff8a2a")
+        self.assertEqual(command.theme["defaults"]["oscr"], "#FF8A2A")
         self.assertEqual(
             command.theme["plot"]["color_cycler"][:5],
-            ("#ff8a2a", "#d4ad3f", "#9a6bc4", "#4fc3cc", "#d94b55"),
+            ("#FF8A2A", "#D4AD3F", "#9A6BC4", "#4FC3CC", "#D94B55"),
         )
         self.assertNotIn("overview_bar_colours", default.theme["plot"])
         self.assertTrue(command.theme["plot"]["overview_bar_colours"])
+
+    def test_command_console_accepts_a_validated_custom_palette(self):
+        project_root = Path(__file__).resolve().parents[1]
+        custom = ("#123456", "abcdef", "invalid", "#AABBCC", "#010203")
+
+        resolution = resolve_theme(
+            COMMAND_CONSOLE_THEME_ID, 1.0, project_root,
+            command_console_palette=custom)
+
+        self.assertEqual(
+            resolution.theme["plot"]["color_cycler"][:5],
+            ("#123456", "#ABCDEF", "#9A6BC4", "#AABBCC", "#010203"),
+        )
+        self.assertEqual(resolution.theme["defaults"]["oscr"], "#123456")
 
     def test_unknown_theme_falls_back_to_default(self):
         with self.assertLogs("re_oscr.themes.registry", level="WARNING"):

@@ -13,6 +13,7 @@ from PySide6.QtGui import (
 from OSCR import LIVE_TABLE_HEADER, TABLE_HEADER, TREE_HEADER, HEAL_TREE_HEADER
 from .analysisgraphs import AnalysisGraphs
 from .analysistables import AnalysisTables
+from .appearance import resolve_command_console_palette
 from .config import OSCRConfig, OSCRSettings
 from .dialogs import DetectionInfoDialog, DialogsWrapper, UploadresultDialog
 from .iofunctions import browse_path, get_asset_path, load_icon_series, load_icon
@@ -69,7 +70,10 @@ class REOSCRApplication():
         init_translation(self.settings.language)
         QDir.addSearchPath('assets_folder', os.path.join(app_dir_path, 'assets'))
         theme_resolution = resolve_theme(
-            self.settings.theme_id, self.config.ui_scale, Path(app_dir_path))
+            self.settings.theme_id, self.config.ui_scale, Path(app_dir_path),
+            resolve_command_console_palette(
+                self.settings.command_console_palette_preset,
+                self.settings.command_console_accents))
         self.theme: AppTheme = theme_resolution.theme
         self.active_theme_id: str = theme_resolution.definition.theme_id
         if self.settings.theme_id != self.active_theme_id:
@@ -509,6 +513,7 @@ class REOSCRApplication():
             live_parser=self.live_parser,
             status_bar=self.status_bar,
             app_dir=self.app_dir,
+            settings=self.settings,
         )
 
     def browse_sto_logpath(self):

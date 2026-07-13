@@ -1,19 +1,16 @@
-"""Initial palette-only Command Console theme.
+"""Command Console theme with a validated, user-selectable five-colour palette.
 
 Structural changes from the browser prototype are intentionally outside this milestone. The
 theme starts from OSCR's Default tree and only replaces a small set of colour roles.
 """
 
+from copy import deepcopy
+
+from ..appearance import DEFAULT_COMMAND_CONSOLE_PALETTE, normalize_custom_palette
 from ..theme import AppTheme
 
 
-COMMAND_CONSOLE_ACCENTS = (
-    '#ff8a2a',  # orange
-    '#d4ad3f',  # gold
-    '#9a6bc4',  # purple
-    '#4fc3cc',  # cyan
-    '#d94b55',  # red
-)
+COMMAND_CONSOLE_ACCENTS = DEFAULT_COMMAND_CONSOLE_PALETTE
 
 
 COMMAND_CONSOLE_OVERRIDES = {
@@ -41,13 +38,24 @@ COMMAND_CONSOLE_OVERRIDES = {
 }
 
 
-def create_command_console_theme(scale: float) -> AppTheme:
+def create_command_console_theme(
+        scale: float, accents: tuple[str, ...] | list[str] | None = None) -> AppTheme:
     """Build Command Console from the complete Default theme plus validated overrides."""
+    palette = normalize_custom_palette(accents or COMMAND_CONSOLE_ACCENTS)
     default_theme = AppTheme(scale)
     theme_tree = default_theme.get_default_theme()
-    for section_name, section_overrides in COMMAND_CONSOLE_OVERRIDES.items():
+    overrides = deepcopy(COMMAND_CONSOLE_OVERRIDES)
+    overrides['app']['oscr'] = palette[0]
+    overrides['defaults']['oscr'] = palette[0]
+    overrides['plot']['color_cycler'] = palette + overrides['plot']['color_cycler'][5:]
+    for section_name, section_overrides in overrides.items():
         section = theme_tree.get(section_name)
         if not isinstance(section, dict):
             raise ValueError(f'Missing theme section: {section_name}')
         section.update(section_overrides)
     return AppTheme(scale, theme_tree=theme_tree)
+
+
+def command_console_accents(theme: AppTheme) -> tuple[str, ...]:
+    """Return the active five visual rails from a resolved Command Console theme."""
+    return tuple(theme['plot']['color_cycler'][:5])

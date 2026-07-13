@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 from OSCR import HEAL_TREE_HEADER, TREE_HEADER
 
 from ..datamodels import TreeModel, TreeSelectionModel
-from ..themes.command_console import COMMAND_CONSOLE_ACCENTS
+from ..themes.command_console import command_console_accents
 from ..translation import tr
 from ..widgetbuilder import (
     ABOTTOM, ACENTER, AHCENTER, ARIGHT, ATOP, AVCENTER, OVERTICAL, SMAXMIN, SMINMAX,
@@ -17,13 +17,6 @@ from ..widgets import AnalysisPlot
 
 class AnalysisView:
     """Build Analysis without owning parser data or interaction behavior."""
-
-    MODE_ACCENTS = (
-        COMMAND_CONSOLE_ACCENTS[0],
-        COMMAND_CONSOLE_ACCENTS[4],
-        COMMAND_CONSOLE_ACCENTS[3],
-        COMMAND_CONSOLE_ACCENTS[2],
-    )
 
     def __init__(
             self, theme, config, settings, widgets, parser, tables, copy_callback,
@@ -36,6 +29,9 @@ class AnalysisView:
         self.tables = tables
         self.copy_callback = copy_callback
         self.command_console = command_console
+        self.accents = command_console_accents(theme)
+        self.mode_accents = (
+            self.accents[0], self.accents[4], self.accents[3], self.accents[2])
 
     def build(self, parent_frame: QFrame) -> None:
         graph_frames = [self._create_content_frame(f'analysisGraphMode{index + 1}')
@@ -119,7 +115,7 @@ class AnalysisView:
         frame.setObjectName('commandConsoleAnalysisHeading')
         frame.setStyleSheet(
             'QFrame#commandConsoleAnalysisHeading {'
-            'background-color: transparent; border: none; border-left: 5px solid #d4ad3f;}')
+            f'background-color: transparent; border: none; border-left: 5px solid {self.accents[1]};}}')
         layout = QVBoxLayout()
         layout.setContentsMargins(round(15 * self.theme.scale), 0, 0, 0)
         layout.setSpacing(round(3 * self.theme.scale))
@@ -185,7 +181,7 @@ class AnalysisView:
         if self.command_console:
             switcher.setContentsMargins(round(5 * self.theme.scale), round(5 * self.theme.scale),
                                         round(5 * self.theme.scale), round(5 * self.theme.scale))
-            for index, (button, accent) in enumerate(zip(buttons, self.MODE_ACCENTS)):
+            for index, (button, accent) in enumerate(zip(buttons, self.mode_accents)):
                 button.setObjectName(f'commandConsoleAnalysisMode{index + 1}')
                 button.setText(f'B{index + 1}  {button.text().upper()}')
                 button.setMinimumHeight(round(38 * self.theme.scale))
@@ -276,13 +272,16 @@ class AnalysisView:
         return tree, plot_widget
 
     def _mode_button_style(self, accent: str) -> str:
-        radius = round(9 * self.theme.scale)
+        large = round(17 * self.theme.scale)
+        small = round(4 * self.theme.scale)
         font_size = round(12 * self.theme.scale)
         return (
             'QPushButton {'
             'background-color: transparent; color: #aebdc5; border: 1px solid transparent;'
-            f'border-radius: {radius}px; padding: 6px 12px;'
+            f'border-top-left-radius: {large}px; border-top-right-radius: {small}px;'
+            f'border-bottom-right-radius: {large}px; border-bottom-left-radius: {small}px;'
+            'padding: 6px 14px;'
             f'font-family: Overpass; font-size: {font_size}px; font-weight: 600;}}'
             f'QPushButton:hover {{color: #f4efe6; border-color: {accent};}}'
             f'QPushButton:checked {{color: #11171b; background-color: {accent};'
-            f'border-color: {accent};}}')
+            f'border: 1px solid {accent}; border-bottom: 4px solid #141b20;}}')

@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QTabWidget, QVBoxLayout)
 
 from ..datamodels import SortingProxy
-from ..themes.command_console import COMMAND_CONSOLE_ACCENTS
+from ..themes.command_console import command_console_accents
 from ..translation import tr
 from ..widgetbuilder import (
     ABOTTOM, ACENTER, ARIGHT, OVERTICAL, SMINMIN, create_button_series, create_frame,
@@ -28,6 +28,7 @@ class OverviewView:
         self.tables = tables
         self.sidebar_width = sidebar_width
         self.command_console = command_console
+        self.accents = command_console_accents(theme)
 
     def build(self, parent_frame: QFrame) -> None:
         layout = QVBoxLayout()
@@ -89,7 +90,7 @@ class OverviewView:
         frame.setObjectName('commandConsoleOverviewHeading')
         frame.setStyleSheet(
             'QFrame#commandConsoleOverviewHeading {'
-            'background-color: transparent; border: none; border-left: 5px solid #ff8a2a;}')
+            f'background-color: transparent; border: none; border-left: 5px solid {self.accents[0]};}}')
         layout = QHBoxLayout()
         layout.setContentsMargins(round(15 * self.theme.scale), 0, 0, 0)
         layout.setSpacing(round(14 * self.theme.scale))
@@ -156,7 +157,7 @@ class OverviewView:
         )
         value_labels = list()
         for index, ((heading, detail), accent) in enumerate(
-                zip(specifications, COMMAND_CONSOLE_ACCENTS)):
+                zip(specifications, self.accents)):
             card = QFrame()
             card.setObjectName(f'commandConsoleOverviewStatCard{index}')
             card.setStyleSheet(
@@ -224,7 +225,7 @@ class OverviewView:
             for index, button in enumerate(buttons):
                 button.setText(f'A{index + 1}  {button.text().upper()}')
                 button.setMinimumHeight(round(38 * self.theme.scale))
-                button.setStyleSheet(self._mode_button_style(COMMAND_CONSOLE_ACCENTS[index]))
+                button.setStyleSheet(self._mode_button_style(self.accents[index]))
         else:
             switcher.setContentsMargins(0, self.theme['defaults']['margin'], 0, 0)
         switch_frame.setLayout(switcher)
@@ -306,7 +307,7 @@ class OverviewView:
         names = ('SUMMARY', 'DAMAGE OUT', 'DAMAGE IN', 'HEALING', 'ALL METRICS')
         object_names = ('Summary', 'DamageOut', 'DamageIn', 'Healing', 'All')
         for index, (name, object_name, accent) in enumerate(
-                zip(names, object_names, COMMAND_CONSOLE_ACCENTS)):
+                zip(names, object_names, self.accents)):
             button = QPushButton(f'T{index + 1}  {name}')
             button.setObjectName(f'commandConsoleOverviewMetric{object_name}')
             button.setCheckable(True)
@@ -322,25 +323,31 @@ class OverviewView:
         return frame
 
     def _mode_button_style(self, accent: str) -> str:
-        radius = round(9 * self.theme.scale)
+        large = round(17 * self.theme.scale)
+        small = round(4 * self.theme.scale)
         font_size = round(12 * self.theme.scale)
         return (
             'QPushButton {'
             'background-color: transparent; color: #aebdc5; border: 1px solid transparent;'
-            f'border-radius: {radius}px; padding: 6px 12px;'
+            f'border-top-left-radius: {large}px; border-top-right-radius: {small}px;'
+            f'border-bottom-right-radius: {large}px; border-bottom-left-radius: {small}px;'
+            'padding: 6px 14px;'
             f'font-family: Overpass; font-size: {font_size}px; font-weight: 600;}}'
             f'QPushButton:hover {{color: #f4efe6; border-color: {accent};}}'
             f'QPushButton:checked {{color: #11171b; background-color: {accent};'
-            f'border-color: {accent};}}')
+            f'border: 1px solid {accent}; border-bottom: 4px solid #141b20;}}')
 
     def _metric_button_style(self, accent: str) -> str:
-        radius = round(7 * self.theme.scale)
+        large = round(12 * self.theme.scale)
+        small = round(3 * self.theme.scale)
         font_size = round(9 * self.theme.scale)
         return (
             'QPushButton {'
             'background-color: #121d25; color: #9fb0b9; border: 1px solid #30424e;'
-            f'border-radius: {radius}px; padding: 4px 8px;'
+            f'border-top-left-radius: {large}px; border-top-right-radius: {small}px;'
+            f'border-bottom-right-radius: {large}px; border-bottom-left-radius: {small}px;'
+            'padding: 4px 9px;'
             f'font-family: Roboto Mono; font-size: {font_size}px; font-weight: 600;}}'
             f'QPushButton:hover {{color: #f4efe6; border-color: {accent};}}'
             f'QPushButton:checked {{color: #10161b; background-color: {accent};'
-            f'border-color: {accent};}}')
+            f'border: 1px solid {accent}; border-bottom: 3px solid #141b20;}}')

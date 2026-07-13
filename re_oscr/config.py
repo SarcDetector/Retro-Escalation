@@ -3,6 +3,10 @@ from pathlib import Path
 
 from PySide6.QtCore import QByteArray, QSettings
 
+from .appearance import (
+    DEFAULT_COMMAND_CONSOLE_BACKGROUND, DEFAULT_COMMAND_CONSOLE_PALETTE,
+    normalize_background_mode, resolve_command_console_palette)
+
 
 class OSCRConfig():
     def __init__(self):
@@ -35,6 +39,9 @@ class OSCRConfig():
 class OSCRSettings():
 
     __slots__ = ('_settings', 'analysis_graph', 'auto_scan', 'combat_min_lines',
+                 'command_console_accents', 'command_console_background_mode',
+                 'command_console_background_opacity', 'command_console_background_path',
+                 'command_console_palette_preset',
                  'combats_to_parse', 'copy_format', 'dmg_columns', 'favorite_ladders',
                  'first_overview_tab', 'graph_resolution', 'heal_columns', 'league_table_rows',
                  'language', 'log_path', 'overview_sort_column', 'overview_sort_order',
@@ -48,6 +55,11 @@ class OSCRSettings():
     def __init__(self, settings_file_path: Path):
         self.analysis_graph: bool = True
         self.auto_scan: bool = False
+        self.command_console_accents: list[str] = list(DEFAULT_COMMAND_CONSOLE_PALETTE)
+        self.command_console_background_mode: str = DEFAULT_COMMAND_CONSOLE_BACKGROUND
+        self.command_console_background_opacity: float = 0.28
+        self.command_console_background_path: str = ''
+        self.command_console_palette_preset: str = 'command'
         self.combat_min_lines: int = 20
         self.combats_to_parse: int = 10
         self.copy_format: str = 'Compact'
@@ -87,6 +99,13 @@ class OSCRSettings():
             self._settings = QSettings(str(settings_file_path), QSettings.Format.NativeFormat)
 
         self.load_settings()
+        self.command_console_background_mode = normalize_background_mode(
+            self.command_console_background_mode)
+        if self.command_console_palette_preset not in (
+                'command', 'federation', 'romulan', 'klingon', 'custom'):
+            self.command_console_palette_preset = 'command'
+        self.command_console_accents = list(resolve_command_console_palette(
+            self.command_console_palette_preset, self.command_console_accents))
 
     def load_settings(self):
         """
@@ -178,3 +197,9 @@ class OSCRSettings():
         setting_value = round(new_value / 50, 2)
         self.liveparser__window_scale = setting_value
         return f'{setting_value:.2f}'
+
+    def set_command_background_opacity(self, new_value: int) -> str:
+        """Store Command Console background intensity from a zero-to-fifty slider."""
+        setting_value = round(max(0, min(50, new_value)) / 100, 2)
+        self.command_console_background_opacity = setting_value
+        return f'{setting_value * 100:.0f}%'

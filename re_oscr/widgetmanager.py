@@ -75,6 +75,10 @@ class WidgetManager():
         self.sto_log_path_entry: QLineEdit
         self.theme_selector: QComboBox
         self.theme_restart_label: QLabel
+        self.appearance_palette_selector: QComboBox
+        self.appearance_background_selector: QComboBox
+        self.appearance_background_path_entry: QLineEdit
+        self.appearance_color_entries: list[QLineEdit] = list()
         self.settings_tabber: QTabWidget
         self.settings_menu_buttons: list[QPushButton] = list()
         self.settings_damage_column_buttons: list[QPushButton] = list()

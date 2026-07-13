@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 import logging
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Sequence
 
 from PySide6.QtCore import QDir
 
@@ -68,7 +68,8 @@ def _configure_asset_path(definition: ThemeDefinition, app_dir: Path) -> None:
 
 
 def resolve_theme(
-        requested_theme_id: str, scale: float, app_dir: Path | None = None) -> ThemeResolution:
+        requested_theme_id: str, scale: float, app_dir: Path | None = None,
+        command_console_palette: Sequence[str] | None = None) -> ThemeResolution:
     """Resolve and construct a theme, returning Default after any alternate-theme failure."""
     definition = THEME_REGISTRY.get(requested_theme_id)
     fallback_used = definition is None
@@ -77,7 +78,10 @@ def resolve_theme(
         definition = THEME_REGISTRY[DEFAULT_THEME_ID]
 
     try:
-        theme = definition.factory(scale)
+        if definition.theme_id == COMMAND_CONSOLE_THEME_ID:
+            theme = definition.factory(scale, command_console_palette)
+        else:
+            theme = definition.factory(scale)
         if app_dir is not None:
             _configure_asset_path(definition, app_dir)
     except Exception:

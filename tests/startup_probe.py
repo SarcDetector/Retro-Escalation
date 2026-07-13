@@ -54,8 +54,8 @@ def main() -> int:
         colour_rail = ui.window.findChild(QWidget, "commandConsoleColourRail")
         assert context_rail is not None
         assert sidebar_host is not None
-        assert context_rail.property("activeAccent") == "#ff8a2a"
-        assert sidebar_host.property("activeAccent") == "#ff8a2a"
+        assert context_rail.property("activeAccent") == "#FF8A2A"
+        assert sidebar_host.property("activeAccent") == "#FF8A2A"
         ui.widgets.sidebar_flip_button.click()
         ui.app.processEvents()
         assert sidebar_host.isHidden()
@@ -102,10 +102,16 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "commandConsoleSettingsHeading") is not None
         assert ui.window.findChild(QWidget, "commandConsoleSettingsTitle").text() == "SETTINGS"
         assert ui.window.findChild(QWidget, "commandConsoleSettingsNavigation") is not None
-        assert ui.widgets.settings_tabber.count() == 4
+        assert ui.widgets.settings_tabber.count() == 5
         assert [button.text() for button in ui.widgets.settings_menu_buttons] == [
-            "C1  CORE SYSTEMS", "C2  LIVE PARSER", "C3  DAMAGE TABLE",
-            "C4  HEAL + LIVE"]
+            "C1  APPEARANCE", "C2  CORE SYSTEMS", "C3  LIVE PARSER",
+            "C4  DAMAGE TABLE", "C5  HEAL + LIVE"]
+        assert ui.window.findChild(QWidget, "commandConsoleAppearanceProfilePanel") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleAppearancePalettePanel") is not None
+        assert ui.widgets.appearance_palette_selector.count() == 5
+        assert ui.widgets.appearance_background_selector.count() == 4
+        assert len(ui.widgets.appearance_color_entries) == 5
+        assert ui.widgets.appearance_color_entries[0].text() == "#FF8A2A"
         assert len(ui.widgets.settings_damage_column_buttons) == len(ui.settings.dmg_columns)
         assert len(ui.widgets.settings_heal_column_buttons) == len(ui.settings.heal_columns)
         assert len(ui.widgets.settings_live_column_buttons) == len(
@@ -150,7 +156,7 @@ def main() -> int:
         ui.app.processEvents()
         assert ui.widgets.main_tabber.currentIndex() == 2
         assert ui.widgets.sidebar_tabber.currentIndex() == 1
-        assert context_rail.property("activeAccent") == "#9a6bc4"
+        assert context_rail.property("activeAccent") == "#9A6BC4"
         ui.widgets.ladder_search.setText("tester")
         assert ui.league.current_filter_term == "tester"
         ui.widgets.ladder_search.clear()
@@ -159,7 +165,7 @@ def main() -> int:
         ui.app.processEvents()
         assert ui.widgets.main_tabber.currentIndex() == 3
         assert ui.widgets.sidebar_tabber.currentIndex() == 2
-        assert context_rail.property("activeAccent") == "#4fc3cc"
+        assert context_rail.property("activeAccent") == "#4FC3CC"
         for index, button in enumerate(ui.widgets.settings_menu_buttons):
             button.click()
             ui.app.processEvents()

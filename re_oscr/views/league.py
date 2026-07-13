@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFrame, QGridLayout, QHBoxLayout, QLabel, QSizePolicy, QTableView, QVBoxLayout)
 
-from ..themes.command_console import COMMAND_CONSOLE_ACCENTS
+from ..themes.command_console import command_console_accents
 from ..translation import tr
 from ..widgetbuilder import (
     AVCENTER, create_button_series, create_entry, create_frame)
@@ -23,6 +23,7 @@ class LeagueView:
         self.sidebar = sidebar
         self.clear_filter_callback = clear_filter_callback
         self.command_console = command_console
+        self.accents = command_console_accents(theme)
 
     def build(self, parent_frame: QFrame) -> None:
         layout = QVBoxLayout()
@@ -53,7 +54,7 @@ class LeagueView:
         frame.setFixedHeight(round(76 * self.theme.scale))
         frame.setStyleSheet(
             'QFrame#commandConsoleLeagueHeading {'
-            'background-color: transparent; border: none; border-left: 5px solid #9a6bc4;}')
+            f'background-color: transparent; border: none; border-left: 5px solid {self.accents[2]};}}')
         layout = QHBoxLayout()
         layout.setContentsMargins(round(15 * self.theme.scale), 0, 0, 0)
         layout.setSpacing(round(12 * self.theme.scale))
@@ -183,7 +184,7 @@ class LeagueView:
         layout.setVerticalSpacing(round(7 * self.theme.scale))
         layout.setColumnStretch(1, 1)
 
-        filter_label = self._build_control_label('FILTER RECORDS', COMMAND_CONSOLE_ACCENTS[0])
+        filter_label = self._build_control_label('FILTER RECORDS', self.accents[0])
         layout.addWidget(filter_label, 0, 0)
         search_bar = self._create_search_bar()
         search_bar.setMinimumWidth(round(250 * self.theme.scale))
@@ -192,21 +193,20 @@ class LeagueView:
         search_layout.setSpacing(round(7 * self.theme.scale))
         search_buttons[0].setText('SEARCH')
         search_buttons[1].setText('RESET')
-        for button, accent in zip(search_buttons, COMMAND_CONSOLE_ACCENTS[:2]):
+        for button, accent in zip(search_buttons, self.accents[:2]):
             button.setMinimumHeight(round(34 * self.theme.scale))
             button.setSizePolicy(
                 QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             button.setStyleSheet(self._command_button_style(accent))
         layout.addLayout(search_layout, 0, 2)
 
-        action_label = self._build_control_label('PARSE OPERATIONS', COMMAND_CONSOLE_ACCENTS[2])
+        action_label = self._build_control_label('PARSE OPERATIONS', self.accents[2])
         layout.addWidget(action_label, 1, 0)
         action_layout, action_buttons = self._create_action_buttons(separator='')
         action_layout.setSpacing(round(7 * self.theme.scale))
         labels = ('OPEN LOCAL', 'OPEN SELECTED', 'SAVE SELECTED', 'LOAD MORE')
         accents = (
-            COMMAND_CONSOLE_ACCENTS[3], COMMAND_CONSOLE_ACCENTS[0],
-            COMMAND_CONSOLE_ACCENTS[2], COMMAND_CONSOLE_ACCENTS[4])
+            self.accents[3], self.accents[0], self.accents[2], self.accents[4])
         for button, label, accent in zip(action_buttons, labels, accents):
             button.setText(label)
             button.setMinimumHeight(round(34 * self.theme.scale))
@@ -227,13 +227,18 @@ class LeagueView:
         return label
 
     def _command_button_style(self, accent: str) -> str:
-        radius = round(8 * self.theme.scale)
+        large = round(14 * self.theme.scale)
+        small = round(3 * self.theme.scale)
         font_size = round(10 * self.theme.scale)
         return (
             'QPushButton {'
             'background-color: #111b22; color: #dce6ea;'
-            f'border: 1px solid {accent}; border-radius: {radius}px; padding: 6px 11px;'
+            f'border: 1px solid {accent}; border-bottom: 4px solid #141b20;'
+            f'border-top-left-radius: {large}px; border-top-right-radius: {small}px;'
+            f'border-bottom-right-radius: {large}px; border-bottom-left-radius: {small}px;'
+            'padding: 6px 12px;'
             f'font-family: Overpass; font-size: {font_size}px; font-weight: 700;}}'
-            f'QPushButton:hover {{background-color: {accent}; color: #11171b;}}'
+            f'QPushButton:hover {{background-color: {accent}; color: #11171b;'
+            'border-bottom-color: #273039;}'
             f'QPushButton:pressed {{background-color: {accent}; color: #ffffff;}}'
             'QPushButton:disabled {color: #60727c; border-color: #35444d;}')
