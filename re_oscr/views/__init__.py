@@ -3,5 +3,6 @@
 from .analysis import AnalysisView
 from .league import LeagueView
 from .overview import OverviewView
+from .settings import CommandSettingsView
 
-__all__ = ['AnalysisView', 'LeagueView', 'OverviewView']
+__all__ = ['AnalysisView', 'CommandSettingsView', 'LeagueView', 'OverviewView']

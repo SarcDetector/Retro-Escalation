@@ -49,6 +49,21 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "commandConsoleBrandTitle").text() == (
             "OPEN SOURCE COMBATLOG READER")
         assert ui.window.findChild(QWidget, "commandConsoleColourRail") is not None
+        context_rail = ui.window.findChild(QWidget, "commandConsoleContextRail")
+        sidebar_host = ui.window.findChild(QWidget, "commandConsoleSidebarHost")
+        colour_rail = ui.window.findChild(QWidget, "commandConsoleColourRail")
+        assert context_rail is not None
+        assert sidebar_host is not None
+        assert context_rail.property("activeAccent") == "#ff8a2a"
+        assert sidebar_host.property("activeAccent") == "#ff8a2a"
+        ui.widgets.sidebar_flip_button.click()
+        ui.app.processEvents()
+        assert sidebar_host.isHidden()
+        assert not context_rail.isHidden()
+        assert not colour_rail.isHidden()
+        ui.widgets.sidebar_flip_button.click()
+        ui.app.processEvents()
+        assert not sidebar_host.isHidden()
         assert ui.window.findChild(QWidget, "commandConsoleOverviewGraphPanel") is not None
         assert ui.window.findChild(QWidget, "commandConsoleOverviewTablePanel") is not None
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisHeading") is not None
@@ -60,6 +75,17 @@ def main() -> int:
             "LEAGUE STANDINGS")
         assert ui.window.findChild(QWidget, "commandConsoleLeagueTablePanel") is not None
         assert ui.window.findChild(QWidget, "commandConsoleLeagueControlDeck") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleSettingsHeading") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleSettingsTitle").text() == "SETTINGS"
+        assert ui.window.findChild(QWidget, "commandConsoleSettingsNavigation") is not None
+        assert ui.widgets.settings_tabber.count() == 4
+        assert [button.text() for button in ui.widgets.settings_menu_buttons] == [
+            "C1  CORE SYSTEMS", "C2  LIVE PARSER", "C3  DAMAGE TABLE",
+            "C4  HEAL + LIVE"]
+        assert len(ui.widgets.settings_damage_column_buttons) == len(ui.settings.dmg_columns)
+        assert len(ui.widgets.settings_heal_column_buttons) == len(ui.settings.heal_columns)
+        assert len(ui.widgets.settings_live_column_buttons) == len(
+            ui.settings.liveparser__columns)
         assert ui.widgets.league_search_button.text() == "SEARCH"
         assert ui.widgets.league_clear_button.text() == "RESET"
         assert ui.widgets.league_open_local_button.text() == "OPEN LOCAL"
@@ -100,10 +126,21 @@ def main() -> int:
         ui.app.processEvents()
         assert ui.widgets.main_tabber.currentIndex() == 2
         assert ui.widgets.sidebar_tabber.currentIndex() == 1
+        assert context_rail.property("activeAccent") == "#9a6bc4"
         ui.widgets.ladder_search.setText("tester")
         assert ui.league.current_filter_term == "tester"
         ui.widgets.ladder_search.clear()
         assert ui.league.current_filter_term == ""
+        ui.widgets.switch_main_tab(3)
+        ui.app.processEvents()
+        assert ui.widgets.main_tabber.currentIndex() == 3
+        assert ui.widgets.sidebar_tabber.currentIndex() == 2
+        assert context_rail.property("activeAccent") == "#4fc3cc"
+        for index, button in enumerate(ui.widgets.settings_menu_buttons):
+            button.click()
+            ui.app.processEvents()
+            assert ui.widgets.settings_tabber.currentIndex() == index
+            assert button.isChecked()
     else:
         assert default_shell is not None
         assert command_shell is None
@@ -114,6 +151,8 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisHeading") is None
         assert ui.window.findChild(QWidget, "commandConsoleLeagueHeading") is None
         assert ui.window.findChild(QWidget, "commandConsoleLeagueControlDeck") is None
+        assert ui.window.findChild(QWidget, "commandConsoleSettingsHeading") is None
+        assert ui.window.findChild(QWidget, "commandConsoleSettingsNavigation") is None
         assert [button.text() for button in ui.widgets.analysis_menu_buttons] == [
             "Damage Out", "Damage Taken", "Heals Out", "Heals In"]
         assert ui.widgets.league_search_button.text() == "Search"

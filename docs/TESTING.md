@@ -4,10 +4,10 @@
 
 The restart-based theme foundation and portable tester build are implemented. Command Console now
 has its own application shell plus dedicated Overview, Analysis, and League Standings presentations
-while retaining the shared parser, models, and callbacks. Settings and Live Parser still use
-inherited page layouts inside the new shell. League Standings can browse maps, search ladders, load
-local logs, and open or save downloaded parses. This document defines the acceptance matrix for
-experimental builds.
+and a categorized Settings dashboard while retaining the shared parser, models, and callbacks. The
+Live Parser still uses its inherited window layout. League Standings can browse maps, search
+ladders, load local logs, and open or save downloaded parses. This document defines the acceptance
+matrix for experimental builds.
 
 ## Test environments
 
@@ -63,6 +63,10 @@ Run every item once in Default and once in Command Console.
 - [ ] Select Infected Space, Hive Space, and Bug Hunt entries.
 - [x] Switch between DPS Bar and DPS Graph. (Manual source-app visual check)
 - [x] Collapse and restore the sidebar. (Manual source-app visual check)
+- [x] Keep all five colour-rail segments visible while the sidebar is collapsed. (Automated and
+  manual source-app visual check)
+- [x] Match the sidebar accent to Overview, Analysis, League, and Settings. (Automated and manual
+  source-app visual check)
 - [ ] Collapse and restore the graph and table.
 - [ ] Sort the Overview table.
 - [ ] Scroll all columns horizontally.
@@ -101,6 +105,9 @@ python -m tests.league_live_probe --local "C:\path\to\CombatLog.log"
 
 ### Settings
 
+- [x] Open Core Systems, Live Parser, Damage Table, and Heal + Live categories. (Automated and
+  manual source-app visual check)
+- [x] Retain every configured damage, heal, and Live Parser column toggle. (Automated)
 - [ ] Change a numeric setting and confirm persistence.
 - [ ] Exercise switches, sliders, and combo boxes.
 - [ ] Change Overview, Analysis, and Live Parser columns and apply them.
@@ -119,7 +126,9 @@ python -m tests.league_live_probe --local "C:\path\to\CombatLog.log"
 
 ## Visual checks
 
-- [ ] Text and controls remain readable at minimum supported window size.
+- [x] Command Console text and controls remain readable at 1280x960. (Manual source-app visual
+  check)
+- [ ] Text and controls remain readable at 1280x720 and other supported scales.
 - [ ] Tables distinguish headers, selected rows, alternate rows, hover, and focus.
 - [ ] Disabled controls are visibly disabled.
 - [ ] Keyboard focus remains visible.

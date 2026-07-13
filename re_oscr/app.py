@@ -32,7 +32,7 @@ from .widgetbuilder import (
     create_annotated_slider, create_button, create_combo_box, create_entry,
     create_frame, create_icon_button, create_label)
 from .widgetmanager import WidgetManager
-from .views import AnalysisView, LeagueView, OverviewView
+from .views import AnalysisView, CommandSettingsView, LeagueView, OverviewView
 from .widgets import FlipButton
 
 # only for developing; allows to terminate the qt event loop with keyboard interrupt
@@ -348,7 +348,8 @@ class REOSCRApplication():
         main_layout.setContentsMargins(0, 0, margin, 0)
         main_layout.setSpacing(0)
 
-        left, sidebar_host = build_context_rail(self.theme, self.active_theme_id)
+        left, sidebar_host = build_context_rail(
+            self.theme, self.active_theme_id, self.widgets)
         left.setSizePolicy(SMAXMIN)
         main_layout.addWidget(left, 0, 0)
 
@@ -359,8 +360,8 @@ class REOSCRApplication():
         main_layout.addLayout(button_column, 0, 1)
         icon_size = self.theme.opt.icon_size
         left_flip_config = {
-            'icon_r': self.theme.icons['collapse-left'], 'func_r': left.hide,
-            'icon_l': self.theme.icons['expand-left'], 'func_l': left.show,
+            'icon_r': self.theme.icons['collapse-left'], 'func_r': sidebar_host.hide,
+            'icon_l': self.theme.icons['expand-left'], 'func_l': sidebar_host.show,
             'tooltip_r': tr('Collapse Sidebar'), 'tooltip_l': tr('Expand Sidebar')
         }
         sidebar_flip_button = FlipButton('', '')
@@ -370,6 +371,7 @@ class REOSCRApplication():
             self.theme.get_style_class('QPushButton', 'small_button'))
         sidebar_flip_button.setSizePolicy(SMAXMAX)
         button_column.addWidget(sidebar_flip_button, 0, 0, alignment=ATOP)
+        self.widgets.sidebar_flip_button = sidebar_flip_button
 
         graph_flip_config = {
             'icon_r': self.theme.icons['collapse-top'], 'tooltip_r': tr('Collapse Graph'),
@@ -406,6 +408,7 @@ class REOSCRApplication():
 
         main_frame.setLayout(main_layout)
         self.sidebar.create_sidebar(sidebar_host)
+        self.widgets.apply_context_accent(0)
         self.setup_main_tabber(center)
         self.setup_overview_frame()
         self.setup_analysis_frame()
@@ -524,6 +527,18 @@ class REOSCRApplication():
         Populates the settings frame.
         """
         settings_frame = self.widgets.main_tab_frames[3]
+        if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
+            CommandSettingsView(
+                theme=self.theme,
+                settings=self.settings,
+                config=self.config,
+                widgets=self.widgets,
+                tables=self.tables,
+                live_parser=self.live_parser,
+                browse_sto_logpath=self.browse_sto_logpath,
+                set_sto_logpath_callback=self.set_sto_logpath_callback,
+            ).build(settings_frame)
+            return
         settings_layout = QHBoxLayout()
         isp = self.theme['defaults']['isp']
         settings_layout.setContentsMargins(2 * isp, isp, isp, isp)

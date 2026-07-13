@@ -6,6 +6,7 @@ and application state remain shared.
 """
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 
 from .iofunctions import get_asset_path
@@ -26,7 +27,7 @@ def build_application_shell(
     return _build_default_shell(theme, widgets, live_parser, status_bar, app_dir)
 
 
-def build_context_rail(theme: AppTheme, active_theme_id: str) -> tuple[QFrame, QFrame]:
+def build_context_rail(theme: AppTheme, active_theme_id: str, widgets=None) -> tuple[QFrame, QFrame]:
     """Return the collapsible rail container and the frame that receives sidebar content."""
     if active_theme_id != COMMAND_CONSOLE_THEME_ID:
         frame = create_frame(theme)
@@ -50,11 +51,13 @@ def build_context_rail(theme: AppTheme, active_theme_id: str) -> tuple[QFrame, Q
     accent_layout = QVBoxLayout()
     accent_layout.setContentsMargins(0, 0, 0, 0)
     accent_layout.setSpacing(max(1, round(2 * theme.scale)))
+    rail_segments = []
     for index, colour in enumerate(COMMAND_CONSOLE_ACCENTS):
         segment = QFrame()
         segment.setObjectName(f'commandConsoleRailSegment{index + 1}')
         segment.setStyleSheet(f'background-color: {colour}; border: none;')
         accent_layout.addWidget(segment, 1)
+        rail_segments.append(segment)
     accent_frame.setLayout(accent_layout)
     layout.addWidget(accent_frame)
 
@@ -65,7 +68,27 @@ def build_context_rail(theme: AppTheme, active_theme_id: str) -> tuple[QFrame, Q
         + 'QFrame#commandConsoleSidebarHost {background-color: #0d1419; border: none;}')
     layout.addWidget(sidebar_host, 1)
     container.setLayout(layout)
+    if widgets is not None:
+        widgets.context_rail = container
+        widgets.context_colour_rail = accent_frame
+        widgets.context_rail_segments = rail_segments
+        widgets.sidebar_host = sidebar_host
+        widgets.context_accents = list(COMMAND_CONSOLE_ACCENTS)
+        widgets.context_tints = [
+            _blend_colour(colour, '#0d1419', 0.16) for colour in COMMAND_CONSOLE_ACCENTS]
     return container, sidebar_host
+
+
+def _blend_colour(foreground: str, background: str, foreground_ratio: float) -> str:
+    """Blend a bright accent into a dark surface for readable contextual panels."""
+    fg = QColor(foreground)
+    bg = QColor(background)
+    ratio = max(0.0, min(1.0, foreground_ratio))
+    return QColor(
+        round(fg.red() * ratio + bg.red() * (1 - ratio)),
+        round(fg.green() * ratio + bg.green() * (1 - ratio)),
+        round(fg.blue() * ratio + bg.blue() * (1 - ratio)),
+    ).name()
 
 
 def _build_default_shell(theme, widgets, live_parser, status_bar, app_dir):

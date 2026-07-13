@@ -127,13 +127,16 @@ In scope:
 - Orange, gold, purple, cyan, and red accent roles.
 - A dedicated masthead with original RE branding and no copied logos, fonts, or interface artwork.
 - Five large segmented controls for Overview, Analysis, League, Settings, and Live Parser.
-- A five-colour context rail surrounding the existing collapsible sidebar.
-- Dedicated Overview, Analysis, and League Standings presentation modules with rounded chart and
-  table panels.
+- A persistent five-colour context rail surrounding the collapsible sidebar, with a readable
+  page-matched sidebar tint and border.
+- Dedicated Overview, Analysis, League Standings, and Settings presentation modules with rounded
+  chart, table, and control panels.
 - Command-style Overview graph modes while retaining all three inherited plots.
 - Command-style Analysis modes while retaining Damage Out, Damage Taken, Heals Out, and Heals In.
 - Command-style League ladder browser while retaining season/map selection, sorting, handle search,
   row expansion, local-log loading, and selected-parse open/save actions.
+- Categorized Settings work areas for core behavior, Live Parser behavior, and all inherited column
+  visibility controls.
 - Player and NPC tree drill-down, event graph selection, freeze, clear, copy, and focus controls.
 - Pyqtgraph backgrounds, axes, legends, bars, lines, and a five-player colour cycle.
 - Shared parser callbacks, models, sorting, copying, uploading, and saved splitter state.
@@ -145,9 +148,8 @@ Out of scope:
 
 - Metric summary cards.
 - Splitting telemetry into new table models or changing data columns.
-- Rebuilding Settings into categories or cards.
 - Adding the browser prototype's Analysis readout panel.
-- Rebuilding the inherited Settings or Live Parser page layouts.
+- Rebuilding the inherited Live Parser window layout.
 - Five-rail palette presets and user-entered colours.
 - Custom background selection.
 - Runtime theme switching.
@@ -156,12 +158,15 @@ Out of scope:
 Exit criteria:
 
 - Command Console starts at 1280x720 or larger without clipping its five primary controls.
-- The context rail collapses and restores through the existing sidebar callback.
+- The sidebar collapses and restores through the existing callback while the five-colour rail
+  remains visible.
+- Sidebar tint and border follow the active Overview, Analysis, League, or Settings accent.
 - A local Infected Space log browses, analyzes, and populates charts and tables.
 - All three Overview plot modes remain reachable.
 - All four Analysis modes synchronize their graph and tree panels.
 - Damage and healing models retain their distinct headers and drill-down behavior.
 - League map selection, ladder retrieval, handle filtering, and selected-parse loading remain usable.
+- All inherited Settings fields and column toggles remain reachable in the categorized dashboard.
 - The Default startup probe still exposes the inherited shell, Overview, Analysis, and League
   controls.
 - No parser outputs differ between Default and Command Console for the same logs and settings.
@@ -192,8 +197,8 @@ Exit criteria:
 - External declarative theme packages.
 - Theme manifests and compatibility versions.
 - Third-party UI-provider or executable-plugin APIs.
-- Dashboard cards, grouped telemetry, reorganized Settings, and the remaining structural concepts
-  from the browser prototype.
+- Dashboard metric cards, grouped telemetry, and the remaining structural concepts from the browser
+  prototype.
 
 Each parked feature requires a separate scope decision. None is required to prove the startup
 theme foundation.

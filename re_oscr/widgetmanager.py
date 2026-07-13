@@ -16,6 +16,13 @@ class WidgetManager():
         self.main_tab_frames: list[QFrame] = list()
         self.sidebar_tabber: QTabWidget
         self.sidebar_tab_frames: list[QFrame] = list()
+        self.sidebar_host: QFrame | None = None
+        self.sidebar_flip_button: FlipButton
+        self.context_rail: QFrame | None = None
+        self.context_colour_rail: QFrame | None = None
+        self.context_rail_segments: list[QFrame] = list()
+        self.context_accents: list[str] = list()
+        self.context_tints: list[str] = list()
         self.map_tabber: QTabWidget
         self.map_tab_frames: list[QFrame] = list()
         self.map_menu_buttons: list[QPushButton] = list()
@@ -53,6 +60,11 @@ class WidgetManager():
         self.sto_log_path_entry: QLineEdit
         self.theme_selector: QComboBox
         self.theme_restart_label: QLabel
+        self.settings_tabber: QTabWidget
+        self.settings_menu_buttons: list[QPushButton] = list()
+        self.settings_damage_column_buttons: list[QPushButton] = list()
+        self.settings_heal_column_buttons: list[QPushButton] = list()
+        self.settings_live_column_buttons: list[QPushButton] = list()
 
         self._global_settings: OSCRSettings = global_settings
 
@@ -98,6 +110,7 @@ class WidgetManager():
         for index, button in enumerate(self.main_menu_buttons):
             if button.isCheckable():
                 button.setChecked(index == tab_index)
+        self.apply_context_accent(tab_index)
         if tab_index == 0:
             self.overview_table_button.show()
         else:
@@ -106,6 +119,33 @@ class WidgetManager():
             self.analysis_graph_button.show()
         else:
             self.analysis_graph_button.hide()
+
+    def apply_context_accent(self, tab_index: int):
+        """Synchronize the persistent Command Console rail and sidebar surface to a page."""
+        if not self.context_rail or not self.context_accents:
+            return
+        accent_index = max(0, min(tab_index, len(self.context_accents) - 1))
+        accent = self.context_accents[accent_index]
+        tint = self.context_tints[accent_index]
+        self.context_rail.setProperty('activeAccent', accent)
+        self.context_rail.setStyleSheet(
+            'QFrame#commandConsoleContextRail {'
+            f'background-color: #0d1419; border: 1px solid {accent}; border-radius: 10px;}}')
+        if self.sidebar_host:
+            self.sidebar_host.setProperty('activeAccent', accent)
+            self.sidebar_host.setStyleSheet(
+                'QFrame#commandConsoleSidebarHost {'
+                f'background-color: {tint}; border: none; border-top: 5px solid {accent};}}')
+        for index, segment in enumerate(self.context_rail_segments):
+            colour = self.context_accents[index]
+            selected_border = 'border-right: 3px solid #f4efe6;' if index == accent_index else ''
+            segment.setStyleSheet(
+                f'background-color: {colour}; border: none; {selected_border}')
+        for frame in self.sidebar_tab_frames:
+            name = frame.objectName()
+            if name.startswith('commandConsoleSidebar'):
+                frame.setStyleSheet(
+                    f'QFrame#{name} {{background-color: {tint}; border: none;}}')
 
     def expand_analysis_graph(self):
         """

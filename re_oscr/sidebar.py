@@ -64,7 +64,13 @@ class OSCRLeftSidebar():
         log_frame = create_frame(self._theme, style='medium_frame', size_policy=SMINMIN)
         league_frame = create_frame(self._theme, style='medium_frame', size_policy=SMINMIN)
         about_frame = create_frame(self._theme, style='medium_frame', size_policy=SMINMIN)
+        if parent_frame.objectName() == 'commandConsoleSidebarHost':
+            log_frame.setObjectName('commandConsoleSidebarLog')
+            league_frame.setObjectName('commandConsoleSidebarLeague')
+            about_frame.setObjectName('commandConsoleSidebarAbout')
         sidebar_tabber = QTabWidget(parent_frame)
+        if parent_frame.objectName() == 'commandConsoleSidebarHost':
+            sidebar_tabber.setObjectName('commandConsoleSidebarTabber')
         sidebar_tabber.setStyleSheet(self._theme.get_style_class('QTabWidget', 'tabber'))
         sidebar_tabber.tabBar().hide()
         sidebar_tabber.setSizePolicy(SMAXMIN)
