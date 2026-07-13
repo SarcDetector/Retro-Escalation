@@ -8,7 +8,7 @@ from re_oscr import REOSCRApplication
 
 class Launcher():
 
-    __version__ = '11.1.0.dev3+re.oscr'
+    __version__ = '11.1.0.dev4+re.oscr'
 
     @staticmethod
     def base_path() -> str:

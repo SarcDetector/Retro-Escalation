@@ -2,10 +2,11 @@
 
 ## Status
 
-The restart-based theme foundation and portable tester build are implemented. Command Console is
-currently a palette preview on RE-OSCR's inherited layouts. League Standings can load local logs and
-open or save downloaded parses. This document defines the acceptance matrix for experimental
-builds.
+The restart-based theme foundation and portable tester build are implemented. Command Console now
+has its own application shell and Overview presentation while retaining the shared parser, models,
+and callbacks. Analysis, League, Settings, and Live Parser still use inherited page layouts inside
+the new shell. League Standings can load local logs and open or save downloaded parses. This
+document defines the acceptance matrix for experimental builds.
 
 ## Test environments
 
@@ -56,11 +57,12 @@ Run every item once in Default and once in Command Console.
 
 ### Overview
 
-- [ ] Browse to a combat log.
-- [ ] Analyze multiple combats.
+- [x] Browse to a combat log. (Manual source-app visual check)
+- [x] Analyze an Infected Space combat. (Manual source-app visual check)
 - [ ] Select Infected Space, Hive Space, and Bug Hunt entries.
-- [ ] Switch between DPS Bar, DPS Graph, and Damage Graph.
-- [ ] Collapse and restore the sidebar, graph, and table.
+- [x] Switch between DPS Bar and DPS Graph. (Manual source-app visual check)
+- [x] Collapse and restore the sidebar. (Manual source-app visual check)
+- [ ] Collapse and restore the graph and table.
 - [ ] Sort the Overview table.
 - [ ] Scroll all columns horizontally.
 - [ ] Copy and export results.

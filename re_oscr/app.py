@@ -4,7 +4,7 @@ from shutil import copy2
 import sys
 
 from PySide6.QtWidgets import (
-    QApplication, QWidget, QLayout, QLineEdit, QFrame, QHeaderView, QScrollArea, QSplitter,
+    QApplication, QWidget, QLayout, QLineEdit, QFrame, QScrollArea, QSplitter,
     QTabWidget, QTableView, QTreeView, QVBoxLayout, QHBoxLayout, QGridLayout)
 from PySide6.QtCore import QDir, QSize, QTimer, QThread
 from PySide6.QtGui import (
@@ -14,17 +14,18 @@ from OSCR import LIVE_TABLE_HEADER, TABLE_HEADER, TREE_HEADER, HEAL_TREE_HEADER
 from .analysisgraphs import AnalysisGraphs
 from .analysistables import AnalysisTables
 from .config import OSCRConfig, OSCRSettings
-from .datamodels import SortingProxy, TreeModel, TreeSelectionModel
+from .datamodels import TreeModel, TreeSelectionModel
 from .dialogs import DetectionInfoDialog, DialogsWrapper, UploadresultDialog
 from .iofunctions import browse_path, get_asset_path, load_icon_series, load_icon
 from .liveparser import LiveParserWindow
 from .leagueconnector import OSCRLeagueConnector
 from .parserbridge import ParserBridge
+from .shell import build_application_shell, build_context_rail
 from .sidebar import OSCRLeftSidebar
 from .statusbar import StatusBar
 from .textedit import format_path
 from .theme import AppTheme
-from .themes import DEFAULT_THEME_ID, available_themes, resolve_theme
+from .themes import COMMAND_CONSOLE_THEME_ID, DEFAULT_THEME_ID, available_themes, resolve_theme
 from .translation import init_translation, tr
 from .widgetbuilder import (
     ABOTTOM, ACENTER, AHCENTER, ALEFT, ARIGHT, ATOP, AVCENTER, OVERTICAL, SMAXMAX, SMAXMIN,
@@ -32,7 +33,8 @@ from .widgetbuilder import (
     create_annotated_slider, create_button, create_button_series, create_combo_box, create_entry,
     create_frame, create_icon_button, create_label)
 from .widgetmanager import WidgetManager
-from .widgets import AnalysisPlot, BannerLabel, FlipButton
+from .views import OverviewView
+from .widgets import AnalysisPlot, FlipButton
 
 # only for developing; allows to terminate the qt event loop with keyboard interrupt
 # from signal import signal, SIGINT, SIG_DFL
@@ -347,7 +349,7 @@ class REOSCRApplication():
         main_layout.setContentsMargins(0, 0, margin, 0)
         main_layout.setSpacing(0)
 
-        left = create_frame(self.theme)
+        left, sidebar_host = build_context_rail(self.theme, self.active_theme_id)
         left.setSizePolicy(SMAXMIN)
         main_layout.addWidget(left, 0, 0)
 
@@ -404,7 +406,7 @@ class REOSCRApplication():
         main_layout.addWidget(center, 0, 2)
 
         main_frame.setLayout(main_layout)
-        self.sidebar.create_sidebar(left)
+        self.sidebar.create_sidebar(sidebar_host)
         self.setup_main_tabber(center)
         self.setup_overview_frame()
         self.setup_analysis_frame()
@@ -453,86 +455,17 @@ class REOSCRApplication():
         """
         Sets up the frame housing the combatlog overview
         """
-        o_frame = self.widgets.main_tab_frames[0]
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-        switch_layout = QGridLayout()
-        switch_layout.setContentsMargins(0, 0, 0, 0)
-        layout.addLayout(switch_layout)
-        splitter = QSplitter(OVERTICAL)
-        splitter.setStyleSheet(self.theme.get_style_class('QSplitter', 'splitter'))
-        splitter.setChildrenCollapsible(False)
-        self.widgets.overview_splitter = splitter
-        layout.addWidget(splitter)
-
-        self.graphs.create_overview_plots()
-        o_tabber = QTabWidget(o_frame)
-        o_tabber.setStyleSheet(self.theme.get_style_class('QTabWidget', 'tabber'))
-        o_tabber.tabBar().hide()
-        o_tabber.addTab(self.graphs.dps_bar_plot, 'BAR')
-        o_tabber.addTab(self.graphs.dps_graph_plot, 'DPS')
-        o_tabber.addTab(self.graphs.dmg_bar_plot, 'DMG')
-        o_tabber.setMinimumHeight(self.sidebar_item_width * 0.8)
-        splitter.addWidget(o_tabber)
-        splitter.setStretchFactor(0, self.theme.opt.overview_graph_stretch)
-
-        switch_layout.setColumnStretch(0, 1)
-        switch_frame = create_frame(self.theme)
-        switch_layout.addWidget(switch_frame, 0, 1, alignment=ACENTER)
-        switch_layout.setColumnStretch(1, 2)
-
-        switch_style = {
-            'default': {'margin-left': '@margin', 'margin-right': '@margin'},
-            tr('DPS Bar'): {
-                'callback': lambda: self.widgets.switch_overview_tab(0), 'align': ACENTER,
-                'toggle': True},
-            tr('DPS Graph'): {
-                'callback': lambda: self.widgets.switch_overview_tab(1), 'align': ACENTER,
-                'toggle': False},
-            tr('Damage Graph'): {
-                'callback': lambda: self.widgets.switch_overview_tab(2), 'align': ACENTER,
-                'toggle': False}
-        }
-        switcher, buttons = create_button_series(self.theme, switch_style, 'tab_button', ret=True)
-        switcher.setContentsMargins(0, self.theme['defaults']['margin'], 0, 0)
-        switch_frame.setLayout(switcher)
-        self.widgets.overview_menu_buttons = buttons
-        icon_layout = QHBoxLayout()
-        icon_layout.setContentsMargins(0, 0, 0, 0)
-        icon_layout.setSpacing(self.theme['defaults']['csp'])
-        copy_button = create_icon_button(self.theme, 'copy', tr('Copy Result'))
-        copy_button.clicked.connect(self.parser.copy_summary_data)
-        icon_layout.addWidget(copy_button)
-        ladder_button = create_icon_button(self.theme, 'ladder', tr('Upload Result'))
-        ladder_button.clicked.connect(self.league.upload_callback)
-        icon_layout.addWidget(ladder_button)
-        switch_layout.addLayout(icon_layout, 0, 2, alignment=ARIGHT | ABOTTOM)
-        switch_layout.setColumnStretch(2, 1)
-        table_frame = create_frame(self.theme, size_policy=SMINMIN)
-        table_frame.setMinimumHeight(self.sidebar_item_width * 0.4)
-        table_layout = QVBoxLayout()
-        table_layout.setContentsMargins(0, 0, 0, 0)
-        sorting_proxy = SortingProxy()
-        self.parser.overview_table_model.init_fonts(
-            self.theme.get_font('table_header'), self.theme.get_font('table'))
-        sorting_proxy.setSourceModel(self.parser.overview_table_model)
-        table = QTableView()
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        table.setModel(sorting_proxy)
-        self.tables.style_table(table)
-        table_layout.addWidget(table)
-        self.tables.overview_table = table
-        table_frame.setLayout(table_layout)
-        splitter.addWidget(table_frame)
-        self.tables.overview_table_frame = table_frame
-        o_frame.setLayout(layout)
-        if self.settings.state__overview_splitter:
-            splitter.restoreState(self.settings.state__overview_splitter)
-        else:
-            h = splitter.height()
-            splitter.setSizes((h * 0.5, h * 0.5))
-        self.widgets.overview_tabber = o_tabber
+        OverviewView(
+            theme=self.theme,
+            settings=self.settings,
+            widgets=self.widgets,
+            graphs=self.graphs,
+            parser=self.parser,
+            league=self.league,
+            tables=self.tables,
+            sidebar_width=self.sidebar_item_width,
+            command_console=self.active_theme_id == COMMAND_CONSOLE_THEME_ID,
+        ).build(self.widgets.main_tab_frames[0])
 
     def create_analysis_tab(
             self, graph_frame: QFrame, tree_frame: QFrame, tree_model: TreeModel,
@@ -764,58 +697,18 @@ class REOSCRApplication():
 
     def create_master_layout(self) -> tuple[QVBoxLayout, QFrame]:
         """
-        Creates and returns the master layout for an OSCR window.
+        Creates and returns the selected RE-OSCR application shell.
 
         :return: populated QVBoxlayout and content frame QFrame
         """
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        bg_frame = create_frame(self.theme, style_override={'background-color': '@oscr'})
-        bg_frame.setSizePolicy(SMINMIN)
-        layout.addWidget(bg_frame)
-
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(0)
-        lbl = BannerLabel(get_asset_path('oscrbanner-slim-dark-label.png', self.app_dir), bg_frame)
-        main_layout.addWidget(lbl)
-
-        menu_frame = create_frame(self.theme, style_override={'background-color': '@oscr'})
-        menu_frame.setSizePolicy(SMINMAX)
-        menu_frame.setContentsMargins(0, 0, 0, 0)
-        main_layout.addWidget(menu_frame)
-        menu_layout = QGridLayout()
-        menu_layout.setContentsMargins(0, 0, 0, 0)
-        menu_layout.setSpacing(0)
-        menu_layout.setColumnStretch(1, 1)
-        menu_button_style = {
-            tr('Overview'): {'style': {'margin-left': '@isp'}},
-            tr('Analysis'): {},
-            tr('League Standings'): {},
-            tr('Settings'): {},
-        }
-        bt_lay, buttons = create_button_series(
-            self.theme, menu_button_style, style='menu_button', seperator='•', ret=True)
-        menu_layout.addLayout(bt_lay, 0, 0)
-        self.widgets.main_menu_buttons = buttons
-
-        size = [self.theme.opt.icon_size * 1.3] * 2
-        live_parser_button = create_icon_button(
-            self.theme, 'live-parser', tr('Live Parser'), 'live_icon_button', icon_size=size)
-        live_parser_button.setCheckable(True)
-        live_parser_button.clicked[bool].connect(self.live_parser.toggle_window)
-        menu_layout.addWidget(live_parser_button, 0, 2)
-        self.widgets.live_parser_button = live_parser_button
-        menu_frame.setLayout(menu_layout)
-
-        w = self.theme['app']['frame_thickness']
-        main_frame = create_frame(self.theme, style_override={'margin': (0, w, 0, w)})
-        main_frame.setSizePolicy(SMINMIN)
-        main_layout.addWidget(main_frame)
-        main_layout.addWidget(self.status_bar)
-        bg_frame.setLayout(main_layout)
-
-        return layout, main_frame
+        return build_application_shell(
+            theme=self.theme,
+            active_theme_id=self.active_theme_id,
+            widgets=self.widgets,
+            live_parser=self.live_parser,
+            status_bar=self.status_bar,
+            app_dir=self.app_dir,
+        )
 
     def browse_sto_logpath(self):
         """

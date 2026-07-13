@@ -8,6 +8,10 @@ packaging.
 Current development features include:
 
 - A restart-selected Default or Command Console theme.
+- A dedicated Command Console application shell with five segmented navigation controls and a
+  five-colour context rail.
+- A Command Console Overview layout that retains the inherited parser, charts, table, copy,
+  upload, and collapse behavior.
 - Isolated RE-OSCR settings that do not modify an installed OSCR application.
 - League Standings browsing with local-log loading and selected-parse open/save actions.
 - A portable Windows tester build.

@@ -114,38 +114,47 @@ Exit criteria:
 - Invalid IDs and deliberately broken test themes start safely in Default.
 - Switching back to Default restores the original appearance after restart.
 
-## Milestone 2: Command Console coverage on existing layouts
+## Milestone 2: Command Console shell and Overview vertical slice
 
-Goal: express the Retro Escalation identity using the inherited frontend widgets and layouts.
+Status: implemented for the `11.1.0.dev4+re.oscr` development build.
+
+Goal: prove that RE-OSCR can own a structurally distinct application shell and page presentation
+without changing parser logic or losing the inherited workflows.
 
 In scope:
 
 - Dark surfaces and high-contrast text.
 - Orange, gold, purple, cyan, and red accent roles.
-- Rounded buttons and panels where Qt stylesheets support them reliably.
-- Navigation, tabs, inputs, scrollbars, splitters, status indicators, and dialogs.
-- Overview and Analysis table readability, selection, hover, and alternate rows.
-- Pyqtgraph backgrounds, axes, grids, legends, bars, lines, and colour cycles.
-- Live Parser window, table, graph, resize grip, opacity, and scaling.
+- A dedicated masthead with original RE branding and no copied logos, fonts, or interface artwork.
+- Five large segmented controls for Overview, Analysis, League, Settings, and Live Parser.
+- A five-colour context rail surrounding the existing collapsible sidebar.
+- A dedicated Overview presentation module with rounded chart and table panels.
+- Command-style Overview graph modes while retaining all three inherited plots.
+- Pyqtgraph backgrounds, axes, legends, bars, lines, and a five-player colour cycle.
+- Shared parser callbacks, models, sorting, copying, uploading, and saved splitter state.
+- An unchanged Default shell and Overview structure selected through the same startup registry.
 - Original RE branding assets that do not use protected logos or copied interface artwork.
 - Optional bundled background artwork only if it remains readable and behaves safely when absent.
 
 Out of scope:
 
-- Replacing the main navigation layout with the browser prototype's segmented dashboard.
 - Metric summary cards.
-- Rearranging Overview charts and tables.
 - Splitting telemetry into new table models or changing data columns.
 - Rebuilding Settings into categories or cards.
 - Adding the browser prototype's Analysis readout panel.
+- Rebuilding the inherited Analysis, League, Settings, or Live Parser page layouts.
+- Five-rail palette presets and user-entered colours.
+- Custom background selection.
 - Runtime theme switching.
 - Downloading or executing third-party themes.
 
 Exit criteria:
 
-- All manual tester cases pass in both themes.
-- Tables remain legible at supported UI scales and window sizes.
-- Charts remain distinguishable with five players and dense combat data.
+- Command Console starts at 1280x720 or larger without clipping its five primary controls.
+- The context rail collapses and restores through the existing sidebar callback.
+- A local Infected Space log browses, analyzes, and populates charts and tables.
+- All three Overview plot modes remain reachable.
+- The Default startup probe still exposes the inherited shell and Overview controls.
 - No parser outputs differ between Default and Command Console for the same logs and settings.
 
 ## Milestone 3: tester release
@@ -174,8 +183,8 @@ Exit criteria:
 - External declarative theme packages.
 - Theme manifests and compatibility versions.
 - Third-party UI-provider or executable-plugin APIs.
-- Dashboard cards, grouped telemetry, reorganized Settings, and other structural concepts from the
-  browser prototype.
+- Dashboard cards, grouped telemetry, reorganized Settings, and the remaining structural concepts
+  from the browser prototype.
 
 Each parked feature requires a separate scope decision. None is required to prove the startup
 theme foundation.

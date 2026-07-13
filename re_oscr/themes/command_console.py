@@ -7,6 +7,15 @@ theme starts from OSCR's Default tree and only replaces a small set of colour ro
 from ..theme import AppTheme
 
 
+COMMAND_CONSOLE_ACCENTS = (
+    '#ff8a2a',  # orange
+    '#d4ad3f',  # gold
+    '#9a6bc4',  # purple
+    '#4fc3cc',  # cyan
+    '#d94b55',  # red
+)
+
+
 COMMAND_CONSOLE_OVERRIDES = {
     'app': {
         'bg': '#080d12',
@@ -24,8 +33,7 @@ COMMAND_CONSOLE_OVERRIDES = {
         'bc': '#607789',
     },
     'plot': {
-        'color_cycler': (
-            '#ff8a2a', '#d4ad3f', '#9a6bc4', '#4fc3cc', '#d94b55',
+        'color_cycler': COMMAND_CONSOLE_ACCENTS + (
             '#65b87a', '#e8c96a', '#c383d6', '#7bdce3', '#f07a82',
         ),
     },

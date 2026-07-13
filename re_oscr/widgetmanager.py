@@ -92,6 +92,9 @@ class WidgetManager():
         SIDEBAR_TAB_CONVERSION = (0, 0, 1, 2)
         self.main_tabber.setCurrentIndex(tab_index)
         self.sidebar_tabber.setCurrentIndex(SIDEBAR_TAB_CONVERSION[tab_index])
+        for index, button in enumerate(self.main_menu_buttons):
+            if button.isCheckable():
+                button.setChecked(index == tab_index)
         if tab_index == 0:
             self.overview_table_button.show()
         else:
