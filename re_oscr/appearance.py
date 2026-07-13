@@ -19,14 +19,13 @@ COMMAND_CONSOLE_PALETTE_NAMES = {
 }
 
 COMMAND_CONSOLE_BACKGROUND_NAMES = {
-    'cosmic': 'Included cosmic placeholder',
     'grid': 'Digital grid only',
     'none': 'No background',
     'custom': 'Custom local image',
 }
 
 DEFAULT_COMMAND_CONSOLE_PALETTE = COMMAND_CONSOLE_PALETTES['command']
-DEFAULT_COMMAND_CONSOLE_BACKGROUND = 'cosmic'
+DEFAULT_COMMAND_CONSOLE_BACKGROUND = 'grid'
 
 
 def normalize_hex_colour(value: str) -> str | None:
@@ -57,7 +56,7 @@ def resolve_command_console_palette(preset: str, custom_values) -> tuple[str, ..
 
 
 def normalize_background_mode(value: str) -> str:
-    """Return a supported background mode, falling back to the included image."""
+    """Return a supported background mode, falling back to the digital grid."""
     if value in COMMAND_CONSOLE_BACKGROUND_NAMES:
         return value
     return DEFAULT_COMMAND_CONSOLE_BACKGROUND

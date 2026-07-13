@@ -26,7 +26,7 @@ def build_application_shell(
     """Build the selected application chrome and return its content frame."""
     if active_theme_id == COMMAND_CONSOLE_THEME_ID:
         return _build_command_console_shell(
-            theme, widgets, live_parser, status_bar, settings, app_dir)
+            theme, widgets, live_parser, status_bar, settings)
     return _build_default_shell(theme, widgets, live_parser, status_bar, app_dir)
 
 
@@ -150,23 +150,21 @@ def _build_default_shell(theme, widgets, live_parser, status_bar, app_dir):
 class CommandConsoleWorkspace(QFrame):
     """Paint the optional local background behind the shared page widgets."""
 
-    def __init__(self, theme: AppTheme, settings, app_dir: str):
+    def __init__(self, theme: AppTheme, settings):
         super().__init__()
         self._theme = theme
-        self._mode = getattr(settings, 'command_console_background_mode', 'cosmic')
+        self._mode = getattr(settings, 'command_console_background_mode', 'grid')
         self._opacity = max(
             0.0, min(0.5, getattr(settings, 'command_console_background_opacity', 0.28)))
         custom_path = Path(getattr(settings, 'command_console_background_path', ''))
-        included_path = Path(
-            app_dir, 'theme_assets', 'command_console', 'command-console-space.png')
-        background_path = custom_path if self._mode == 'custom' else included_path
-        self._background = QPixmap(str(background_path)) if background_path.is_file() else QPixmap()
+        self._background = QPixmap(str(custom_path)) if (
+            self._mode == 'custom' and custom_path.is_file()) else QPixmap()
 
     def paintEvent(self, event):
         super().paintEvent(event)
         painter = QPainter(self)
         painter.fillRect(self.rect(), QColor('#080d12'))
-        if self._mode in ('cosmic', 'custom') and not self._background.isNull():
+        if self._mode == 'custom' and not self._background.isNull():
             scaled = self._background.scaled(
                 self.size(), Qt.AspectRatioMode.KeepAspectRatioByExpanding,
                 Qt.TransformationMode.SmoothTransformation)
@@ -176,7 +174,7 @@ class CommandConsoleWorkspace(QFrame):
                 round((self.height() - scaled.height()) / 2), scaled)
             painter.setOpacity(1.0)
             painter.fillRect(self.rect(), QColor(7, 11, 15, 120))
-        if self._mode in ('cosmic', 'custom', 'grid'):
+        if self._mode in ('custom', 'grid'):
             grid = QColor(command_console_accents(self._theme)[3])
             grid.setAlpha(20 if self._mode == 'grid' else 12)
             painter.setPen(QPen(grid, 1))
@@ -189,7 +187,7 @@ class CommandConsoleWorkspace(QFrame):
 
 
 def _build_command_console_shell(
-        theme, widgets, live_parser, status_bar, settings, app_dir):
+        theme, widgets, live_parser, status_bar, settings):
     layout = QVBoxLayout()
     layout.setContentsMargins(0, 0, 0, 0)
     bg_frame = QFrame()
@@ -206,7 +204,7 @@ def _build_command_console_shell(
     root.addWidget(_build_masthead(theme))
     root.addWidget(_build_command_navigation(theme, widgets, live_parser))
 
-    main_frame = CommandConsoleWorkspace(theme, settings, app_dir)
+    main_frame = CommandConsoleWorkspace(theme, settings)
     main_frame.setObjectName('commandConsoleWorkspace')
     main_frame.setStyleSheet(
         'QFrame#commandConsoleWorkspace {'

@@ -109,7 +109,7 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "commandConsoleAppearanceProfilePanel") is not None
         assert ui.window.findChild(QWidget, "commandConsoleAppearancePalettePanel") is not None
         assert ui.widgets.appearance_palette_selector.count() == 5
-        assert ui.widgets.appearance_background_selector.count() == 4
+        assert ui.widgets.appearance_background_selector.count() == 3
         assert len(ui.widgets.appearance_color_entries) == 5
         assert ui.widgets.appearance_color_entries[0].text() == "#FF8A2A"
         assert len(ui.widgets.settings_damage_column_buttons) == len(ui.settings.dmg_columns)

@@ -30,7 +30,7 @@ class OSCRSettingsTests(unittest.TestCase):
                 settings.command_console_accents,
                 ["#FF8A2A", "#D4AD3F", "#9A6BC4", "#4FC3CC", "#D94B55"],
             )
-            self.assertEqual(settings.command_console_background_mode, "cosmic")
+            self.assertEqual(settings.command_console_background_mode, "grid")
             self.assertEqual(settings.command_console_background_opacity, 0.28)
             self.assertEqual(settings.command_console_background_path, "")
 
@@ -86,6 +86,17 @@ class OSCRSettingsTests(unittest.TestCase):
 
             self.assertEqual(migrated.ui_scale, 1.25)
             self.assertEqual(migrated.theme_id, "default")
+
+    def test_removed_cosmic_background_migrates_to_digital_grid(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_path = Path(temp_dir, "settings.ini")
+            legacy = OSCRSettings(settings_path)
+            legacy._settings.setValue("command_console_background_mode", "cosmic")
+            legacy._settings.sync()
+
+            migrated = OSCRSettings(settings_path)
+
+            self.assertEqual(migrated.command_console_background_mode, "grid")
 
 
 if __name__ == "__main__":
