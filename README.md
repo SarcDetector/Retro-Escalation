@@ -10,6 +10,7 @@ OSCR's layouts.
 
 - [Project scope](docs/PROJECT_SCOPE.md)
 - [Tester plan](docs/TESTING.md)
+- [Development baseline](docs/DEVELOPMENT.md)
 - Baseline: OSCR-UI 11.1.0
 
 ## Upstream application

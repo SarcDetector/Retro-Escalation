@@ -1,0 +1,48 @@
+import tempfile
+import unittest
+from pathlib import Path
+
+from OSCRUI.config import OSCRSettings
+
+
+class OSCRSettingsTests(unittest.TestCase):
+    def test_fresh_settings_match_oscr_11_1_defaults(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings = OSCRSettings(Path(temp_dir, "settings.ini"))
+
+            self.assertFalse(settings.auto_scan)
+            self.assertEqual(settings.combat_min_lines, 20)
+            self.assertEqual(settings.combats_to_parse, 10)
+            self.assertEqual(settings.graph_resolution, 0.2)
+            self.assertEqual(settings.language, "en")
+            self.assertEqual(settings.ui_scale, 1.0)
+            self.assertEqual(settings.dmg_columns, [True] * 21)
+            self.assertEqual(settings.heal_columns, [True] * 13)
+
+    def test_settings_round_trip_without_losing_types(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_path = Path(temp_dir, "settings.ini")
+            settings = OSCRSettings(settings_path)
+            settings.auto_scan = True
+            settings.combats_to_parse = 7
+            settings.graph_resolution = 0.5
+            settings.language = "de"
+            settings.ui_scale = 1.2
+            settings.dmg_columns[3] = False
+            settings.favorite_ladders = ["alpha", "beta"]
+            settings.store_settings()
+            settings._settings.sync()
+
+            restored = OSCRSettings(settings_path)
+
+            self.assertIs(restored.auto_scan, True)
+            self.assertEqual(restored.combats_to_parse, 7)
+            self.assertEqual(restored.graph_resolution, 0.5)
+            self.assertEqual(restored.language, "de")
+            self.assertEqual(restored.ui_scale, 1.2)
+            self.assertFalse(restored.dmg_columns[3])
+            self.assertEqual(restored.favorite_ladders, ["alpha", "beta"])
+
+
+if __name__ == "__main__":
+    unittest.main()
