@@ -1,4 +1,18 @@
-# OSCR-UI
+# Retro Escalation
+
+Retro Escalation is an experimental GPLv3 development fork of
+[STOCD/OSCR-UI](https://github.com/STOCD/OSCR-UI). The project is exploring a startup-selected
+theme system while preserving OSCR's parser behavior and existing default interface.
+
+The first milestone is intentionally limited to theme infrastructure. The broader Command Console
+browser prototype is a design reference, not a promise that the initial desktop build will replace
+OSCR's layouts.
+
+- [Project scope](docs/PROJECT_SCOPE.md)
+- [Tester plan](docs/TESTING.md)
+- Baseline: OSCR-UI 11.1.0
+
+## Upstream application
 
 [![PyPI version](https://badge.fury.io/py/OSCR-UI.svg)](https://badge.fury.io/py/OSCR-UI)
 
