@@ -20,17 +20,25 @@ class WidgetManager():
 
     def __init__(self, global_settings: OSCRSettings):
         self.main_menu_buttons: list[QPushButton] = list()
+        self.navigation_buttons: list[QPushButton] = list()
         self.main_tabber: QTabWidget
         self.main_tab_frames: list[QFrame] = list()
         self.sidebar_tabber: QTabWidget
         self.sidebar_tab_frames: list[QFrame] = list()
         self.sidebar_host: QFrame | None = None
+        self.sidebar_content_host: QFrame | None = None
         self.sidebar_flip_button: FlipButton
         self.context_rail: QFrame | None = None
         self.context_colour_rail: QFrame | None = None
         self.context_rail_segments: list[QFrame] = list()
         self.context_accents: list[str] = list()
         self.context_tints: list[str] = list()
+        self.command_console_workspace: QFrame | None = None
+        self.drawer_header: QFrame | None = None
+        self.drawer_section_label: QLabel | None = None
+        self.drawer_title_label: QLabel | None = None
+        self.active_main_tab: int = 0
+        self.live_parser_active: bool = False
         self.map_tabber: QTabWidget
         self.map_tab_frames: list[QFrame] = list()
         self.map_menu_buttons: list[QPushButton] = list()
@@ -45,6 +53,8 @@ class WidgetManager():
         self.overview_table_button: FlipButton
         self.overview_splitter: QSplitter
         self.overview_table: QTableView | None = None
+        self.overview_sorting_proxy = None
+        self.overview_display_proxy = None
         self.overview_encounter_title: QLabel | None = None
         self.overview_encounter_meta: QLabel | None = None
         self.overview_context_values: list[QLabel] = list()
@@ -122,9 +132,15 @@ class WidgetManager():
         self.overview_metric_mode = safe_index
         visible_columns = self.OVERVIEW_METRIC_COLUMN_GROUPS[safe_index]
         if self.overview_table is not None and self.overview_table.model() is not None:
-            for column in range(self.overview_table.model().columnCount()):
-                self.overview_table.setColumnHidden(column, column not in visible_columns)
-            self.overview_table.resizeColumnsToContents()
+            if hasattr(self.overview_table, 'set_visible_source_columns'):
+                self.overview_table.set_visible_source_columns(visible_columns)
+                self.overview_table.set_meter_mode(safe_index == 0)
+                self.overview_table.set_compact_magnitudes(
+                    safe_index < len(self.OVERVIEW_METRIC_COLUMN_GROUPS) - 1)
+            else:
+                for column in range(self.overview_table.model().columnCount()):
+                    self.overview_table.setColumnHidden(column, column not in visible_columns)
+                self.overview_table.resizeColumnsToContents()
         for index, button in enumerate(self.overview_metric_buttons):
             button.setChecked(index == safe_index)
 
@@ -178,6 +194,7 @@ class WidgetManager():
         """
         SIDEBAR_TAB_CONVERSION = (0, 0, 1, 2)
         self.main_tabber.setCurrentIndex(tab_index)
+        self.active_main_tab = tab_index
         self.sidebar_tabber.setCurrentIndex(SIDEBAR_TAB_CONVERSION[tab_index])
         for index, button in enumerate(self.main_menu_buttons):
             if button.isCheckable():
@@ -193,31 +210,46 @@ class WidgetManager():
             self.analysis_graph_button.hide()
 
     def apply_context_accent(self, tab_index: int):
-        """Synchronize the persistent Command Console rail and sidebar surface to a page."""
+        """Synchronize Command Console navigation, spine and neutral drawer state."""
         if not self.context_rail or not self.context_accents:
             return
+        from .console.tokens import refresh_style
+
         accent_index = max(0, min(tab_index, len(self.context_accents) - 1))
         accent = self.context_accents[accent_index]
-        tint = self.context_tints[accent_index]
         self.context_rail.setProperty('activeAccent', accent)
-        self.context_rail.setStyleSheet(
-            'QFrame#commandConsoleContextRail {'
-            f'background-color: #0d1419; border: 1px solid {accent}; border-radius: 10px;}}')
+        self.context_rail.setProperty('section', str(accent_index))
         if self.sidebar_host:
             self.sidebar_host.setProperty('activeAccent', accent)
-            self.sidebar_host.setStyleSheet(
-                'QFrame#commandConsoleSidebarHost {'
-                f'background-color: {tint}; border: none; border-top: 5px solid {accent};}}')
+            self.sidebar_host.setProperty('section', str(accent_index))
+        if self.drawer_header:
+            self.drawer_header.setProperty('section', str(accent_index))
+            refresh_style(self.drawer_header)
+        drawer_labels = (
+            ('OV', 'COMBAT LOG'),
+            ('AN', 'COMBAT LOG'),
+            ('LG', 'LEAGUE ACCESS'),
+            ('ST', 'SYSTEM SETTINGS'),
+        )
+        if accent_index < len(drawer_labels):
+            section, title = drawer_labels[accent_index]
+            if self.drawer_section_label:
+                self.drawer_section_label.setText(section)
+            if self.drawer_title_label:
+                self.drawer_title_label.setText(title)
+
+        visual_index = 4 if self.live_parser_active else accent_index
         for index, segment in enumerate(self.context_rail_segments):
-            colour = self.context_accents[index]
-            selected_border = 'border-right: 3px solid #f4efe6;' if index == accent_index else ''
-            segment.setStyleSheet(
-                f'background-color: {colour}; border: none; {selected_border}')
-        for frame in self.sidebar_tab_frames:
-            name = frame.objectName()
-            if name.startswith('commandConsoleSidebar'):
-                frame.setStyleSheet(
-                    f'QFrame#{name} {{background-color: {tint}; border: none;}}')
+            segment.setProperty('active', index == visual_index)
+            refresh_style(segment)
+        for index, button in enumerate(self.navigation_buttons):
+            button.setProperty('visualActive', index == visual_index)
+            refresh_style(button, descendants=False)
+
+    def set_live_parser_active(self, active: bool):
+        """Make Live Parser the visual fifth context while its window is open."""
+        self.live_parser_active = bool(active)
+        self.apply_context_accent(self.active_main_tab)
 
     def expand_analysis_graph(self):
         """

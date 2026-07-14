@@ -22,6 +22,15 @@ class ProductIdentityTests(unittest.TestCase):
         )
         self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0.dev6+re.oscr")
 
+    def test_cla_credit_uses_an_original_logo_safe_badge(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        badge_path = project_root / "assets" / "cla_credit.svg"
+
+        self.assertTrue(badge_path.is_file())
+        badge = badge_path.read_text(encoding="utf-8")
+        self.assertIn(">CLA</text>", badge)
+        self.assertNotIn("STO_CombatLogAnalyzer-master", badge)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -78,3 +78,8 @@ RE-OSCR began as a downstream fork of
 are retained. It is an independent community frontend and is not an official STOCD release.
 
 The parser is provided by the separate [STOCD/OSCR](https://github.com/STOCD/OSCR) project.
+
+The redesigned Analysis workflow draws inspiration from
+[STO_CombatLogAnalyzer (CLA)](https://github.com/AnotherNathan/STO_CombatLogAnalyzer), created by
+AnotherNathan. RE-OSCR retains OSCR as its parser and implements its Analysis presentation
+independently.

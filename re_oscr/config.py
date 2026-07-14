@@ -19,6 +19,7 @@ class OSCRConfig():
         self.icon_size: int = 24
         self.link_downloads: str = 'https://github.com/SarcDetector/Retro-Escalation/releases'
         self.link_github: str = 'https://github.com/SarcDetector/Retro-Escalation'
+        self.link_cla: str = 'https://github.com/AnotherNathan/STO_CombatLogAnalyzer'
         self.link_stobuilds: str = 'https://discord.gg/stobuilds'
         self.link_stocd: str = 'https://github.com/STOCD'
         self.link_website: str = 'https://oscr.stobuilds.com'
@@ -47,7 +48,8 @@ class OSCRSettings():
                  'language', 'log_path', 'overview_sort_column', 'overview_sort_order',
                  'seconds_between_combats', 'sto_log_path', 'ui_scale', 'state__analysis_splitter',
                  'state__geometry', 'state__live_geometry', 'state__live_splitter',
-                 'state__overview_splitter', 'liveparser__auto_enabled', 'liveparser__columns',
+                 'state__overview_splitter', 'state__sidebar_collapsed',
+                 'liveparser__auto_enabled', 'liveparser__columns',
                  'liveparser__copy_kills', 'liveparser__graph_active', 'liveparser__graph_field',
                  'liveparser__player_display', 'liveparser__window_scale',
                  'liveparser__window_opacity', 'theme_id')
@@ -75,7 +77,7 @@ class OSCRSettings():
         self.overview_sort_order: str = 'Descending'
         self.seconds_between_combats: int = 45
         self.sto_log_path: str = ''
-        self.theme_id: str = 'default'
+        self.theme_id: str = 'command_console'
         self.ui_scale: float = 1.0
 
         self.state__analysis_splitter: QByteArray = QByteArray()
@@ -83,6 +85,7 @@ class OSCRSettings():
         self.state__live_geometry: QByteArray = QByteArray()
         self.state__live_splitter: QByteArray = QByteArray()
         self.state__overview_splitter: QByteArray = QByteArray()
+        self.state__sidebar_collapsed: bool = False
 
         self.liveparser__auto_enabled: bool = False
         self.liveparser__columns: list[bool] = [True, False, True, False, False, False, False]

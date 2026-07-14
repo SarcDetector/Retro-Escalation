@@ -11,8 +11,12 @@ class OSCRSettingsTests(unittest.TestCase):
 
         self.assertEqual(config.settings_file, "RE_OSCR_settings.ini")
         self.assertEqual(config.legacy_settings_files, ("OSCR_UI_settings.ini",))
+        self.assertEqual(
+            config.link_cla,
+            "https://github.com/AnotherNathan/STO_CombatLogAnalyzer",
+        )
 
-    def test_fresh_settings_match_oscr_11_1_defaults(self):
+    def test_fresh_settings_keep_parser_defaults_and_use_command_console(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             settings = OSCRSettings(Path(temp_dir, "settings.ini"))
 
@@ -21,7 +25,7 @@ class OSCRSettingsTests(unittest.TestCase):
             self.assertEqual(settings.combats_to_parse, 10)
             self.assertEqual(settings.graph_resolution, 0.2)
             self.assertEqual(settings.language, "en")
-            self.assertEqual(settings.theme_id, "default")
+            self.assertEqual(settings.theme_id, "command_console")
             self.assertEqual(settings.ui_scale, 1.0)
             self.assertEqual(settings.dmg_columns, [True] * 21)
             self.assertEqual(settings.heal_columns, [True] * 13)
@@ -30,7 +34,7 @@ class OSCRSettingsTests(unittest.TestCase):
                 settings.command_console_accents,
                 ["#FF8A2A", "#D4AD3F", "#9A6BC4", "#4FC3CC", "#D94B55"],
             )
-            self.assertEqual(settings.command_console_background_mode, "grid")
+            self.assertEqual(settings.command_console_background_mode, "none")
             self.assertEqual(settings.command_console_background_opacity, 0.28)
             self.assertEqual(settings.command_console_background_path, "")
 
@@ -52,6 +56,7 @@ class OSCRSettingsTests(unittest.TestCase):
             settings.command_console_background_mode = "custom"
             settings.command_console_background_opacity = 0.42
             settings.command_console_background_path = "C:/Images/bridge.webp"
+            settings.state__sidebar_collapsed = True
             settings.store_settings()
             settings._settings.sync()
 
@@ -74,8 +79,9 @@ class OSCRSettingsTests(unittest.TestCase):
             self.assertEqual(restored.command_console_background_opacity, 0.42)
             self.assertEqual(
                 restored.command_console_background_path, "C:/Images/bridge.webp")
+            self.assertIs(restored.state__sidebar_collapsed, True)
 
-    def test_settings_file_without_theme_value_migrates_to_default(self):
+    def test_settings_file_without_theme_value_uses_command_console(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             settings_path = Path(temp_dir, "legacy-settings.ini")
             legacy = OSCRSettings(settings_path)
@@ -85,9 +91,9 @@ class OSCRSettingsTests(unittest.TestCase):
             migrated = OSCRSettings(settings_path)
 
             self.assertEqual(migrated.ui_scale, 1.25)
-            self.assertEqual(migrated.theme_id, "default")
+            self.assertEqual(migrated.theme_id, "command_console")
 
-    def test_removed_cosmic_background_migrates_to_digital_grid(self):
+    def test_removed_background_modes_migrate_to_flat_workspace(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             settings_path = Path(temp_dir, "settings.ini")
             legacy = OSCRSettings(settings_path)
@@ -96,7 +102,33 @@ class OSCRSettingsTests(unittest.TestCase):
 
             migrated = OSCRSettings(settings_path)
 
-            self.assertEqual(migrated.command_console_background_mode, "grid")
+            self.assertEqual(migrated.command_console_background_mode, "none")
+
+    def test_explicit_legacy_theme_round_trips(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_path = Path(temp_dir, "settings.ini")
+            settings = OSCRSettings(settings_path)
+            settings.theme_id = "default"
+            settings.store_settings()
+            settings._settings.sync()
+
+            self.assertEqual(OSCRSettings(settings_path).theme_id, "default")
+
+    def test_unknown_palette_preset_uses_complete_command_default(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_path = Path(temp_dir, "settings.ini")
+            settings = OSCRSettings(settings_path)
+            settings._settings.setValue("command_console_palette_preset", "missing")
+            settings._settings.setValue(
+                "command_console_accents",
+                ["#010101", "#020202", "#030303", "#040404", "#050505"])
+            settings._settings.sync()
+
+            restored = OSCRSettings(settings_path)
+            self.assertEqual(restored.command_console_palette_preset, "command")
+            self.assertEqual(
+                restored.command_console_accents,
+                ["#FF8A2A", "#D4AD3F", "#9A6BC4", "#4FC3CC", "#D94B55"])
 
 
 if __name__ == "__main__":

@@ -49,8 +49,10 @@ class DefaultThemeTests(unittest.TestCase):
 class ThemeRegistryTests(unittest.TestCase):
     def test_registry_has_stable_public_theme_order(self):
         self.assertEqual(
-            tuple(definition.theme_id for definition in available_themes()),
-            (DEFAULT_THEME_ID, COMMAND_CONSOLE_THEME_ID),
+            tuple((definition.theme_id, definition.display_name)
+                  for definition in available_themes()),
+            ((DEFAULT_THEME_ID, "OSCR-UI Legacy"),
+             (COMMAND_CONSOLE_THEME_ID, "Command Console")),
         )
 
     def test_command_console_overrides_default_without_mutating_it(self):

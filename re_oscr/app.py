@@ -144,6 +144,7 @@ class REOSCRApplication():
             'star-minus': 'star_minus.svg',
             'stocd': 'section31badge.png',
             'stobuilds': 'stobuildslogo.png',
+            'cla': 'cla_credit.svg',
             'close': 'close.svg',
             'expand-top': 'expand-top.svg',
             'collapse-top': 'collapse-top.svg',
@@ -252,6 +253,12 @@ class REOSCRApplication():
         """
         Width of the sidebar.
         """
+        if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
+            # The legacy calculation applies UI scale to an already window-relative
+            # width.  That makes the console drawer collapse at 0.5x and consume
+            # nearly a third of the window at 1.5x.  Keep its share of the workspace
+            # stable; the controls inside it still scale through the theme tokens.
+            return round(self.theme.opt.sidebar_item_width * self.window.width())
         return int(
             self.theme.opt.sidebar_item_width * self.window.width() * self.config.ui_scale)
 
@@ -302,6 +309,31 @@ class REOSCRApplication():
         current_tab = self.widgets.analysis_tree_tabber.currentIndex()
         self.tables.copy_analysis_data(current_tab, copy_mode)
 
+    def apply_command_console_appearance(self, change: str = 'all') -> None:
+        """Apply palette and local-background changes without rebuilding the widget tree."""
+        if self.active_theme_id != COMMAND_CONSOLE_THEME_ID:
+            return
+        if change in ('all', 'palette'):
+            from .console.tokens import ConsoleTokens, build_console_stylesheet
+
+            palette = resolve_command_console_palette(
+                self.settings.command_console_palette_preset,
+                self.settings.command_console_accents)
+            self.settings.command_console_accents = list(palette)
+            self.theme['app']['oscr'] = palette[0]
+            self.theme['defaults']['oscr'] = palette[0]
+            self.theme['plot']['color_cycler'] = (
+                tuple(palette) + tuple(self.theme['plot']['color_cycler'][5:]))
+            stylesheet = self.theme.create_style_sheet(self.theme['app']['style'])
+            self.app.setStyleSheet(f'{stylesheet}\n{build_console_stylesheet(self.theme)}')
+            self.widgets.context_accents = list(palette)
+            if (self.widgets.overview_table is not None
+                    and hasattr(self.widgets.overview_table, 'set_tokens')):
+                self.widgets.overview_table.set_tokens(ConsoleTokens.from_theme(self.theme))
+            self.widgets.apply_context_accent(self.widgets.active_main_tab)
+        if change in ('all', 'background') and self.widgets.command_console_workspace is not None:
+            self.widgets.command_console_workspace.apply_appearance(self.settings)
+
     def clear_league_table_filter(self):
         """
         Removes filter from search bar and updates league table.
@@ -327,7 +359,11 @@ class REOSCRApplication():
         font_database.addApplicationFont(get_asset_path('Overpass-Regular.ttf', self.app_dir))
         font_database.addApplicationFont(get_asset_path('RobotoMono-Regular.ttf', self.app_dir))
         font_database.addApplicationFont(get_asset_path('RobotoMono-Medium.ttf', self.app_dir))
-        app.setStyleSheet(self.theme.create_style_sheet(self.theme['app']['style']))
+        stylesheet = self.theme.create_style_sheet(self.theme['app']['style'])
+        if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
+            from .console.tokens import build_console_stylesheet
+            stylesheet = f'{stylesheet}\n{build_console_stylesheet(self.theme)}'
+        app.setStyleSheet(stylesheet)
         window = QWidget()
         window.setMinimumSize(
                 self.config.ui_scale * self.config.minimum_window_width,
@@ -352,8 +388,9 @@ class REOSCRApplication():
         main_layout.setContentsMargins(0, 0, margin, 0)
         main_layout.setSpacing(0)
 
-        left, sidebar_host = build_context_rail(
+        left, sidebar_content_host = build_context_rail(
             self.theme, self.active_theme_id, self.widgets)
+        sidebar_host = self.widgets.sidebar_host or sidebar_content_host
         left.setSizePolicy(SMAXMIN)
         main_layout.addWidget(left, 0, 0)
 
@@ -363,16 +400,32 @@ class REOSCRApplication():
         button_column.setRowStretch(0, 1)
         main_layout.addLayout(button_column, 0, 1)
         icon_size = self.theme.opt.icon_size
+        if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
+            def collapse_sidebar():
+                sidebar_host.hide()
+                self.settings.state__sidebar_collapsed = True
+
+            def expand_sidebar():
+                sidebar_host.show()
+                self.settings.state__sidebar_collapsed = False
+        else:
+            collapse_sidebar = sidebar_host.hide
+            expand_sidebar = sidebar_host.show
         left_flip_config = {
-            'icon_r': self.theme.icons['collapse-left'], 'func_r': sidebar_host.hide,
-            'icon_l': self.theme.icons['expand-left'], 'func_l': sidebar_host.show,
+            'icon_r': self.theme.icons['collapse-left'], 'func_r': collapse_sidebar,
+            'icon_l': self.theme.icons['expand-left'], 'func_l': expand_sidebar,
             'tooltip_r': tr('Collapse Sidebar'), 'tooltip_l': tr('Expand Sidebar')
         }
         sidebar_flip_button = FlipButton('', '')
+        if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
+            sidebar_flip_button.setObjectName('commandConsoleDrawerToggle')
+            sidebar_flip_button.setProperty('consoleRole', 'actionButton')
+            sidebar_flip_button.setProperty('accentIndex', '0')
+        else:
+            sidebar_flip_button.setStyleSheet(
+                self.theme.get_style_class('QPushButton', 'small_button'))
         sidebar_flip_button.configure(left_flip_config)
         sidebar_flip_button.setIconSize(QSize(icon_size, icon_size))
-        sidebar_flip_button.setStyleSheet(
-            self.theme.get_style_class('QPushButton', 'small_button'))
         sidebar_flip_button.setSizePolicy(SMAXMAX)
         button_column.addWidget(sidebar_flip_button, 0, 0, alignment=ATOP)
         self.widgets.sidebar_flip_button = sidebar_flip_button
@@ -384,9 +437,15 @@ class REOSCRApplication():
             'func_l': self.widgets.expand_analysis_graph
         }
         graph_button = FlipButton('', '')
+        if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
+            graph_button.setObjectName('commandConsoleGraphToggle')
+            graph_button.setProperty('consoleRole', 'actionButton')
+            graph_button.setProperty('accentIndex', '0')
+        else:
+            graph_button.setStyleSheet(
+                self.theme.get_style_class('QPushButton', 'small_button'))
         graph_button.configure(graph_flip_config)
         graph_button.setIconSize(QSize(icon_size, icon_size))
-        graph_button.setStyleSheet(self.theme.get_style_class('QPushButton', 'small_button'))
         graph_button.setSizePolicy(SMAXMAX)
         button_column.addWidget(graph_button, 2, 0)
         graph_button.hide()
@@ -399,9 +458,15 @@ class REOSCRApplication():
             'func_l': self.tables.expand_overview_table
         }
         table_button = FlipButton('', '')
+        if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
+            table_button.setObjectName('commandConsoleTableToggle')
+            table_button.setProperty('consoleRole', 'actionButton')
+            table_button.setProperty('accentIndex', '0')
+        else:
+            table_button.setStyleSheet(
+                self.theme.get_style_class('QPushButton', 'small_button'))
         table_button.configure(table_flip_config)
         table_button.setIconSize(QSize(icon_size, icon_size))
-        table_button.setStyleSheet(self.theme.get_style_class('QPushButton', 'small_button'))
         table_button.setSizePolicy(SMAXMAX)
         button_column.addWidget(table_button, 3, 0)
         self.widgets.overview_table_button = table_button
@@ -411,7 +476,10 @@ class REOSCRApplication():
         main_layout.addWidget(center, 0, 2)
 
         main_frame.setLayout(main_layout)
-        self.sidebar.create_sidebar(sidebar_host)
+        self.sidebar.create_sidebar(sidebar_content_host)
+        if (self.active_theme_id == COMMAND_CONSOLE_THEME_ID
+                and self.settings.state__sidebar_collapsed):
+            sidebar_flip_button.click()
         self.widgets.apply_context_accent(0)
         self.setup_main_tabber(center)
         self.setup_overview_frame()
@@ -542,6 +610,7 @@ class REOSCRApplication():
                 live_parser=self.live_parser,
                 browse_sto_logpath=self.browse_sto_logpath,
                 set_sto_logpath_callback=self.set_sto_logpath_callback,
+                appearance_changed=self.apply_command_console_appearance,
             ).build(settings_frame)
             return
         settings_layout = QHBoxLayout()

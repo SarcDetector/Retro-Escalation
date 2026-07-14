@@ -13,8 +13,11 @@ logic; this project owns the frontend experience, workflows, themes, and packagi
 
 - **RE-OSCR**: the Retro Escalation frontend application and distributable.
 - **OSCR**: the separate parser dependency and its analysis models.
-- **Default**: the inherited OSCR-UI 11.1.0 appearance and behavior.
-- **Command Console**: the optional Retro Escalation visual theme.
+- **OSCR-UI Legacy**: the inherited OSCR-UI 11.1.0 appearance and behavior (internal theme ID
+  `default`, kept for settings compatibility). Called "Default" in earlier revisions of this
+  document.
+- **Command Console**: the Retro Escalation visual identity and, as of 2026-07-14, the default
+  experience.
 - **Theme system**: startup selection, validation, asset routing, and construction of an
   `AppTheme` instance.
 - **UI redesign**: structural changes to pages, layouts, navigation, settings, or data grouping.
@@ -22,14 +25,27 @@ logic; this project owns the frontend experience, workflows, themes, and packagi
 
 ## Non-negotiable boundaries
 
+Amended 2026-07-14: Command Console became the default experience. The original boundary
+("Default remains the default choice") belonged to the theme-switcher era; RE-OSCR is now a
+distinct product whose inherited look is a compatibility option.
+
 - Do not change STO-OSCR parser logic.
-- Default remains the default choice.
-- Default must retain its existing theme data, assets, layout, and behavior.
-- Theme selection takes effect after restart; hot switching is not required.
-- Unknown, missing, incompatible, or malformed theme selections fall back to Default.
-- A theme failure must never prevent the user from reaching RE-OSCR with Default styling.
-- Existing settings files without a theme value continue to load normally, and the legacy
-  `OSCR_UI_settings.ini` filename is migrated once to `RE_OSCR_settings.ini`.
+- Command Console is the default experience. Fresh installs and settings files without an
+  explicit theme choice resolve to Command Console; an explicit `default` value selects
+  OSCR-UI Legacy. (Baseline tests asserting the old fresh-install default must be updated with
+  this change.)
+- OSCR-UI Legacy must retain its existing theme data, assets, layout, and behavior.
+- Structural theme switches (Command Console ↔ OSCR-UI Legacy) apply through an in-app
+  "Apply and relaunch" action; appearance changes within Command Console (rail presets,
+  palette, background) apply live once the dev7 stylesheet architecture lands.
+- A missing `theme_id` setting resolves to Command Console. An explicitly saved unknown,
+  incompatible, or malformed theme ID falls back to OSCR-UI Legacy.
+- An unknown, missing, or malformed Command Console rail preset falls back to the Command Console
+  Default palette; a palette failure does not switch the structural theme.
+- A theme construction failure must never prevent the user from reaching RE-OSCR: OSCR-UI
+  Legacy remains the guaranteed-bootable path.
+- Existing settings files continue to load normally, and the legacy `OSCR_UI_settings.ini`
+  filename is migrated once to `RE_OSCR_settings.ini`.
 - Existing callbacks, models, sorting, copying, exporting, league operations, and Live Parser
   behavior remain in scope for regression testing.
 - Modified distributions remain GPLv3 and include corresponding source and modification notices.
@@ -77,17 +93,17 @@ Status: implemented and included in the portable tester build.
 
 Goal: select a built-in theme at application startup without changing any layout.
 
-Proposed architecture:
+Implemented architecture:
 
 ```text
 re_oscr/
-  theme.py                 Existing AppTheme and Default theme
+  theme.py                 Existing AppTheme and OSCR-UI Legacy theme
   themes/
     __init__.py
     registry.py            Known theme IDs, labels, factories and fallback
     command_console.py     Theme overrides and options
 assets/
-  ...                      Existing Default assets
+  ...                      Existing OSCR-UI Legacy assets
 theme_assets/
   command_console/
     ...                    Optional theme-specific assets
@@ -97,22 +113,23 @@ The initial registry is built-in and allow-listed. It is not a general Python pl
 
 Required behavior:
 
-1. Add a string setting such as `theme_id`, defaulting to `default`.
+1. Add a string setting such as `theme_id`, defaulting to `command_console` when the key is absent.
 2. Resolve the saved ID through a small theme registry before GUI construction.
-3. Construct Default through the existing path when no alternate theme is selected.
-4. Construct Command Console from Default plus validated overrides, avoiding a duplicated copy of
-   the entire Default theme tree.
+3. Construct OSCR-UI Legacy through the existing path when `default` is explicitly selected or
+   when Command Console cannot be constructed safely.
+4. Construct Command Console from the legacy theme plus validated overrides, avoiding a duplicated
+   copy of the entire legacy theme tree.
 5. Route optional theme assets through a distinct Qt search path.
-6. Catch theme construction and asset errors, log them, and continue with Default.
-7. Add a Settings selector labelled as restart-required.
+6. Catch theme construction and asset errors, log them, and continue with OSCR-UI Legacy.
+7. Add a Settings selector with an Apply-and-relaunch action for structural theme changes.
 
 Exit criteria:
 
-- A fresh install starts in Default.
-- Existing settings files start in Default.
-- Selecting Command Console, closing RE-OSCR normally, and reopening selects Command Console.
-- Invalid IDs and deliberately broken test themes start safely in Default.
-- Switching back to Default restores the original appearance after restart.
+- A fresh install starts in Command Console.
+- Existing settings files without a `theme_id` start in Command Console.
+- Explicitly selecting OSCR-UI Legacy and relaunching restores the inherited appearance.
+- Invalid IDs and deliberately broken test themes start safely in OSCR-UI Legacy.
+- Switching back to Command Console restores the RE-OSCR experience after relaunch.
 
 ## Milestone 2: Command Console shell and core telemetry views
 
@@ -140,9 +157,11 @@ In scope:
 - Player and NPC tree drill-down, event graph selection, freeze, clear, copy, and focus controls.
 - Pyqtgraph backgrounds, axes, legends, bars, lines, and a five-player colour cycle.
 - Shared parser callbacks, models, sorting, copying, uploading, and saved splitter state.
-- An unchanged Default shell and Overview structure selected through the same startup registry.
+- An unchanged OSCR-UI Legacy shell and Overview structure selected through the same startup registry.
 - Original RE branding assets that do not use protected logos or copied interface artwork.
-- Optional bundled background artwork only if it remains readable and behaves safely when absent.
+- Five-rail palette presets, user-entered colours, and a validated Custom preset.
+- Digital-grid, no-background, and user-selected local background modes. No generated or licensed
+  background artwork is bundled.
 
 Out of scope:
 
@@ -150,9 +169,7 @@ Out of scope:
 - Splitting telemetry into new table models or changing data columns.
 - Adding the browser prototype's Analysis readout panel.
 - Rebuilding the inherited Live Parser window layout.
-- Five-rail palette presets and user-entered colours.
-- Custom background selection.
-- Runtime theme switching.
+- Hot structural theme switching without relaunch.
 - Downloading or executing third-party themes.
 
 Exit criteria:
@@ -167,18 +184,18 @@ Exit criteria:
 - Damage and healing models retain their distinct headers and drill-down behavior.
 - League map selection, ladder retrieval, handle filtering, and selected-parse loading remain usable.
 - All inherited Settings fields and column toggles remain reachable in the categorized dashboard.
-- The Default startup probe still exposes the inherited shell, Overview, Analysis, and League
+- The OSCR-UI Legacy startup probe still exposes the inherited shell, Overview, Analysis, and League
   controls.
-- No parser outputs differ between Default and Command Console for the same logs and settings.
+- No parser outputs differ between OSCR-UI Legacy and Command Console for the same logs and settings.
 
 ## Milestone 3: tester release
 
-Goal: publish an explicitly experimental Windows build for community feedback.
+Goal: publish explicitly experimental Windows and Linux builds for community feedback.
 
 Deliverables:
 
 - Versioned source tag and GPL-compliant source availability.
-- Windows build artifact attached to a GitHub prerelease.
+- Windows and Linux x86-64 build artifacts attached to a GitHub prerelease.
 - SHA-256 checksum.
 - Known-issues list and rollback instructions.
 - Feedback template requesting OS version, scale, theme, page, screenshot, and reproduction steps.
@@ -186,19 +203,15 @@ Deliverables:
 
 Exit criteria:
 
-- Clean installation and startup on at least two Windows systems.
-- Default and Command Console can each complete the smoke checklist.
-- A broken or manually invalidated theme setting recovers to Default.
+- Clean installation and startup on at least two Windows systems plus the Linux CI environment.
+- OSCR-UI Legacy and Command Console can each complete the smoke checklist.
+- A broken or manually invalidated theme setting recovers to OSCR-UI Legacy.
 
 ## Later possibilities, deliberately parked
 
-- User-editable five-rail colour presets.
-- Custom background selection and persistence.
 - External declarative theme packages.
 - Theme manifests and compatibility versions.
 - Third-party UI-provider or executable-plugin APIs.
-- Dashboard metric cards, grouped telemetry, and the remaining structural concepts from the browser
-  prototype.
 
 Each parked feature requires a separate scope decision. None is required to prove the startup
 theme foundation.
@@ -207,22 +220,22 @@ theme foundation.
 
 | Risk | Impact | Initial mitigation |
 |---|---|---|
-| Default appearance changes unintentionally | High | Keep the existing Default construction path and capture baseline screenshots |
-| Theme tree is incomplete | High | Overlay validated overrides on Default and test required keys |
-| Theme asset missing in packaged build | High | Separate asset prefix, packaging check, and Default fallback |
+| OSCR-UI Legacy appearance changes unintentionally | High | Keep the existing legacy construction path and capture baseline screenshots |
+| Theme tree is incomplete | High | Overlay validated overrides on the legacy theme and test required keys |
+| Theme asset missing in packaged build | High | Separate asset prefix, packaging check, and OSCR-UI Legacy fallback |
 | QSS behavior differs across platforms | Medium | Windows-first tester matrix, then Linux verification |
 | Pyqtgraph uses colours outside QSS | High | Treat charts as a separate explicit theme surface |
 | UI scale exposes clipping or unreadable text | High | Test 0.5, 1.0, and 1.5 scale values plus minimum window size |
 | External plugins create a security/support burden | High | Built-in allow-listed registry only for the MVP |
 | Fork drifts from upstream | Medium | Keep `upstream` remote and isolate changes into small commits |
 
-## First implementation issue set
+## Initial implementation issue set (complete)
 
 1. Add baseline import/config tests and Windows development instructions.
 2. Add `theme_id` setting with backward-compatible persistence tests.
-3. Add theme registry and guaranteed Default fallback.
+3. Add theme registry and guaranteed OSCR-UI Legacy fallback.
 4. Add a minimal no-op alternate theme fixture for lifecycle testing.
-5. Add restart-required selector to Settings.
+5. Add the structural theme selector and relaunch-required lifecycle to Settings.
 6. Add Command Console theme overrides in small widget-family commits.
 7. Add chart and Live Parser theme coverage.
 8. Build and run the tester matrix.

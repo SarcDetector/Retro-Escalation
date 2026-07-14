@@ -41,7 +41,7 @@ def _create_default_theme(scale: float) -> AppTheme:
 THEME_REGISTRY = {
     DEFAULT_THEME_ID: ThemeDefinition(
         theme_id=DEFAULT_THEME_ID,
-        display_name='Default',
+        display_name='OSCR-UI Legacy',
         factory=_create_default_theme,
     ),
     COMMAND_CONSOLE_THEME_ID: ThemeDefinition(

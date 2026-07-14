@@ -61,17 +61,26 @@ class OSCRLeftSidebar():
         Parameters:
         - :param parent_frame: frame that contains sidebar
         """
-        log_frame = create_frame(self._theme, style='medium_frame', size_policy=SMINMIN)
-        league_frame = create_frame(self._theme, style='medium_frame', size_policy=SMINMIN)
-        about_frame = create_frame(self._theme, style='medium_frame', size_policy=SMINMIN)
-        if parent_frame.objectName() == 'commandConsoleSidebarHost':
+        command_console = parent_frame.objectName() in (
+            'commandConsoleSidebarHost', 'commandConsoleSidebarContent')
+        if command_console:
+            log_frame = QFrame()
+            league_frame = QFrame()
+            about_frame = QFrame()
             log_frame.setObjectName('commandConsoleSidebarLog')
             league_frame.setObjectName('commandConsoleSidebarLeague')
             about_frame.setObjectName('commandConsoleSidebarAbout')
+            for frame in (log_frame, league_frame, about_frame):
+                frame.setSizePolicy(SMINMIN)
+        else:
+            log_frame = create_frame(self._theme, style='medium_frame', size_policy=SMINMIN)
+            league_frame = create_frame(self._theme, style='medium_frame', size_policy=SMINMIN)
+            about_frame = create_frame(self._theme, style='medium_frame', size_policy=SMINMIN)
         sidebar_tabber = QTabWidget(parent_frame)
-        if parent_frame.objectName() == 'commandConsoleSidebarHost':
+        if command_console:
             sidebar_tabber.setObjectName('commandConsoleSidebarTabber')
-        sidebar_tabber.setStyleSheet(self._theme.get_style_class('QTabWidget', 'tabber'))
+        else:
+            sidebar_tabber.setStyleSheet(self._theme.get_style_class('QTabWidget', 'tabber'))
         sidebar_tabber.tabBar().hide()
         sidebar_tabber.setSizePolicy(SMAXMIN)
         sidebar_tabber.addTab(log_frame, tr('Log'))
@@ -336,6 +345,15 @@ class OSCRLeftSidebar():
         about_label.setMinimumWidth(50)  # to fix the word wrap
         about_label.setSizePolicy(SMINMAX)
         left_layout.addWidget(about_label)
+        analysis_credit = create_label(self._theme, tr(
+            'Analysis workflow inspiration: STO CombatLogAnalyzer (CLA), created by '
+            'AnotherNathan.'))
+        analysis_credit.setObjectName('analysisCreditAnotherNathan')
+        analysis_credit.setWordWrap(True)
+        analysis_credit.setMinimumWidth(50)
+        analysis_credit.setSizePolicy(SMINMAX)
+        analysis_credit.setToolTip(self._config.link_cla)
+        left_layout.addWidget(analysis_credit)
         link_button_style = {
             'default': {},
             tr('Website'): {
@@ -361,18 +379,29 @@ class OSCRLeftSidebar():
         left_layout.addWidget(version_label)
         logo_layout = QGridLayout()
         logo_layout.setContentsMargins(0, 0, 0, 0)
-        logo_layout.setColumnStretch(1, 1)
-        logo_size = [self._theme.opt.icon_size * 4] * 2
+        for column in range(3):
+            logo_layout.setColumnStretch(column, 1)
+        logo_size = [self._theme.opt.icon_size * 3] * 2
         stocd_logo = create_icon_button(
             self._theme, 'stocd', self._config.link_stocd,
             style_override={'border-style': 'none'}, icon_size=logo_size)
+        stocd_logo.setObjectName('creditBadgeSTOCD')
         stocd_logo.clicked.connect(lambda: open_link(self._config.link_stocd))
         logo_layout.addWidget(stocd_logo, 0, 0)
         stobuilds_logo = create_icon_button(
             self._theme, 'stobuilds', self._config.link_stobuilds,
             style_override={'border-style': 'none'}, icon_size=logo_size)
+        stobuilds_logo.setObjectName('creditBadgeSTOBuilds')
         stobuilds_logo.clicked.connect(lambda: open_link(self._config.link_stobuilds))
-        logo_layout.addWidget(stobuilds_logo, 0, 2)
+        logo_layout.addWidget(stobuilds_logo, 0, 1)
+        cla_tooltip = (
+            'STO CombatLogAnalyzer (CLA) by AnotherNathan\n' + self._config.link_cla)
+        cla_logo = create_icon_button(
+            self._theme, 'cla', cla_tooltip,
+            style_override={'border-style': 'none'}, icon_size=logo_size)
+        cla_logo.setObjectName('creditBadgeCLA')
+        cla_logo.clicked.connect(lambda: open_link(self._config.link_cla))
+        logo_layout.addWidget(cla_logo, 0, 2)
         logo_frame = create_frame(self._theme, 'medium_frame', size_policy=SMINMAX)
         logo_frame.setLayout(logo_layout)
         left_layout.addWidget(logo_frame, stretch=1, alignment=ABOTTOM)

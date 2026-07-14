@@ -8,8 +8,8 @@ and application state remain shared.
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
+from PySide6.QtGui import QColor, QPainter, QPixmap
+from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout
 
 from .iofunctions import get_asset_path
 from .theme import AppTheme
@@ -38,38 +38,76 @@ def build_context_rail(theme: AppTheme, active_theme_id: str, widgets=None) -> t
         frame.setSizePolicy(SMINMAX)
         return frame, frame
 
-    container = create_frame(theme)
+    from .console.tokens import px
+
+    container = QFrame()
     container.setObjectName('commandConsoleContextRail')
     container.setSizePolicy(SMINMAX)
-    container.setStyleSheet(
-        'QFrame#commandConsoleContextRail {'
-        'background-color: #0d1419; border: 1px solid #293944; border-radius: 10px;}')
     layout = QHBoxLayout()
     layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(0)
+    layout.setSpacing(px(6, theme.scale))
 
     accent_frame = QFrame()
     accent_frame.setObjectName('commandConsoleColourRail')
-    accent_frame.setFixedWidth(max(8, round(10 * theme.scale)))
+    accent_frame.setFixedWidth(px(44, theme.scale))
     accent_layout = QVBoxLayout()
-    accent_layout.setContentsMargins(0, 0, 0, 0)
-    accent_layout.setSpacing(max(1, round(2 * theme.scale)))
+    accent_layout.setContentsMargins(
+        px(4, theme.scale), px(5, theme.scale), px(4, theme.scale), px(5, theme.scale))
+    accent_layout.setSpacing(px(3, theme.scale))
     accents = command_console_accents(theme)
     rail_segments = []
-    for index, colour in enumerate(accents):
+    section_marks = ('OV', 'AN', 'LG', 'ST', 'LP')
+    section_names = ('Overview', 'Analysis', 'League', 'Settings', 'Live Parser')
+    for index, _colour in enumerate(accents):
         segment = QFrame()
         segment.setObjectName(f'commandConsoleRailSegment{index + 1}')
-        segment.setStyleSheet(f'background-color: {colour}; border: none;')
+        segment.setProperty('consoleRole', 'spineSegment')
+        segment.setProperty('accentIndex', str(index))
+        segment.setProperty('active', index == 0)
+        segment.setToolTip(section_names[index])
+        segment_layout = QVBoxLayout()
+        segment_layout.setContentsMargins(0, 0, 0, 0)
+        mark = QLabel(section_marks[index])
+        mark.setObjectName(f'commandConsoleRailMark{index + 1}')
+        mark.setProperty('consoleRole', 'spineMark')
+        mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        segment_layout.addWidget(mark)
+        segment.setLayout(segment_layout)
         accent_layout.addWidget(segment, 1)
         rail_segments.append(segment)
     accent_frame.setLayout(accent_layout)
     layout.addWidget(accent_frame)
 
-    sidebar_host = create_frame(theme, style='medium_frame', size_policy=SMINMIN)
+    sidebar_host = QFrame()
     sidebar_host.setObjectName('commandConsoleSidebarHost')
-    sidebar_host.setStyleSheet(
-        sidebar_host.styleSheet()
-        + 'QFrame#commandConsoleSidebarHost {background-color: #0d1419; border: none;}')
+    sidebar_host.setSizePolicy(SMINMIN)
+    drawer_layout = QVBoxLayout()
+    drawer_layout.setContentsMargins(0, 0, 0, 0)
+    drawer_layout.setSpacing(0)
+
+    drawer_header = QFrame()
+    drawer_header.setObjectName('commandConsoleDrawerHeader')
+    drawer_header.setProperty('section', '0')
+    header_layout = QHBoxLayout()
+    header_layout.setContentsMargins(
+        px(12, theme.scale), px(8, theme.scale), px(12, theme.scale), px(8, theme.scale))
+    header_layout.setSpacing(px(9, theme.scale))
+    section_label = QLabel('OV')
+    section_label.setObjectName('commandConsoleDrawerSection')
+    section_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    section_label.setMinimumWidth(px(26, theme.scale))
+    header_layout.addWidget(section_label)
+    title_label = QLabel('COMBAT LOG')
+    title_label.setObjectName('commandConsoleDrawerTitle')
+    header_layout.addWidget(title_label, 1)
+    drawer_header.setLayout(header_layout)
+    drawer_layout.addWidget(drawer_header)
+
+    sidebar_content = QFrame()
+    sidebar_content.setObjectName('commandConsoleSidebarContent')
+    sidebar_content.setSizePolicy(SMINMIN)
+    drawer_layout.addWidget(sidebar_content, 1)
+    sidebar_host.setLayout(drawer_layout)
     layout.addWidget(sidebar_host, 1)
     container.setLayout(layout)
     if widgets is not None:
@@ -77,22 +115,12 @@ def build_context_rail(theme: AppTheme, active_theme_id: str, widgets=None) -> t
         widgets.context_colour_rail = accent_frame
         widgets.context_rail_segments = rail_segments
         widgets.sidebar_host = sidebar_host
+        widgets.sidebar_content_host = sidebar_content
+        widgets.drawer_header = drawer_header
+        widgets.drawer_section_label = section_label
+        widgets.drawer_title_label = title_label
         widgets.context_accents = list(accents)
-        widgets.context_tints = [
-            _blend_colour(colour, '#0d1419', 0.16) for colour in accents]
-    return container, sidebar_host
-
-
-def _blend_colour(foreground: str, background: str, foreground_ratio: float) -> str:
-    """Blend a bright accent into a dark surface for readable contextual panels."""
-    fg = QColor(foreground)
-    bg = QColor(background)
-    ratio = max(0.0, min(1.0, foreground_ratio))
-    return QColor(
-        round(fg.red() * ratio + bg.red() * (1 - ratio)),
-        round(fg.green() * ratio + bg.green() * (1 - ratio)),
-        round(fg.blue() * ratio + bg.blue() * (1 - ratio)),
-    ).name()
+    return container, sidebar_content
 
 
 def _build_default_shell(theme, widgets, live_parser, status_bar, app_dir):
@@ -152,18 +180,33 @@ class CommandConsoleWorkspace(QFrame):
 
     def __init__(self, theme: AppTheme, settings):
         super().__init__()
+        from .console.tokens import ConsoleTokens
+
         self._theme = theme
-        self._mode = getattr(settings, 'command_console_background_mode', 'grid')
+        self._tokens = ConsoleTokens.from_theme(theme)
+        self._mode = 'none'
+        self._opacity = 0.28
+        self._background_path = Path()
+        self._background = QPixmap()
+        self.apply_appearance(settings)
+
+    def apply_appearance(self, settings) -> None:
+        """Refresh the optional local background without rebuilding the workspace."""
+        self._mode = getattr(settings, 'command_console_background_mode', 'none')
         self._opacity = max(
             0.0, min(0.5, getattr(settings, 'command_console_background_opacity', 0.28)))
         custom_path = Path(getattr(settings, 'command_console_background_path', ''))
-        self._background = QPixmap(str(custom_path)) if (
-            self._mode == 'custom' and custom_path.is_file()) else QPixmap()
+        if custom_path != self._background_path:
+            self._background_path = custom_path
+            self._background = QPixmap(str(custom_path)) if custom_path.is_file() else QPixmap()
+        self.update()
 
     def paintEvent(self, event):
         super().paintEvent(event)
+        from .console.tokens import SURFACES
+
         painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor('#080d12'))
+        painter.fillRect(self.rect(), QColor(SURFACES['void']))
         if self._mode == 'custom' and not self._background.isNull():
             scaled = self._background.scaled(
                 self.size(), Qt.AspectRatioMode.KeepAspectRatioByExpanding,
@@ -173,16 +216,9 @@ class CommandConsoleWorkspace(QFrame):
                 round((self.width() - scaled.width()) / 2),
                 round((self.height() - scaled.height()) / 2), scaled)
             painter.setOpacity(1.0)
-            painter.fillRect(self.rect(), QColor(7, 11, 15, 120))
-        if self._mode in ('custom', 'grid'):
-            grid = QColor(command_console_accents(self._theme)[3])
-            grid.setAlpha(20 if self._mode == 'grid' else 12)
-            painter.setPen(QPen(grid, 1))
-            spacing = max(44, round(72 * self._theme.scale))
-            for x_position in range(0, self.width(), spacing):
-                painter.drawLine(x_position, 0, x_position, self.height())
-            for y_position in range(0, self.height(), spacing):
-                painter.drawLine(0, y_position, self.width(), y_position)
+            scrim = QColor(SURFACES['void'])
+            scrim.setAlpha(185)
+            painter.fillRect(self.rect(), scrim)
         painter.end()
 
 
@@ -192,9 +228,6 @@ def _build_command_console_shell(
     layout.setContentsMargins(0, 0, 0, 0)
     bg_frame = QFrame()
     bg_frame.setObjectName('commandConsoleApplicationShell')
-    bg_frame.setStyleSheet(
-        'QFrame#commandConsoleApplicationShell {'
-        'background-color: #070b0f; border: none;}')
     bg_frame.setSizePolicy(SMINMIN)
     layout.addWidget(bg_frame)
 
@@ -206,10 +239,8 @@ def _build_command_console_shell(
 
     main_frame = CommandConsoleWorkspace(theme, settings)
     main_frame.setObjectName('commandConsoleWorkspace')
-    main_frame.setStyleSheet(
-        'QFrame#commandConsoleWorkspace {'
-        'background: transparent; border: none;}')
     main_frame.setSizePolicy(SMINMIN)
+    widgets.command_console_workspace = main_frame
     root.addWidget(main_frame, 1)
     root.addWidget(status_bar)
     bg_frame.setLayout(root)
@@ -217,31 +248,19 @@ def _build_command_console_shell(
 
 
 def _build_masthead(theme: AppTheme) -> QFrame:
-    accents = command_console_accents(theme)
     masthead = QFrame()
     masthead.setObjectName('commandConsoleMasthead')
-    masthead.setMinimumHeight(round(92 * theme.scale))
-    masthead.setStyleSheet(
-        'QFrame#commandConsoleMasthead {'
-        f'background-color: #0b1116; border: none; border-top: 5px solid {accents[3]};}}')
+    masthead.setMinimumHeight(round(80 * theme.scale))
     layout = QHBoxLayout()
     horizontal_margin = round(32 * theme.scale)
-    layout.setContentsMargins(horizontal_margin, round(13 * theme.scale), horizontal_margin,
-                              round(13 * theme.scale))
+    layout.setContentsMargins(horizontal_margin, round(10 * theme.scale), horizontal_margin,
+                              round(10 * theme.scale))
     layout.setSpacing(round(18 * theme.scale))
 
     badge = QLabel('RE')
     badge.setObjectName('commandConsoleBrandMark')
     badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
     badge.setFixedSize(round(58 * theme.scale), round(54 * theme.scale))
-    badge.setStyleSheet(
-        'QLabel#commandConsoleBrandMark {'
-        f'color: {_contrast_text(accents[0])}; background-color: {accents[0]}; border: none;'
-        f'border-top-left-radius: {round(18 * theme.scale)}px;'
-        f'border-top-right-radius: {round(5 * theme.scale)}px;'
-        f'border-bottom-right-radius: {round(18 * theme.scale)}px;'
-        f'border-bottom-left-radius: {round(5 * theme.scale)}px;'
-        f'font-family: Overpass; font-size: {round(22 * theme.scale)}px; font-weight: 700;}}')
     layout.addWidget(badge)
 
     title_layout = QVBoxLayout()
@@ -249,102 +268,47 @@ def _build_masthead(theme: AppTheme) -> QFrame:
     title_layout.setSpacing(round(3 * theme.scale))
     eyebrow = QLabel('RETRO ESCALATION')
     eyebrow.setObjectName('commandConsoleBrandEyebrow')
-    eyebrow.setStyleSheet(
-        'color: #77dbe2; background: transparent; border: none;'
-        f'font-family: Roboto Mono; font-size: {round(10 * theme.scale)}px; font-weight: 600;')
     title_layout.addWidget(eyebrow)
     title = QLabel('OPEN SOURCE COMBATLOG READER')
     title.setObjectName('commandConsoleBrandTitle')
-    title.setStyleSheet(
-        'color: #f4efe6; background: transparent; border: none;'
-        f'font-family: Overpass; font-size: {round(28 * theme.scale)}px; font-weight: 700;')
     title_layout.addWidget(title)
     layout.addLayout(title_layout, 1)
 
-    readout = QLabel('SESSION  RE-04\nCORE     READY')
-    readout.setObjectName('commandConsoleSystemReadout')
-    readout.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-    readout.setStyleSheet(
-        'color: #85d997; background: transparent; border: none;'
-        f'font-family: Roboto Mono; font-size: {round(10 * theme.scale)}px; font-weight: 600;')
-    layout.addWidget(readout)
     masthead.setLayout(layout)
     return masthead
 
 
 def _build_command_navigation(theme: AppTheme, widgets, live_parser) -> QFrame:
-    accents = command_console_accents(theme)
+    from .console.components import primary_navigation_button
+
     nav = QFrame()
     nav.setObjectName('commandConsolePrimaryNavigation')
-    nav.setStyleSheet(
-        'QFrame#commandConsolePrimaryNavigation {'
-        'background-color: #05080b; border: none; border-bottom: 1px solid #26343d;}')
     layout = QHBoxLayout()
-    margin = round(12 * theme.scale)
+    margin = round(8 * theme.scale)
     layout.setContentsMargins(round(28 * theme.scale), margin, round(28 * theme.scale), margin)
     layout.setSpacing(round(7 * theme.scale))
 
     page_names = (tr('Overview'), tr('Analysis'), tr('League'), tr('Settings'))
     buttons = []
-    for index, (name, accent) in enumerate(zip(page_names, accents[:4])):
-        button = _create_navigation_button(theme, index + 1, name, accent)
+    object_names = ('Overview', 'Analysis', 'League', 'Settings')
+    for index, (name, object_name) in enumerate(zip(page_names, object_names)):
+        button = primary_navigation_button(
+            theme.scale, index + 1, name, index, f'commandNav{object_name}')
         button.setCheckable(True)
         button.setAutoExclusive(True)
         button.setChecked(index == 0)
+        button.setProperty('visualActive', index == 0)
         layout.addWidget(button, 1)
         buttons.append(button)
     widgets.main_menu_buttons = buttons
 
-    live_parser_button = _create_navigation_button(
-        theme, 5, tr('Live Parser'), accents[4], inverse=True)
-    live_parser_button.setObjectName('commandNavLiveParser')
+    live_parser_button = primary_navigation_button(
+        theme.scale, 5, tr('Live Parser'), 4, 'commandNavLiveParser', mirrored=True)
     live_parser_button.setCheckable(True)
     live_parser_button.clicked[bool].connect(live_parser.toggle_window)
+    live_parser_button.toggled.connect(widgets.set_live_parser_active)
     layout.addWidget(live_parser_button, 1)
     widgets.live_parser_button = live_parser_button
+    widgets.navigation_buttons = buttons + [live_parser_button]
     nav.setLayout(layout)
     return nav
-
-
-def _create_navigation_button(
-        theme: AppTheme, index: int, name: str, accent: str,
-        inverse: bool = False) -> QPushButton:
-    button = QPushButton(f'{index:02d}   {name.upper()}')
-    button.setObjectName(f'commandNav{name.replace(" ", "")}')
-    button.setCursor(Qt.CursorShape.PointingHandCursor)
-    button.setMinimumHeight(round(50 * theme.scale))
-    large_radius = round(21 * theme.scale)
-    small_radius = round(6 * theme.scale)
-    font_size = round(15 * theme.scale)
-    if inverse:
-        corners = (
-            f'border-top-left-radius: {small_radius}px;'
-            f'border-top-right-radius: {large_radius}px;'
-            f'border-bottom-right-radius: {small_radius}px;'
-            f'border-bottom-left-radius: {large_radius}px;')
-    else:
-        corners = (
-            f'border-top-left-radius: {large_radius}px;'
-            f'border-top-right-radius: {small_radius}px;'
-            f'border-bottom-right-radius: {large_radius}px;'
-            f'border-bottom-left-radius: {small_radius}px;')
-    dark_edge = _blend_colour(accent, '#05080b', 0.54)
-    text_colour = _contrast_text(accent)
-    button.setStyleSheet(
-        'QPushButton {'
-        f'background-color: {accent}; color: {text_colour}; border: 2px solid {dark_edge};'
-        f'border-bottom-width: {round(7 * theme.scale)}px; {corners}'
-        'padding: 7px 14px; text-align: left;'
-        f'font-family: Overpass; font-size: {font_size}px; font-weight: 700;}}'
-        'QPushButton:hover {border-color: #f4efe6;}'
-        f'QPushButton:checked {{color: {text_colour}; border-color: #f4efe6;'
-        f'border-bottom-color: {dark_edge};}}'
-        'QPushButton:pressed {padding-top: 9px; padding-bottom: 5px;}')
-    return button
-
-
-def _contrast_text(colour: str) -> str:
-    """Choose readable text for user-selectable rail colours."""
-    value = QColor(colour)
-    luminance = 0.2126 * value.red() + 0.7152 * value.green() + 0.0722 * value.blue()
-    return '#10161b' if luminance >= 118 else '#f4efe6'

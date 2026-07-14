@@ -27,7 +27,8 @@ class CommandSettingsView:
 
     def __init__(
             self, theme, settings, config, widgets, tables, live_parser,
-            browse_sto_logpath: Callable, set_sto_logpath_callback: Callable):
+            browse_sto_logpath: Callable, set_sto_logpath_callback: Callable,
+            appearance_changed: Callable[[str], None] | None = None):
         self.theme = theme
         self.settings = settings
         self.config = config
@@ -36,6 +37,7 @@ class CommandSettingsView:
         self.live_parser = live_parser
         self.browse_sto_logpath = browse_sto_logpath
         self.set_sto_logpath_callback = set_sto_logpath_callback
+        self.appearance_changed = appearance_changed
         self.accents = command_console_accents(theme)
         self._appearance_colour_entries: list[QLineEdit] = []
         self._appearance_colour_pickers: list[QPushButton] = []
@@ -182,8 +184,7 @@ class CommandSettingsView:
             self.settings.command_console_background_mode)
         background_selector.setCurrentIndex(max(0, background_index))
         background_selector.currentIndexChanged.connect(
-            lambda index: self.settings.set(
-                'command_console_background_mode', background_selector.itemData(index)))
+            lambda index: self._set_background_mode(background_selector.itemData(index)))
         self._add_field(profile, row, 'Background:', background_selector)
         self._appearance_background_selector = background_selector
         self.widgets.appearance_background_selector = background_selector
@@ -192,7 +193,7 @@ class CommandSettingsView:
         profile.addWidget(self._field_label('Background Intensity:'), row, 0)
         profile.addLayout(create_annotated_slider(
             self.theme, round(self.settings.command_console_background_opacity * 100), 0, 50,
-            callback=self.settings.set_command_background_opacity), row, 1)
+            callback=self._set_background_opacity), row, 1)
         row += 1
 
         path_layout = QHBoxLayout()
@@ -205,7 +206,7 @@ class CommandSettingsView:
         self._expand_field(path_entry)
         path_entry.setPlaceholderText('Select a PNG, JPG, or WebP image')
         path_entry.editingFinished.connect(
-            lambda: self.settings.set('command_console_background_path', path_entry.text()))
+            lambda: self._set_background_path(path_entry.text()))
         path_layout.addWidget(path_entry, 1)
         browse_button = QPushButton('BROWSE')
         browse_button.setObjectName('commandConsoleBackgroundBrowse')
@@ -219,7 +220,7 @@ class CommandSettingsView:
         self.widgets.appearance_background_path_entry = path_entry
         row += 1
 
-        restart = QLabel('APPEARANCE CHANGES APPLY AFTER RESTART')
+        restart = QLabel('SHELL + OVERVIEW APPLY LIVE // THEME SWITCH RELAUNCHES')
         restart.setObjectName('commandConsoleThemeRestartLabel')
         restart.setWordWrap(True)
         restart.setStyleSheet(self._small_status_style(self.accents[4]))
@@ -504,6 +505,7 @@ class CommandSettingsView:
         if preset_id in COMMAND_CONSOLE_PALETTES:
             self.settings.command_console_accents = list(COMMAND_CONSOLE_PALETTES[preset_id])
         self._refresh_colour_controls()
+        self._notify_appearance_changed('palette')
 
     def _set_custom_colour(self, role_index: int, colour: str) -> None:
         current = self.settings.command_console_accents[role_index]
@@ -516,6 +518,7 @@ class CommandSettingsView:
                 self._appearance_palette_selector.findData('custom'))
             del blocker
         self._refresh_colour_controls()
+        self._notify_appearance_changed('palette')
 
     def _pick_custom_colour(self, role_index: int) -> None:
         current = QColor(self.settings.command_console_accents[role_index])
@@ -545,6 +548,24 @@ class CommandSettingsView:
             self._appearance_background_selector.setCurrentIndex(
                 self._appearance_background_selector.findData('custom'))
             del blocker
+        self._notify_appearance_changed('background')
+
+    def _set_background_mode(self, mode: str) -> None:
+        self.settings.command_console_background_mode = mode
+        self._notify_appearance_changed('background')
+
+    def _set_background_opacity(self, value: int) -> str:
+        label = self.settings.set_command_background_opacity(value)
+        self._notify_appearance_changed('background')
+        return label
+
+    def _set_background_path(self, path: str) -> None:
+        self.settings.command_console_background_path = path
+        self._notify_appearance_changed('background')
+
+    def _notify_appearance_changed(self, change: str) -> None:
+        if self.appearance_changed is not None:
+            self.appearance_changed(change)
 
     def _column_panel(
             self, title: str, accent: str, headers: Sequence[str], states: list[bool],

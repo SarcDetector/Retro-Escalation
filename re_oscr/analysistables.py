@@ -59,7 +59,11 @@ class AnalysisTables():
             sort_order = Qt.SortOrder.AscendingOrder
         else:
             sort_order = Qt.SortOrder.DescendingOrder
-        self.overview_table.sortByColumn(self._settings.overview_sort_column, sort_order)
+        if hasattr(self.overview_table, 'sort_by_source_column'):
+            self.overview_table.sort_by_source_column(
+                self._settings.overview_sort_column, sort_order)
+        else:
+            self.overview_table.sortByColumn(self._settings.overview_sort_column, sort_order)
         self.overview_table.resizeColumnsToContents()
 
         self.damage_out_table.expand(damage_out_player)

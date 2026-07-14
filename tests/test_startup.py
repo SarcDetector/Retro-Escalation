@@ -20,7 +20,8 @@ class ApplicationStartupTests(unittest.TestCase):
         settings._settings.sync()
 
     def assert_startup_succeeds(
-            self, config_dir: str, expected_theme_id: str, select_theme_id: str = "-"):
+            self, config_dir: str, expected_theme_id: str, select_theme_id: str = "-",
+            expect_collapsed: bool = False):
         environment = os.environ.copy()
         environment["QT_QPA_PLATFORM"] = "offscreen"
         process = subprocess.run(
@@ -31,6 +32,7 @@ class ApplicationStartupTests(unittest.TestCase):
                 config_dir,
                 expected_theme_id,
                 select_theme_id,
+                "collapsed" if expect_collapsed else "expanded",
             ],
             cwd=self.project_root,
             env=environment,
@@ -42,7 +44,11 @@ class ApplicationStartupTests(unittest.TestCase):
         details = f"stdout:\n{process.stdout}\nstderr:\n{process.stderr}"
         self.assertEqual(process.returncode, 0, details)
 
-    def test_default_application_startup(self):
+    def test_fresh_application_startup_uses_command_console(self):
+        with tempfile.TemporaryDirectory() as config_dir:
+            self.assert_startup_succeeds(config_dir, "command_console")
+
+    def test_explicit_legacy_application_startup(self):
         with tempfile.TemporaryDirectory() as config_dir:
             self.set_stored_theme(config_dir, "default")
             self.assert_startup_succeeds(config_dir, "default")
@@ -51,6 +57,16 @@ class ApplicationStartupTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as config_dir:
             self.set_stored_theme(config_dir, "command_console")
             self.assert_startup_succeeds(config_dir, "command_console")
+
+    def test_persisted_command_drawer_collapse_restores(self):
+        with tempfile.TemporaryDirectory() as config_dir:
+            settings = OSCRSettings(Path(config_dir, "RE_OSCR_settings.ini"))
+            settings.theme_id = "command_console"
+            settings.state__sidebar_collapsed = True
+            settings.store_settings()
+            settings._settings.sync()
+            self.assert_startup_succeeds(
+                config_dir, "command_console", expect_collapsed=True)
 
     def test_unknown_theme_application_startup_falls_back(self):
         with tempfile.TemporaryDirectory() as config_dir:
