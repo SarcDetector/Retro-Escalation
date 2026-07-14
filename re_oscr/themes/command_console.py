@@ -40,7 +40,7 @@ COMMAND_CONSOLE_OVERRIDES = {
 
 def create_command_console_theme(
         scale: float, accents: tuple[str, ...] | list[str] | None = None) -> AppTheme:
-    """Build Command Console from the complete Default theme plus validated overrides."""
+    """Build Command Console from the complete OSCR-UI Legacy theme plus validated overrides."""
     palette = normalize_custom_palette(accents or COMMAND_CONSOLE_ACCENTS)
     default_theme = AppTheme(scale)
     theme_tree = default_theme.get_default_theme()

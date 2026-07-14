@@ -10,7 +10,7 @@ $python = Join-Path $repoRoot '.venv\Scripts\python.exe'
 $workRoot = Join-Path $repoRoot '.artifacts\pyinstaller'
 $appName = 'RE-OSCR'
 $appOutput = Join-Path $OutputRoot $appName
-$version = '11.1.0.dev7+re.oscr'
+$version = '11.1.0.dev8+re.oscr'
 $assetsData = "$(Join-Path $repoRoot 'assets');assets"
 $localesData = "$(Join-Path $repoRoot 'locales');locales"
 $themeAssetsData = "$(Join-Path $repoRoot 'theme_assets');theme_assets"
@@ -49,7 +49,20 @@ finally {
 
 Copy-Item -LiteralPath (Join-Path $repoRoot 'LICENSE') -Destination $appOutput -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md') -Destination $appOutput -Force
-Copy-Item -LiteralPath (Join-Path $repoRoot 'docs\TESTING.md') -Destination $appOutput -Force
+$docsOutput = Join-Path $appOutput 'docs'
+$linuxGuideOutput = Join-Path $appOutput 'distribution\linux'
+New-Item -ItemType Directory -Force -Path $docsOutput | Out-Null
+New-Item -ItemType Directory -Force -Path $linuxGuideOutput | Out-Null
+foreach ($document in @('PROJECT_SCOPE.md', 'TESTING.md', 'DEVELOPMENT.md')) {
+    Copy-Item `
+        -LiteralPath (Join-Path $repoRoot "docs\$document") `
+        -Destination $docsOutput `
+        -Force
+}
+Copy-Item `
+    -LiteralPath (Join-Path $repoRoot 'distribution\linux\README.md') `
+    -Destination $linuxGuideOutput `
+    -Force
 
 $commit = (& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot rev-parse HEAD).Trim()
 $buildInfo = @"

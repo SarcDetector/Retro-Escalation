@@ -63,8 +63,11 @@ version="$($python -c 'import re, sys; text = open(sys.argv[1], encoding="utf-8"
 
 cp "$repo_root/LICENSE" "$app_output/LICENSE"
 cp "$repo_root/README.md" "$app_output/README.md"
-cp "$repo_root/docs/TESTING.md" "$app_output/TESTING.md"
-cp "$repo_root/distribution/linux/README.md" "$app_output/LINUX_README.md"
+mkdir -p "$app_output/docs" "$app_output/distribution/linux"
+for document in PROJECT_SCOPE.md TESTING.md DEVELOPMENT.md; do
+    cp "$repo_root/docs/$document" "$app_output/docs/$document"
+done
+cp "$repo_root/distribution/linux/README.md" "$app_output/distribution/linux/README.md"
 chmod +x "$app_output/$app_name"
 
 commit="$(git -c "safe.directory=$repo_root" -C "$repo_root" rev-parse HEAD 2>/dev/null || printf 'unknown')"

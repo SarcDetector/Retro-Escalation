@@ -201,6 +201,10 @@ class ConsoleTokens:
                 f"background-color:{SURFACES['raised']};border:none;}}"
             ),
             (
+                "QTabWidget#commandConsoleMainTabber::pane {"
+                f"background-color:{SURFACES['base']};border:none;}}"
+            ),
+            (
                 "QFrame#commandConsoleDrawerHeader {"
                 f"background-color:{SURFACES['overlay']};border:none;"
                 f"border-top:{drawer_cap}px solid {self.accents[0]};}}"
@@ -263,12 +267,67 @@ class ConsoleTokens:
                 f"border-radius:{radius_panel}px;}}"
             ),
             (
+                "QFrame[consoleRole='surfacePage'] {"
+                f"background-color:{SURFACES['raised']};border:none;}}"
+            ),
+            (
+                "QFrame[consoleRole='analysisCommandDeck'] {"
+                "background:transparent;border:none;}"
+            ),
+            (
+                "QFrame[consoleRole='analysisModeRow'] {"
+                f"background-color:{SURFACES['base']};"
+                f"border:1px solid {BORDERS['hairline']};"
+                f"border-radius:{radius_panel}px;}}"
+            ),
+            (
+                "QFrame[consoleRole='modifierBar'] {"
+                f"background-color:{SURFACES['base']};"
+                f"border:1px solid {BORDERS['hairline']};"
+                f"border-radius:{radius_panel}px;}}"
+            ),
+            (
+                "QFrame[consoleRole='workbenchFilterRow'] {"
+                "background:transparent;border:none;}"
+            ),
+            (
+                "QFrame[consoleRole='workbenchTimeRow'] {"
+                "background:transparent;border:none;"
+                f"border-top:1px solid {BORDERS['hairline']};}}"
+            ),
+            (
+                "QLineEdit[consoleRole='workbenchFilter'] {"
+                f"background-color:{SURFACES['overlay']};color:{TEXT['primary']};"
+                f"border:1px solid {BORDERS['control']};"
+                f"border-radius:{radius_chip_small}px;"
+                f"padding:{px(5, s)}px {px(9, s)}px;"
+                f"font-family:'Roboto Mono';font-size:{px(11, s)}px;}}"
+            ),
+            (
+                "QLineEdit[consoleRole='workbenchFilter']:hover,"
+                "QLineEdit[consoleRole='workbenchFilter']:focus {"
+                f"border-color:{BORDERS['focus']};}}"
+            ),
+            (
+                "QLabel[consoleRole='chip'][status='truth'] {"
+                f"color:{STATES['success']};border-color:{STATES['success']};}}"
+            ),
+            (
+                "QTabWidget[consoleRole='surfaceTabs']::pane {"
+                "background:transparent;border:none;}"
+            ),
+            (
                 "QTabWidget#commandConsoleOverviewGraphPanel::pane {"
                 f"background-color:{SURFACES['raised']};border:none;"
                 f"border-radius:{radius_panel}px;}}"
             ),
             (
                 "QSplitter#commandConsoleOverviewSplitter::handle {"
+                f"background-color:{BORDERS['hairline']};min-height:{px(7, s)}px;"
+                f"margin:{px(3, s)}px {px(18, s)}px;}}"
+            ),
+            (
+                "QSplitter#commandConsoleAnalysisSplitter::handle {"
                 f"background-color:{BORDERS['hairline']};min-height:{px(7, s)}px;"
                 f"margin:{px(3, s)}px {px(18, s)}px;}}"
             ),
@@ -288,6 +347,52 @@ class ConsoleTokens:
                 f"border-bottom:1px solid {BORDERS['hairline']};"
                 f"padding:{px(7, s)}px {px(8, s)}px;"
                 f"font-family:'Roboto Mono';font-size:{px(11, s)}px;font-weight:600;}}"
+            ),
+            (
+                "QTreeView[consoleRole='analysisTree'] {"
+                f"background-color:{SURFACES['raised']};"
+                f"alternate-background-color:{SURFACES['base']};"
+                f"color:{TEXT['secondary']};border:none;"
+                "selection-background-color:transparent;"
+                f"selection-color:{TEXT['primary']};outline:none;}}"
+            ),
+            (
+                "QTreeView[consoleRole='analysisTree']::item {"
+                f"border:none;padding:{px(3, s)}px {px(6, s)}px;}}"
+            ),
+            (
+                "QTreeView[consoleRole='analysisTree']::item:selected {"
+                f"background-color:{blend(self.accents[1], SURFACES['raised'], 0.18)};"
+                f"color:{TEXT['primary']};}}"
+            ),
+            (
+                "QTreeView[consoleRole='analysisTree'] QHeaderView::section {"
+                f"background-color:{SURFACES['base']};color:{TEXT['eyebrow']};"
+                "border:none;"
+                f"border-bottom:1px solid {BORDERS['hairline']};"
+                f"padding:{px(7, s)}px {px(8, s)}px;"
+                f"font-family:'Roboto Mono';font-size:{px(11, s)}px;font-weight:600;}}"
+            ),
+            (
+                "QComboBox[consoleRole='compactCombo'] {"
+                f"background-color:{SURFACES['overlay']};color:{TEXT['secondary']};"
+                f"border:1px solid {BORDERS['control']};"
+                f"border-radius:{radius_chip_small}px;"
+                f"padding:{px(5, s)}px {px(9, s)}px;"
+                f"font-family:'Overpass';font-size:{px(11, s)}px;}}"
+            ),
+            (
+                "QComboBox[consoleRole='compactCombo']:hover,"
+                "QComboBox[consoleRole='compactCombo']:focus {"
+                f"color:{TEXT['primary']};border-color:{BORDERS['focus']};}}"
+            ),
+            (
+                "QComboBox[consoleRole='compactCombo'] QAbstractItemView {"
+                f"background-color:{SURFACES['overlay']};color:{TEXT['secondary']};"
+                f"border:1px solid {BORDERS['control']};"
+                "selection-background-color:"
+                f"{blend(self.accents[1], SURFACES['overlay'], 0.24)};"
+                f"selection-color:{TEXT['primary']};}}"
             ),
             (
                 "QFrame[consoleRole='capLine'] {"
@@ -396,10 +501,52 @@ class ConsoleTokens:
                     f"border-bottom:{px(3, s)}px solid {edge};}}"
                 ),
                 (
+                    f"QPushButton[consoleRole='modeControl']{selector}"
+                    "[visualActive='true']:enabled {"
+                    f"color:{inverse};background-color:{accent};border-color:{accent};"
+                    f"border-bottom:{px(3, s)}px solid {edge};}}"
+                ),
+                (
                     f"QPushButton[consoleRole='actionButton']{selector}[primary='true']:enabled {{"
                     f"color:{inverse};background-color:{accent};border-color:{accent};}}"
                 ),
+                (
+                    f"QPushButton[consoleRole='actionButton']{selector}"
+                    "[toggleAction='true']:checked:enabled {"
+                    f"color:{inverse};background-color:{accent};border-color:{accent};}}"
+                ),
+                (
+                    f"QPushButton[consoleRole='actionButton']{selector}"
+                    "[toggleAction='true'][visualActive='true']:enabled {"
+                    f"color:{inverse};background-color:{accent};border-color:{accent};}}"
+                ),
+                (
+                    f"QLabel[consoleRole='chip']{selector}[status='modified'] {{"
+                    f"color:{accent};border-color:{accent};}}"
+                ),
             ))
+
+        # Qt's Windows style can let the inherited generic ``QPushButton:checked`` rule win
+        # over a dynamic-property + pseudo-state selector on nested controls.  These stable
+        # Analysis object names provide an equally palette-aware, deterministic active state.
+        # Keep the mapping beside the token palette instead of introducing view-local colours.
+        for mode_number, accent_index in enumerate((0, 4, 3, 2), start=1):
+            accent = self.accents[accent_index]
+            edge = self.accent_edge(accent_index)
+            inverse = contrast_text(accent)
+            rules.append(
+                f"QPushButton#commandConsoleAnalysisMode{mode_number}:checked,"
+                f"QPushButton#commandConsoleAnalysisMode{mode_number}[visualActive='true'] {{"
+                f"color:{inverse};background-color:{accent};border-color:{accent};"
+                f"border-bottom:{px(3, s)}px solid {edge};}}"
+            )
+        analysis_accent = self.accents[1]
+        rules.append(
+            "QPushButton#analysisFreezeButton:checked,"
+            "QPushButton#analysisFreezeButton[visualActive='true'] {"
+            f"color:{contrast_text(analysis_accent)};"
+            f"background-color:{analysis_accent};border-color:{analysis_accent};}}"
+        )
         return "\n".join(rules)
 
 

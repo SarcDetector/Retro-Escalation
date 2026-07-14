@@ -7,7 +7,7 @@ packaging.
 
 Current development features include:
 
-- A restart-selected Default or Command Console theme.
+- A restart-selected Command Console (default) or OSCR-UI Legacy appearance.
 - A dedicated Command Console application shell with five segmented navigation controls and a
   persistent five-colour context rail plus page-matched sidebar accents.
 - Dedicated Command Console Overview, Analysis, League Standings, and categorized Settings layouts

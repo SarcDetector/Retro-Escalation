@@ -1,4 +1,4 @@
-"""Allow-listed startup theme registry with guaranteed Default fallback."""
+"""Allow-listed startup theme registry with guaranteed OSCR-UI Legacy fallback."""
 
 from dataclasses import dataclass
 import logging
@@ -70,11 +70,11 @@ def _configure_asset_path(definition: ThemeDefinition, app_dir: Path) -> None:
 def resolve_theme(
         requested_theme_id: str, scale: float, app_dir: Path | None = None,
         command_console_palette: Sequence[str] | None = None) -> ThemeResolution:
-    """Resolve and construct a theme, returning Default after any alternate-theme failure."""
+    """Resolve a theme, returning OSCR-UI Legacy after an alternate-theme failure."""
     definition = THEME_REGISTRY.get(requested_theme_id)
     fallback_used = definition is None
     if definition is None:
-        logger.warning('Unknown theme ID %r; using Default.', requested_theme_id)
+        logger.warning('Unknown theme ID %r; using OSCR-UI Legacy.', requested_theme_id)
         definition = THEME_REGISTRY[DEFAULT_THEME_ID]
 
     try:
@@ -87,7 +87,7 @@ def resolve_theme(
     except Exception:
         if definition.theme_id == DEFAULT_THEME_ID:
             raise
-        logger.exception('Theme %r failed to load; using Default.', definition.theme_id)
+        logger.exception('Theme %r failed to load; using OSCR-UI Legacy.', definition.theme_id)
         definition = THEME_REGISTRY[DEFAULT_THEME_ID]
         theme = definition.factory(scale)
         fallback_used = True

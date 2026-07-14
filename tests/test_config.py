@@ -49,6 +49,9 @@ class OSCRSettingsTests(unittest.TestCase):
             settings.theme_id = "command_console"
             settings.ui_scale = 1.2
             settings.dmg_columns[3] = False
+            settings.dmg_columns[7] = False
+            settings.heal_columns[2] = False
+            settings.liveparser__columns = [True, False, True, True, False, False, True]
             settings.favorite_ladders = ["alpha", "beta"]
             settings.command_console_palette_preset = "custom"
             settings.command_console_accents = [
@@ -68,7 +71,17 @@ class OSCRSettingsTests(unittest.TestCase):
             self.assertEqual(restored.language, "de")
             self.assertEqual(restored.theme_id, "command_console")
             self.assertEqual(restored.ui_scale, 1.2)
-            self.assertFalse(restored.dmg_columns[3])
+            expected_damage_columns = [True] * 21
+            expected_damage_columns[3] = False
+            expected_damage_columns[7] = False
+            self.assertEqual(restored.dmg_columns, expected_damage_columns)
+            expected_heal_columns = [True] * 13
+            expected_heal_columns[2] = False
+            self.assertEqual(restored.heal_columns, expected_heal_columns)
+            self.assertEqual(
+                restored.liveparser__columns,
+                [True, False, True, True, False, False, True],
+            )
             self.assertEqual(restored.favorite_ladders, ["alpha", "beta"])
             self.assertEqual(restored.command_console_palette_preset, "custom")
             self.assertEqual(

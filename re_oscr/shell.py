@@ -1,6 +1,6 @@
 """Theme-selectable application shells for RE-OSCR.
 
-The inherited shell remains byte-for-byte equivalent in structure for the Default theme. The
+The inherited shell remains byte-for-byte equivalent in structure for OSCR-UI Legacy. The
 Command Console shell owns only presentation and navigation widgets; page models, parser callbacks,
 and application state remain shared.
 """

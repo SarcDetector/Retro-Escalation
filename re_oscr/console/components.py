@@ -43,6 +43,7 @@ def mode_button(
     button.setObjectName(object_name)
     _role(button, "modeControl", accent_index)
     button.setCheckable(True)
+    button.setProperty("visualActive", False)
     button.setCursor(Qt.CursorShape.PointingHandCursor)
     button.setMinimumHeight(px(30, scale))
     return button
@@ -122,6 +123,39 @@ def embedded_surface(scale: float, object_name: str) -> Panel:
     body_layout.setSpacing(px(6, scale))
     frame.setLayout(body_layout)
     return Panel(frame, frame, body_layout)
+
+
+def embedded_panel(
+        scale: float, object_name: str, eyebrow: str, title: str,
+        accent_index: int) -> Panel:
+    """Build an embedded data surface with a reusable cap line.
+
+    The returned cap uses a horizontal layout, so views can append mode or
+    action controls without introducing view-local styling.
+    """
+    frame = QFrame()
+    frame.setObjectName(object_name)
+    _role(frame, "embeddedSurface")
+    root = QVBoxLayout()
+    root.setContentsMargins(0, 0, 0, 0)
+    root.setSpacing(0)
+
+    cap_panel = cap_line(
+        scale, f"{object_name}Cap", eyebrow, title, accent_index)
+    root.addWidget(cap_panel.frame)
+
+    body = QFrame()
+    body.setObjectName(f"{object_name}Body")
+    body_layout = QVBoxLayout()
+    body_layout.setContentsMargins(
+        px(8, scale), px(8, scale), px(8, scale), px(8, scale))
+    body_layout.setSpacing(px(6, scale))
+    body.setLayout(body_layout)
+    root.addWidget(body, 1)
+    frame.setLayout(root)
+    return Panel(
+        frame, body, body_layout, cap_panel.eyebrow, cap_panel.title,
+        cap_panel.frame)
 
 
 def cap_line(

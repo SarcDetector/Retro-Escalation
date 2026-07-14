@@ -54,6 +54,7 @@ def main() -> int:
     command_shell = ui.window.findChild(QWidget, "commandConsoleApplicationShell")
     default_shell = ui.window.findChild(QWidget, "defaultApplicationShell")
     if expected_theme_id == COMMAND_CONSOLE_THEME_ID:
+        assert ui.workbench is not None
         assert command_shell is not None
         assert default_shell is None
         original_scale = ui.config.ui_scale
@@ -142,8 +143,40 @@ def main() -> int:
         ui.parser.overview_table_model.clear()
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisHeading") is not None
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisTitle").text() == "ANALYSIS"
-        assert ui.window.findChild(QWidget, "commandConsoleAnalysisGraphPanel") is not None
-        assert ui.window.findChild(QWidget, "commandConsoleAnalysisTelemetryPanel") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleAnalysisCommandDeck") is not None
+        assert ui.window.findChild(QWidget, "commandConsoleAnalysisModifierBar") is not None
+        assert ui.window.findChild(QWidget, "analysisWorkbenchFilter") is (
+            ui.widgets.analysis_filter_entry)
+        assert ui.window.findChild(QWidget, "analysisWorkbenchScope") is (
+            ui.widgets.analysis_filter_scope)
+        assert ui.window.findChild(QWidget, "analysisWorkbenchStart") is (
+            ui.widgets.analysis_start_entry)
+        assert ui.window.findChild(QWidget, "analysisWorkbenchEnd") is (
+            ui.widgets.analysis_end_entry)
+        assert ui.window.findChild(QWidget, "analysisParserTruthChip") is (
+            ui.widgets.analysis_truth_chip)
+        assert ui.window.findChild(QWidget, "analysisModifiedViewChip") is (
+            ui.widgets.analysis_modified_chip)
+        assert ui.window.findChild(QWidget, "analysisWorkbenchEventCount") is (
+            ui.widgets.analysis_event_count_chip)
+        assert ui.window.findChild(QWidget, "analysisWorkbenchReset") is (
+            ui.widgets.analysis_reset_button)
+        assert ui.widgets.analysis_filter_scope.currentData() == "ANY"
+        assert ui.widgets.analysis_filter_entry.placeholderText() == "SEARCH COMBAT EVENTS"
+        assert ui.widgets.analysis_start_entry.placeholderText() == "START"
+        assert ui.widgets.analysis_end_entry.placeholderText() == "END"
+        assert ui.widgets.analysis_truth_chip.isHidden()
+        assert ui.widgets.analysis_modified_chip.isHidden()
+        assert ui.widgets.analysis_event_count_chip.text() == "NO COMBAT"
+        assert not ui.widgets.analysis_reset_button.isEnabled()
+        analysis_graph_panel = ui.window.findChild(
+            QWidget, "commandConsoleAnalysisGraphPanel")
+        analysis_telemetry_panel = ui.window.findChild(
+            QWidget, "commandConsoleAnalysisTelemetryPanel")
+        assert analysis_graph_panel.property("consoleRole") == "surfaceTabs"
+        assert analysis_telemetry_panel.property("consoleRole") == "embeddedSurface"
+        assert ui.window.findChild(
+            QWidget, "commandConsoleAnalysisTelemetryTabs") is ui.widgets.analysis_tree_tabber
         assert ui.window.findChild(QWidget, "commandConsoleLeagueHeading") is not None
         assert ui.window.findChild(QWidget, "commandConsoleLeagueTitle").text() == (
             "LEAGUE STANDINGS")
@@ -194,8 +227,20 @@ def main() -> int:
         assert ui.widgets.overview_menu_buttons[0].text() == "A1  DPS BAR"
         assert [button.text() for button in ui.widgets.analysis_menu_buttons] == [
             "B1  DAMAGE OUT", "B2  DAMAGE TAKEN", "B3  HEALS OUT", "B4  HEALS IN"]
-        assert len(ui.window.findChildren(QWidget, "analysisFreezeButton")) == 4
-        assert len(ui.window.findChildren(QWidget, "analysisClearButton")) == 4
+        assert all(button.property("consoleRole") == "modeControl"
+                   for button in ui.widgets.analysis_menu_buttons)
+        freeze_buttons = ui.window.findChildren(QWidget, "analysisFreezeButton")
+        clear_buttons = ui.window.findChildren(QWidget, "analysisClearButton")
+        assert len(freeze_buttons) == 4
+        assert len(clear_buttons) == 4
+        assert all(button.property("consoleRole") == "actionButton"
+                   for button in freeze_buttons + clear_buttons)
+        assert ui.window.findChild(
+            QWidget, "analysisCopyButton").property("consoleRole") == "actionButton"
+        assert ui.widgets.analysis_copy_combobox.property("consoleRole") == "compactCombo"
+        assert all(table.property("consoleRole") == "analysisTree" for table in (
+            ui.tables.damage_out_table, ui.tables.damage_in_table,
+            ui.tables.heal_out_table, ui.tables.heal_in_table))
 
         ui.widgets.main_menu_buttons[1].click()
         ui.app.processEvents()
@@ -251,6 +296,7 @@ def main() -> int:
             assert ui.widgets.settings_tabber.currentIndex() == index
             assert button.isChecked()
     else:
+        assert ui.workbench is None
         assert "re_oscr.console" not in sys.modules
         assert default_shell is not None
         assert command_shell is None
@@ -264,6 +310,11 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "defaultAnalysisGraph") is not None
         assert ui.window.findChild(QWidget, "defaultAnalysisTelemetry") is not None
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisHeading") is None
+        assert ui.window.findChild(QWidget, "analysisWorkbenchFilter") is None
+        assert ui.window.findChild(QWidget, "analysisParserTruthChip") is None
+        assert ui.window.findChild(QWidget, "analysisModifiedViewChip") is None
+        assert ui.window.findChild(QWidget, "analysisWorkbenchEventCount") is None
+        assert ui.window.findChild(QWidget, "analysisWorkbenchReset") is None
         assert ui.window.findChild(QWidget, "commandConsoleOverviewSummaryDeck") is None
         assert ui.window.findChild(QWidget, "commandConsoleOverviewMetricBar") is None
         assert (
@@ -289,6 +340,7 @@ def main() -> int:
     assert ui.widgets.analysis_graph_tabber.count() == 4
     assert ui.widgets.analysis_tree_tabber.count() == 4
     assert ui.widgets.analysis_copy_combobox.count() == 5
+    assert len(ui.widgets.analysis_plots) == 4
 
     expected_stored_theme_id = expected_theme_id
     if select_theme_id != "-":

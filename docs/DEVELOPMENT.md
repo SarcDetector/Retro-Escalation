@@ -30,12 +30,14 @@ GitHub runs the same command on Windows for every branch push and pull request.
 
 ## What the baseline protects
 
-- Inherited OSCR-UI 11.1.0 fresh-setting defaults and settings type persistence.
-- The complete existing Default palette, including the ten chart colours.
+- Command Console fresh-setting defaults and settings type persistence.
+- The complete OSCR-UI Legacy palette, including the ten chart colours.
 - Theme stylesheet generation and scaling.
-- Built-in theme registry construction, failure logging, and guaranteed Default fallback.
+- Built-in theme registry construction, failure logging, and guaranteed OSCR-UI Legacy fallback.
 - Theme selection persistence without changing the active theme before restart.
 - Construction of the real four-page RE-OSCR window in both built-in themes.
-
-Later milestones should extend these checks with an explicit comparison showing identical parser
-results in Default and Command Console.
+- Display-only Workbench derivation without mutating parser models or League upload coordinates.
+- Frozen Analysis identity columns sharing the original tree model, selection, sorting, and
+  vertical navigation.
+- Identical parser totals in OSCR-UI Legacy, Command Console parser-truth, and unmodified derived
+  views.

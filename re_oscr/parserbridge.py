@@ -26,6 +26,7 @@ class ParserBridge(QObject):
     """Contains logic to connect with the OSCR parser"""
 
     completed_combat = Signal(Combat)
+    combat_displayed = Signal(Combat)
     parser_error = Signal(object)
     parser_status = Signal(str)
     status_message = Signal(str, str)
@@ -219,6 +220,16 @@ class ParserBridge(QObject):
         self.heal_out_model.set_data(heal_out_item)
         self.heal_in_model.set_data(heal_in_item)
 
+    def display_analysis(self, combat: Combat):
+        """Display one combat's Analysis roots without changing the parser's current combat."""
+        self.populate_analysis(combat)
+        self._tables.refresh_analysis_tables(
+            self.damage_out_model.player_index,
+            self.damage_in_model.player_index,
+            self.heal_out_model.player_index,
+            self.heal_in_model.player_index,
+        )
+
     def show_parser_error(self, error: BaseException):
         """
         Handles error raised by parser during analyzation of logfile.
@@ -277,9 +288,18 @@ class ParserBridge(QObject):
         self._widgets.update_overview_telemetry(
             combat.map, combat.difficulty or '', log_duration, player_duration, table_cell_data)
         self.populate_analysis(combat)
+        # Official combat selection retains the complete legacy refresh contract, including
+        # Overview sorting/column sizing.  Workbench display_analysis intentionally refreshes
+        # only Analysis so a local modifier cannot disturb parser-truth Overview data.
         self._tables.refresh_tables(
-            self.damage_out_model.player_index, self.damage_in_model.player_index,
-            self.heal_out_model.player_index, self.heal_in_model.player_index)
+            self.damage_out_model.player_index,
+            self.damage_in_model.player_index,
+            self.heal_out_model.player_index,
+            self.heal_in_model.player_index,
+        )
+        # A combat can be selected long after it was parsed, so this is intentionally distinct
+        # from completed_combat.  Command Console modifiers listen here; League does not.
+        self.combat_displayed.emit(combat)
 
     def save_combat(self, combat_info: tuple[int, str, str, str, str] | None):
         """

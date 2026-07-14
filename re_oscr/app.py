@@ -33,6 +33,7 @@ from .widgetbuilder import (
     create_annotated_slider, create_button, create_combo_box, create_entry,
     create_frame, create_icon_button, create_label)
 from .widgetmanager import WidgetManager
+from .workbenchcontroller import AnalysisWorkbenchController
 from .views import AnalysisView, CommandSettingsView, LeagueView, OverviewView
 from .widgets import FlipButton
 
@@ -97,6 +98,13 @@ class REOSCRApplication():
         self.parser._graphs = self.graphs
         self.parser.parser_status.connect(self.status_bar.parser_status)
         self.parser.status_message.connect(self.status_bar.status_message)
+        self.workbench: AnalysisWorkbenchController | None = None
+        if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
+            self.workbench = AnalysisWorkbenchController(
+                self.parser, self.tables, self.widgets)
+            self.workbench.view_failed.connect(
+                lambda detail: self.status_bar.status_message.emit(
+                    'Workbench filter rejected', detail))
         self.league: OSCRLeagueConnector = OSCRLeagueConnector(
             self.widgets, self.dialogs, self.theme, self.config, self.settings, self.parser,
             self.upload_dialog)
@@ -471,7 +479,13 @@ class REOSCRApplication():
         button_column.addWidget(table_button, 3, 0)
         self.widgets.overview_table_button = table_button
 
-        center = create_frame(self.theme)
+        # Legacy's unqualified frame stylesheet is intentionally local.  On the Command
+        # Console path it would become an ancestor stylesheet and mask semantic control
+        # states supplied by the shared token sheet.
+        center = (QFrame() if self.active_theme_id == COMMAND_CONSOLE_THEME_ID
+                  else create_frame(self.theme))
+        if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
+            center.setObjectName('commandConsoleContentHost')
         center.setSizePolicy(SMINMIN)
         main_layout.addWidget(center, 0, 2)
 
@@ -494,13 +508,24 @@ class REOSCRApplication():
         Parameters:
         - :param frame: QFrame -> parent frame of the sidebar
         """
-        o_frame = create_frame(self.theme)
-        a_frame = create_frame(self.theme)
-        l_frame = create_frame(self.theme)
-        s_frame = create_frame(self.theme)
+        if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
+            o_frame, a_frame, l_frame, s_frame = (QFrame() for _ in range(4))
+            for index, page in enumerate((o_frame, a_frame, l_frame, s_frame), start=1):
+                page.setObjectName(f'commandConsoleMainPage{index}')
+        else:
+            o_frame = create_frame(self.theme)
+            a_frame = create_frame(self.theme)
+            l_frame = create_frame(self.theme)
+            s_frame = create_frame(self.theme)
 
         main_tabber = QTabWidget(frame)
-        main_tabber.setStyleSheet(self.theme.get_style_class('QTabWidget', 'tabber'))
+        if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
+            # A widget-local stylesheet becomes the cascade root for every page below it.
+            # Leaving the Legacy tabber stylesheet here prevented Command Console's
+            # application-level dynamic-property rules from painting checked controls.
+            main_tabber.setObjectName('commandConsoleMainTabber')
+        else:
+            main_tabber.setStyleSheet(self.theme.get_style_class('QTabWidget', 'tabber'))
         main_tabber.tabBar().hide()
         main_tabber.setSizePolicy(SMINMIN)
         main_tabber.addTab(o_frame, '&O')
@@ -554,6 +579,7 @@ class REOSCRApplication():
             tables=self.tables,
             copy_callback=self.copy_analysis_callback,
             command_console=self.active_theme_id == COMMAND_CONSOLE_THEME_ID,
+            workbench_controller=self.workbench,
         ).build(self.widgets.main_tab_frames[1])
 
     def setup_league_standings_frame(self):

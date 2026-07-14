@@ -25,6 +25,17 @@ class AnalysisTables():
         self.damage_in_table: QTreeView
         self.heal_out_table: QTreeView
         self.heal_in_table: QTreeView
+        self._analysis_modified: bool = False
+
+    def set_analysis_modified(self, modified: bool) -> None:
+        """Control explicit copy labelling for the display-only Workbench context."""
+        self._analysis_modified = bool(modified)
+
+    def _copy_output(self, output_text: str) -> str:
+        if self._analysis_modified:
+            output_text = '{ RE-OSCR MODIFIED VIEW }\n' + output_text
+        QApplication.clipboard().setText(output_text)
+        return output_text
 
     def get_analysis_table(self, index: int) -> QTreeView:
         """
@@ -66,6 +77,13 @@ class AnalysisTables():
             self.overview_table.sortByColumn(self._settings.overview_sort_column, sort_order)
         self.overview_table.resizeColumnsToContents()
 
+        self.refresh_analysis_tables(
+            damage_out_player, damage_in_player, heal_out_player, heal_in_player)
+
+    def refresh_analysis_tables(
+            self, damage_out_player: QModelIndex, damage_in_player: QModelIndex,
+            heal_out_player: QModelIndex, heal_in_player: QModelIndex):
+        """Refresh only the four Analysis trees after a display-only model update."""
         self.damage_out_table.expand(damage_out_player)
         self.damage_out_table.sortByColumn(1, Qt.SortOrder.AscendingOrder)
         self.damage_in_table.expand(damage_in_player)
@@ -125,17 +143,19 @@ class AnalysisTables():
             width = max(tree.sizeHintForColumn(col), tree.header().sectionSizeHint(col)) + 5
             tree.header().resizeSection(col, width)
 
-    def create_analysis_table(self, widget) -> QTreeView:
+    def create_analysis_table(
+            self, widget, table: QTreeView | None = None) -> QTreeView:
         """
         Creates and returns a QTreeView, styled according to widget.
 
         Parameters:
-        - :param parent: parent of the table
         - :param widget: style key for the table
+        - :param table: optional preconstructed view (Command Console uses its
+          synchronized frozen-column AnalysisTreeView)
 
         :return: configured QTreeView
         """
-        table = QTreeView()
+        table = QTreeView() if table is None else table
         table.setStyleSheet(self._theme.get_style_class('QTreeView', widget))
         table.setSizePolicy(SMINMIN)
         table.setAlternatingRowColors(True)
@@ -207,7 +227,8 @@ class AnalysisTables():
                 output[-1].append(tree_row.get_data(cell_index.column()))
                 last_row = cell_index.row()
             output_text = '\n'.join(map(lambda row: '\t'.join(map(str, row)), output))
-            QApplication.clipboard().setText(output_text)
+            return self._copy_output(output_text)
+        return None
 
     def copy_analysis_data(self, analysis_tab: int, copy_mode: str):
         """
@@ -245,7 +266,7 @@ class AnalysisTables():
                         row_name = row_name[0] + row_name[1]
                     output.append(f"`{row_name}`: {' | '.join(formatted_row)}")
                 output_string = '\n'.join(output)
-                QApplication.clipboard().setText(output_string)
+                return self._copy_output(output_string)
         elif copy_mode == tr('Global Max One Hit'):
             if analysis_tab <= 1:
                 max_one_hit_col = 4
@@ -257,7 +278,11 @@ class AnalysisTables():
             table_model: TreeModel = current_table.model()
             for player_item in table_model._player._children:
                 max_one_hits.append((player_item.get_data(max_one_hit_col), player_item))
+            if not max_one_hits:
+                return None
             max_one_hit, max_one_hit_item = max(max_one_hits, key=lambda x: x[0])
+            if not max_one_hit_item._children:
+                return None
             max_one_hit_ability = max(
                 max_one_hit_item._children, key=lambda x: x.get_data(max_one_hit_col))
             max_one_hit_ability = max_one_hit_ability.get_data(0)
@@ -266,7 +291,7 @@ class AnalysisTables():
             output_string = (f'{{ OSCR }} {prefix}: {max_one_hit:,.2f} '
                              f'(`{"".join(max_one_hit_item.get_data(0)[:2])}` – '
                              f'{max_one_hit_ability})')
-            QApplication.clipboard().setText(output_string)
+            return self._copy_output(output_string)
         elif copy_mode == tr('Max One Hit'):
             if analysis_tab <= 1:
                 max_one_hit_col = 4
@@ -289,7 +314,7 @@ class AnalysisTables():
                         max_one_hit_source = ''.join(max_one_hit_source[:2])
                     output_string = (f'{{ OSCR }} {prefix}: {max_one_hit:,.2f} '
                                      f'(`{max_one_hit_source}` – {max_one_hit_ability})')
-                    QApplication.clipboard().setText(output_string)
+                    return self._copy_output(output_string)
         elif copy_mode == tr('Magnitude'):
             if analysis_tab == 0:
                 prefix = tr('Total Damage Out')
@@ -303,10 +328,12 @@ class AnalysisTables():
             table_model: TreeModel = current_table.model()
             for player_item in table_model._player._children:
                 magnitudes.append((player_item.get_data(2), ''.join(player_item.get_data(0)[:2])))
+            if not magnitudes:
+                return None
             magnitudes.sort(key=lambda x: x[0], reverse=True)
             magnitudes = [f"`{player}` {magnitude:,.2f}" for magnitude, player in magnitudes]
             output_string = (f'{{ OSCR }} {prefix}: {" | ".join(magnitudes)}')
-            QApplication.clipboard().setText(output_string)
+            return self._copy_output(output_string)
         elif copy_mode == tr('Magnitude / s'):
             if analysis_tab == 0:
                 prefix = tr('Total DPS Out')
@@ -320,7 +347,10 @@ class AnalysisTables():
             table_model: TreeModel = current_table.model()
             for player_item in table_model._player._children:
                 magnitudes.append((player_item.get_data(1), ''.join(player_item.get_data(0)[:2])))
+            if not magnitudes:
+                return None
             magnitudes.sort(key=lambda x: x[0], reverse=True)
             magnitudes = [f"`{player}` {magnitude:,.2f}" for magnitude, player in magnitudes]
             output_string = (f'{{ OSCR }} {prefix}: {" | ".join(magnitudes)}')
-            QApplication.clipboard().setText(output_string)
+            return self._copy_output(output_string)
+        return None

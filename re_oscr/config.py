@@ -128,7 +128,20 @@ class OSCRSettings():
                         list_element_type = str
                     item_list = self._settings.value(setting_id, type=list)
                     if list_element_type is bool:
-                        items = [True if el == 'true' else False for el in item_list]
+                        # Depending on platform and QSettings backend, list elements may come
+                        # back as native bools, numeric values, or strings.  Comparing a native
+                        # ``True`` only to the string ``'true'`` silently disabled every saved
+                        # table column on the next launch.
+                        items = []
+                        for element in item_list:
+                            if isinstance(element, bool):
+                                items.append(element)
+                            elif isinstance(element, (int, float)):
+                                items.append(bool(element))
+                            else:
+                                items.append(
+                                    str(element).strip().casefold()
+                                    in ('true', '1', 'yes', 'on'))
                         setattr(self, setting, items)
                     else:
                         setattr(self, setting, [list_element_type(el) for el in item_list])

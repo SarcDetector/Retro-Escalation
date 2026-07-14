@@ -40,6 +40,7 @@ from PySide6.QtWidgets import (
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QTableView,
+    QTreeView,
     QWidget,
 )
 
@@ -1043,10 +1044,331 @@ class OverviewTableView(QTableView):
         QTimer.singleShot(0, self.update_frozen_geometry)
 
 
+class AnalysisTreeView(QTreeView):
+    """Analysis tree with a view-only frozen identity column.
+
+    The companion is deliberately another ``QTreeView`` over the *same* model
+    and selection model.  It does not proxy, copy, or mutate parser data; it
+    only keeps column zero visible while the metric columns scroll.  Expansion
+    state and vertical position are view state, so those are mirrored in both
+    directions as well.
+    """
+
+    IDENTITY_COLUMN = 0
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._model_connections: list[tuple[object, object]] = []
+        self._syncing_expansion = False
+
+        frozen = QTreeView(self)
+        self._frozen_view = frozen
+        frozen.setObjectName("analysisFrozenIdentityTree")
+        # Use the same role as the main tree so global Command Console rules
+        # produce identical fonts, padding, and therefore row heights.
+        frozen.setProperty("consoleRole", "analysisTree")
+        frozen.setProperty("frozenIdentity", True)
+        frozen.setFrameShape(QFrame.Shape.NoFrame)
+        frozen.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        frozen.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        frozen.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        frozen.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        frozen.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        frozen.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        frozen.header().setSectionsClickable(True)
+        frozen.header().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        frozen.header().setMinimumSectionSize(1)
+        frozen.header().setStretchLastSection(False)
+        frozen.header().setSortIndicatorShown(True)
+
+        self.viewport().stackUnder(frozen)
+        self.header().sectionResized.connect(self._main_section_resized)
+        self.header().sortIndicatorChanged.connect(frozen.header().setSortIndicator)
+        frozen.header().sectionClicked.connect(self._frozen_section_clicked)
+        self.verticalScrollBar().valueChanged.connect(
+            frozen.verticalScrollBar().setValue)
+        frozen.verticalScrollBar().valueChanged.connect(
+            self.verticalScrollBar().setValue)
+        frozen.horizontalScrollBar().rangeChanged.connect(
+            self._reset_frozen_horizontal_scroll)
+        frozen.horizontalScrollBar().valueChanged.connect(
+            self._reset_frozen_horizontal_value)
+
+        self.expanded.connect(self._main_expanded)
+        self.collapsed.connect(self._main_collapsed)
+        frozen.expanded.connect(self._frozen_expanded)
+        frozen.collapsed.connect(self._frozen_collapsed)
+        frozen.show()
+
+    @property
+    def frozen_view(self) -> QTreeView:
+        return self._frozen_view
+
+    def setModel(self, model) -> None:
+        self._disconnect_model()
+        super().setModel(model)
+        self._frozen_view.setModel(model)
+        selection_model = self.selectionModel()
+        if selection_model is not None:
+            self._frozen_view.setSelectionModel(selection_model)
+        self._connect_model(model)
+        self._configure_frozen_columns()
+        self._queue_view_sync()
+
+    def setSelectionModel(self, selection_model) -> None:
+        """Keep the parser UI's exact ``TreeSelectionModel`` instance."""
+        super().setSelectionModel(selection_model)
+        frozen = getattr(self, "_frozen_view", None)
+        if (
+                frozen is not None
+                and selection_model is not None
+                and frozen.model() is selection_model.model()):
+            frozen.setSelectionModel(selection_model)
+
+    # Presentation properties set by AnalysisTables/AnalysisView must match on
+    # both panes or Qt can calculate different row heights for the same index.
+    def setStyleSheet(self, style_sheet: str) -> None:
+        super().setStyleSheet(style_sheet)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None:
+            frozen.setStyleSheet(style_sheet)
+
+    def setFont(self, font: QFont) -> None:
+        super().setFont(font)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None:
+            frozen.setFont(font)
+
+    def setAlternatingRowColors(self, enabled: bool) -> None:
+        super().setAlternatingRowColors(enabled)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None:
+            frozen.setAlternatingRowColors(enabled)
+
+    def setWordWrap(self, enabled: bool) -> None:
+        super().setWordWrap(enabled)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None:
+            frozen.setWordWrap(enabled)
+
+    def setUniformRowHeights(self, enabled: bool) -> None:
+        super().setUniformRowHeights(enabled)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None:
+            frozen.setUniformRowHeights(enabled)
+
+    def setIndentation(self, indentation: int) -> None:
+        super().setIndentation(indentation)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None:
+            frozen.setIndentation(indentation)
+
+    def setRootIsDecorated(self, enabled: bool) -> None:
+        super().setRootIsDecorated(enabled)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None:
+            frozen.setRootIsDecorated(enabled)
+
+    def setItemsExpandable(self, enabled: bool) -> None:
+        super().setItemsExpandable(enabled)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None:
+            frozen.setItemsExpandable(enabled)
+
+    def setExpandsOnDoubleClick(self, enabled: bool) -> None:
+        super().setExpandsOnDoubleClick(enabled)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None:
+            frozen.setExpandsOnDoubleClick(enabled)
+
+    def setAnimated(self, enabled: bool) -> None:
+        super().setAnimated(enabled)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None:
+            frozen.setAnimated(enabled)
+
+    def setSelectionMode(self, mode: QAbstractItemView.SelectionMode) -> None:
+        super().setSelectionMode(mode)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None:
+            frozen.setSelectionMode(mode)
+
+    def setSelectionBehavior(
+            self, behavior: QAbstractItemView.SelectionBehavior) -> None:
+        super().setSelectionBehavior(behavior)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None:
+            frozen.setSelectionBehavior(behavior)
+
+    def setEditTriggers(self, triggers: QAbstractItemView.EditTrigger) -> None:
+        super().setEditTriggers(triggers)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None:
+            frozen.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+
+    def setRootIndex(self, index: QModelIndex) -> None:
+        super().setRootIndex(index)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None and frozen.model() is self.model():
+            frozen.setRootIndex(index)
+            self._queue_view_sync()
+
+    def resizeColumnToContents(self, column: int) -> None:
+        super().resizeColumnToContents(column)
+        if column == self.IDENTITY_COLUMN:
+            self._sync_identity_width()
+            self._queue_geometry_update()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self.update_frozen_geometry()
+
+    def update_frozen_geometry(self) -> None:
+        model = self.model()
+        if model is None or model.columnCount(self.rootIndex()) == 0:
+            self._frozen_view.hide()
+            return
+        identity_width = self.columnWidth(self.IDENTITY_COLUMN)
+        self._frozen_view.setGeometry(
+            self.frameWidth(),
+            self.frameWidth(),
+            identity_width,
+            self.viewport().height() + self.header().height(),
+        )
+        self._frozen_view.show()
+
+    updateFrozenGeometry = update_frozen_geometry
+
+    def _connect_model(self, model) -> None:
+        if model is None:
+            return
+        for signal in (
+                model.modelReset,
+                model.columnsInserted,
+                model.columnsRemoved,
+                model.rowsInserted,
+                model.rowsRemoved):
+            slot = self._model_structure_changed
+            signal.connect(slot)
+            self._model_connections.append((signal, slot))
+        model.layoutChanged.connect(self._model_layout_changed)
+        self._model_connections.append((model.layoutChanged, self._model_layout_changed))
+
+    def _disconnect_model(self) -> None:
+        for signal, slot in self._model_connections:
+            try:
+                signal.disconnect(slot)
+            except (RuntimeError, TypeError):
+                pass
+        self._model_connections.clear()
+
+    def _model_structure_changed(self, *_args) -> None:
+        self._configure_frozen_columns()
+        self._queue_view_sync()
+
+    def _model_layout_changed(self, *_args) -> None:
+        self._configure_frozen_columns()
+        self._queue_view_sync()
+
+    def _configure_frozen_columns(self) -> None:
+        model = self.model()
+        if model is None:
+            return
+        column_count = model.columnCount(self.rootIndex())
+        for column in range(column_count):
+            self._frozen_view.setColumnHidden(
+                column, column != self.IDENTITY_COLUMN)
+        self._sync_identity_width()
+
+    def _main_section_resized(self, logical_index: int, _old: int, new: int) -> None:
+        if logical_index != self.IDENTITY_COLUMN:
+            return
+        if self._frozen_view.columnWidth(logical_index) != new:
+            self._frozen_view.setColumnWidth(logical_index, new)
+        self.update_frozen_geometry()
+
+    def _sync_identity_width(self) -> None:
+        model = self.model()
+        if model is None or model.columnCount(self.rootIndex()) == 0:
+            return
+        width = self.columnWidth(self.IDENTITY_COLUMN)
+        if self._frozen_view.columnWidth(self.IDENTITY_COLUMN) != width:
+            self._frozen_view.setColumnWidth(self.IDENTITY_COLUMN, width)
+
+    def _frozen_section_clicked(self, logical_index: int) -> None:
+        """Forward identity-header sorting to the model-owning main view."""
+        if logical_index != self.IDENTITY_COLUMN or not self.isSortingEnabled():
+            return
+        header = self.header()
+        if header.sortIndicatorSection() == logical_index:
+            current = header.sortIndicatorOrder()
+            order = (
+                Qt.SortOrder.DescendingOrder
+                if current == Qt.SortOrder.AscendingOrder
+                else Qt.SortOrder.AscendingOrder
+            )
+        else:
+            order = Qt.SortOrder.AscendingOrder
+        self.sortByColumn(logical_index, order)
+
+    def _main_expanded(self, index: QModelIndex) -> None:
+        self._mirror_expansion(self._frozen_view, index, True)
+
+    def _main_collapsed(self, index: QModelIndex) -> None:
+        self._mirror_expansion(self._frozen_view, index, False)
+
+    def _frozen_expanded(self, index: QModelIndex) -> None:
+        self._mirror_expansion(self, index, True)
+
+    def _frozen_collapsed(self, index: QModelIndex) -> None:
+        self._mirror_expansion(self, index, False)
+
+    def _mirror_expansion(
+            self, target: QTreeView, index: QModelIndex, expanded: bool) -> None:
+        if self._syncing_expansion or not index.isValid():
+            return
+        self._syncing_expansion = True
+        try:
+            target.setExpanded(index, expanded)
+        finally:
+            self._syncing_expansion = False
+        self._queue_geometry_update()
+
+    def _synchronise_expansion_state(self) -> None:
+        model = self.model()
+        if model is None:
+            return
+
+        def visit(parent: QModelIndex) -> None:
+            for row in range(model.rowCount(parent)):
+                index = model.index(row, self.IDENTITY_COLUMN, parent)
+                expanded = self.isExpanded(index)
+                self._mirror_expansion(self._frozen_view, index, expanded)
+                if expanded:
+                    visit(index)
+
+        visit(self.rootIndex())
+
+    def _reset_frozen_horizontal_scroll(self, _minimum: int, _maximum: int) -> None:
+        self._frozen_view.horizontalScrollBar().setValue(0)
+
+    def _reset_frozen_horizontal_value(self, value: int) -> None:
+        if value:
+            self._frozen_view.horizontalScrollBar().setValue(0)
+
+    def _queue_geometry_update(self) -> None:
+        QTimer.singleShot(0, self.update_frozen_geometry)
+
+    def _queue_view_sync(self) -> None:
+        QTimer.singleShot(0, self._synchronise_expansion_state)
+        self._queue_geometry_update()
+
+
 __all__ = (
     "BarFractionRole",
     "FormattedMagnitudeRole",
     "IdentityRole",
+    "AnalysisTreeView",
     "OverviewDisplayProxy",
     "OverviewMeterDelegate",
     "OverviewTableView",

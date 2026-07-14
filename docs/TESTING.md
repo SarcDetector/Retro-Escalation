@@ -37,24 +37,24 @@ Reference logs are local test fixtures and must not be committed without explici
 - Hive Space Elite: second space map with different event distribution.
 - Bug Hunt Any: ground combat.
 
-Parser results from a given log and settings combination must match between Default and Command
-Console. Visual ordering may only differ where the existing user-configurable sort setting allows
-it.
+Parser results from a given log and settings combination must match between OSCR-UI Legacy and
+Command Console. Visual ordering may only differ where the existing user-configurable sort setting
+allows it.
 
 ## Startup and recovery
 
-- [x] Fresh settings start in Default. (Automated)
+- [x] Fresh settings start in Command Console. (Automated)
 - [x] Legacy `OSCR_UI_settings.ini` settings migrate to `RE_OSCR_settings.ini`. (Automated)
 - [x] Command Console selection is stored on normal shutdown. (Automated)
 - [x] Command Console appears after restart. (Automated)
-- [x] Returning to Default works after restart. (Automated)
-- [x] Unknown theme ID falls back to Default. (Automated)
+- [x] Returning to OSCR-UI Legacy works after restart. (Automated)
+- [x] Unknown theme ID falls back to OSCR-UI Legacy. (Automated)
 - [x] Missing theme asset falls back safely. (Automated)
 - [x] A theme exception is logged without preventing theme resolution. (Automated)
 
 ## Application smoke matrix
 
-Run every item once in Default and once in Command Console.
+Run every item once in OSCR-UI Legacy and once in Command Console.
 
 ### Overview
 
@@ -81,6 +81,18 @@ Run every item once in Default and once in Command Console.
 - [x] Freeze and unfreeze a graph. (Manual source-app visual check)
 - [ ] Clear graph series.
 - [x] Collapse and restore the graph panel. (Automated and manual source-app visual check)
+- [x] Keep the identity column visible while horizontally scrolling every Analysis tree.
+  (Automated)
+- [x] Sort from the frozen identity header and add graph rows from the frozen identity column.
+  (Automated)
+- [x] Open each combat in parser-truth with all Workbench modifiers off. (Automated)
+- [x] Filter by owner, source, target, event, free text, visible names, and parser IDs across all
+  four modes. (Automated)
+- [x] Apply inclusive typed time cuts, clear individual bounds, and reset to parser-truth.
+  (Automated)
+- [x] Keep filtered graph bins aligned to the displayed window, including fractional event
+  timestamps. (Automated)
+- [x] Label modified copies and keep League upload coordinates parser-owned. (Automated)
 - [ ] Exercise every copy mode.
 - [ ] Sort and horizontally scroll tables.
 
@@ -128,7 +140,8 @@ python -m tests.league_live_probe --local "C:\path\to\CombatLog.log"
 
 - [x] Command Console text and controls remain readable at 1280x960. (Manual source-app visual
   check)
-- [ ] Text and controls remain readable at 1280x720 and other supported scales.
+- [x] Text, chart axes, and controls remain readable at 1280x720. (Offscreen visual check)
+- [ ] Text and controls remain readable at other supported scales.
 - [ ] Tables distinguish headers, selected rows, alternate rows, hover, and focus.
 - [ ] Disabled controls are visibly disabled.
 - [ ] Keyboard focus remains visible.
@@ -156,7 +169,7 @@ Steps to reproduce:
 2.
 3.
 
-Does the same problem occur in Default? Yes / No / Not tested
+Does the same problem occur in OSCR-UI Legacy? Yes / No / Not tested
 Screenshot or log excerpt:
 ```
 

@@ -68,6 +68,15 @@ class WidgetManager():
         self.analysis_graph_tabber: QTabWidget
         self.analysis_tree_tabber: QTabWidget
         self.analysis_graph_button: FlipButton
+        self.analysis_plots: list = list()
+        self.analysis_filter_scope: QComboBox | None = None
+        self.analysis_filter_entry: QLineEdit | None = None
+        self.analysis_start_entry: QLineEdit | None = None
+        self.analysis_end_entry: QLineEdit | None = None
+        self.analysis_truth_chip: QLabel | None = None
+        self.analysis_modified_chip: QLabel | None = None
+        self.analysis_event_count_chip: QLabel | None = None
+        self.analysis_reset_button: QPushButton | None = None
 
         self.ladder_selector: QListWidget
         self.favorite_ladder_selector: QListWidget
@@ -107,10 +116,14 @@ class WidgetManager():
         self.analysis_graph_tabber.setCurrentIndex(tab_index)
         self.analysis_tree_tabber.setCurrentIndex(tab_index)
         for index, button in enumerate(self.analysis_menu_buttons):
-            if index == tab_index:
-                button.setChecked(True)
-            else:
-                button.setChecked(False)
+            active = index == tab_index
+            button.setChecked(active)
+            if button.property('consoleRole') == 'modeControl':
+                button.setProperty('visualActive', active)
+                # Dynamic properties are not automatically re-polished by Qt.  Keep the
+                # console import inside this branch so the Legacy startup path stays isolated.
+                from .console.tokens import refresh_style
+                refresh_style(button, descendants=False)
 
     def switch_overview_tab(self, tab_index: int):
         """
