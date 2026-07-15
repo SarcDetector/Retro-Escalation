@@ -2,6 +2,7 @@
 
 from argparse import ArgumentParser
 from multiprocessing import freeze_support, get_start_method, set_start_method
+import os
 from pathlib import Path
 from shutil import copytree
 import sys
@@ -13,7 +14,20 @@ from main import Launcher
 
 
 class RetroEscalationLauncher:
-    __version__ = '11.1.0.dev10+re.oscr'
+    __version__ = '11.1.0.dev11'
+
+    @staticmethod
+    def installed_config_dir() -> Path:
+        """Return the durable per-user settings location for wheel installs."""
+        if sys.platform == 'win32':
+            root = Path(os.environ.get(
+                'APPDATA', Path.home() / 'AppData' / 'Roaming'))
+        elif sys.platform == 'darwin':
+            root = Path.home() / 'Library' / 'Application Support'
+        else:
+            root = Path(os.environ.get(
+                'XDG_CONFIG_HOME', Path.home() / '.config'))
+        return root / 'RE-OSCR'
 
     @staticmethod
     def default_config_dir() -> str:
@@ -24,8 +38,12 @@ class RetroEscalationLauncher:
             legacy_dirs = (app_dir.parent / 'Retro-Escalation' / 'settings',)
         else:
             app_dir = Path(Launcher.base_path())
-            config_dir = app_dir / '.re-oscr-settings'
-            legacy_dirs = (app_dir / '.retro-escalation-settings',)
+            if (app_dir / 'pyproject.toml').is_file():
+                config_dir = app_dir / '.re-oscr-settings'
+                legacy_dirs = (app_dir / '.retro-escalation-settings',)
+            else:
+                config_dir = RetroEscalationLauncher.installed_config_dir()
+                legacy_dirs = ()
         RetroEscalationLauncher.migrate_legacy_config_dir(config_dir, legacy_dirs)
         return str(config_dir)
 

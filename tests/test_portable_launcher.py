@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from retro_escalation import RetroEscalationLauncher
 
@@ -16,7 +17,19 @@ class RetroEscalationLauncherTests(unittest.TestCase):
         self.assertNotEqual(config_dir.name, "OSCR_UI")
 
     def test_development_build_version_identifies_fork(self):
-        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0.dev10+re.oscr")
+        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0.dev11")
+
+    def test_wheel_install_uses_durable_per_user_settings(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            app_data = root / "AppData"
+            installed_package = root / "site-packages"
+            installed_package.mkdir()
+            with patch("retro_escalation.Launcher.base_path", return_value=str(installed_package)), \
+                    patch.dict(os.environ, {"APPDATA": str(app_data)}, clear=False):
+                config_dir = Path(RetroEscalationLauncher.default_config_dir())
+
+        self.assertEqual(config_dir, app_data / "RE-OSCR")
 
     def test_legacy_retro_escalation_config_directory_migrates(self):
         with tempfile.TemporaryDirectory() as temp_dir:

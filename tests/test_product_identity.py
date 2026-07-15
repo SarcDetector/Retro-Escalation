@@ -21,8 +21,9 @@ class ProductIdentityTests(unittest.TestCase):
             project["scripts"],
             {"re-oscr": "retro_escalation:RetroEscalationLauncher.launch"},
         )
-        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0.dev10+re.oscr")
+        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0.dev11")
         self.assertEqual(Launcher.__version__, RetroEscalationLauncher.__version__)
+        self.assertNotIn("+", RetroEscalationLauncher.__version__)
 
     def test_cla_credit_uses_an_original_logo_safe_badge(self) -> None:
         project_root = Path(__file__).resolve().parents[1]

@@ -44,6 +44,20 @@ Run the offline regression suite with:
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
+## Linux and macOS via PyPI
+
+Published releases can be installed independently of a distribution package manager with
+[`pipx`](https://pipx.pypa.io/):
+
+```bash
+pipx install re-oscr
+re-oscr
+```
+
+Early development releases require `pipx install --pre re-oscr`.  `pipx upgrade re-oscr` updates
+the application without touching its settings, which live in the normal per-user application-data
+directory.  The portable Windows and Linux packages continue to keep settings beside the executable.
+
 ## Windows portable build
 
 ```powershell
