@@ -347,6 +347,26 @@ class AnalysisWorkbenchControllerTests(unittest.TestCase):
         self.assertFalse(dialog.auto_enable_toggle.isChecked())
         self.assertIn("// OFF", dialog.auto_enable_toggle.text())
 
+    def test_rule_editor_restores_a_saved_window_geometry(self):
+        original = WorkbenchRuleEditor(None, self.controller._working_rule_set)
+        self.addCleanup(original.close)
+        original.show()
+        QApplication.processEvents()
+        # Stay within the offscreen test platform's 800px virtual display.  The
+        # application itself stores the full native window geometry.
+        original.resize(736, 517)
+        QApplication.processEvents()
+        geometry = original.saveGeometry()
+
+        restored = WorkbenchRuleEditor(
+            None, self.controller._working_rule_set, geometry=geometry)
+        self.addCleanup(restored.close)
+
+        # Qt applies saved top-level window geometry when the dialog is mapped.
+        restored.show()
+        QApplication.processEvents()
+        self.assertEqual(restored.size(), original.size())
+
     def test_enabled_rule_applies_as_modified_view_and_chip_disables_only_that_rule(self):
         self.bind_source()
         enabled = self.edited_bundled_rules(0)

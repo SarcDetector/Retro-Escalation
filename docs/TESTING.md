@@ -104,6 +104,12 @@ Run every item once in OSCR-UI Legacy and once in Command Console.
 - [x] Present Player and NPC top-level buckets as counted group headers while retaining their
   source/ability/event drill-down tree. (Automated)
 - [x] Label modified copies and keep League upload coordinates parser-owned. (Automated)
+- [x] Show selected Analysis rows as a live weighted line plot by default; switch to grouped bars
+  for detailed comparison and freeze or resume selection without changing parser-owned data.
+  (Automated)
+- [x] Use Simple Analysis for Core telemetry and live plotting, then switch to Advanced to reveal
+  metric lenses, filters, time cuts, rule editing, and the detailed bar comparison. Active
+  modifier chips remain visible in both modes. (Automated)
 - [ ] Exercise every copy mode.
 - [ ] Sort and horizontally scroll tables.
 

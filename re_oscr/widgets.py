@@ -2,9 +2,12 @@ from math import sqrt, frexp
 from typing import Iterable
 
 import numpy as np
-from pyqtgraph import AxisItem, BarGraphItem, PlotWidget, setConfigOptions as pyqtgraph__configure
+from pyqtgraph import (
+    AxisItem, BarGraphItem, PlotWidget, mkPen,
+    setConfigOptions as pyqtgraph__configure,
+)
 from PySide6.QtCore import QRect, QSize, Qt, Slot
-from PySide6.QtGui import QFont, QIcon, QMouseEvent, QPainter, QPen, QPixmap
+from PySide6.QtGui import QColor, QFont, QIcon, QMouseEvent, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QFrame, QHBoxLayout, QLabel, QPushButton, QSizeGrip, QStyle, QStyledItemDelegate, QVBoxLayout,
     QWidget)
@@ -399,26 +402,56 @@ class AnalysisPlot(LegendPlot):
     """
     PlotWidget for plotting the analysis plot.
     """
-    def __init__(self, theme: AppTheme, colors: tuple[str]):
+    def __init__(
+            self, theme: AppTheme, colors: tuple[str],
+            presentation: str = 'legacy'):
         """
         Parameters:
         - :param theme: reference to AppTheme for styling
         - :param colors: tuple with at least 5 different colors that are used to paint the bars
         """
         super().__init__(theme, x_unit='s')
+        if presentation not in ('legacy', 'instrument'):
+            raise ValueError(f'Unsupported Analysis plot presentation: {presentation}')
         self._theme: AppTheme = theme
-        self._bar_queue: list[BarGraphItem] = list()
+        self._presentation = presentation
+        self._display_mode = 'line' if presentation == 'instrument' else 'bar'
+        self._bar_queue: list[object] = list()
         self._legend_queue: list[QFrame] = list()
         self._bar_item_queue: list[TreeItem] = list()
-        self._bar_position: int = 0
         self._colors: tuple[str] = colors
-        self._frozen: bool = True
+        # Legacy keeps its established manual graph capture.  Command Console
+        # starts live so selecting a tree row immediately produces a readable
+        # graph rather than asking the user to discover an inverse freeze toggle.
+        self._frozen: bool = presentation == 'legacy'
         self._legend_layout: QHBoxLayout = QHBoxLayout()
         margin = self._theme['defaults']['margin']
         self._legend_layout.setContentsMargins(0, 0, 0, 0)
         self._legend_layout.setSpacing(margin)
         self._legend.setLayout(self._legend_layout)
+        if self._presentation == 'instrument':
+            self._plot.showGrid(x=True, y=True, alpha=0.24)
+            self._plot.setLabel('left', 'VALUE / SEC')
         self._plot.show()
+
+    @property
+    def display_mode(self) -> str:
+        """Current display-only graph treatment."""
+        return self._display_mode
+
+    @property
+    def frozen(self) -> bool:
+        """Whether row selection is currently prevented from adding a series."""
+        return self._frozen
+
+    def set_display_mode(self, mode: str) -> None:
+        """Switch between the simple live line view and detailed bar comparison."""
+        if mode not in ('line', 'bar'):
+            raise ValueError(f'Unsupported Analysis plot display mode: {mode}')
+        if mode == self._display_mode:
+            return
+        self._display_mode = mode
+        self._redraw_series()
 
     def add_bar(self, item: TreeItem):
         """
@@ -432,53 +465,70 @@ class AnalysisPlot(LegendPlot):
         """
         if self._frozen or item in self._bar_item_queue:
             return
-        data = item.graph_data
-        time_reference = np.arange(len(data))
-        group_width = 0.9
-        bar_width = group_width / 5
-        bar_offset = - (group_width / 2) + 0.5 * bar_width + self._bar_position * bar_width
-        time_data = np.subtract(time_reference, bar_offset)
-        brush_color = self._colors[self._bar_position]
-        bars = BarGraphItem(x=time_data, width=bar_width, height=data, brush=brush_color, pen=None)
-        annotation = item.get_data(0)
-        if isinstance(annotation, tuple):
-            annotation = annotation[0] + annotation[1]
-        legend_item = self.create_legend_item(brush_color, annotation)
-        if len(self._bar_queue) >= 5:
-            self._plot.removeItem(self._bar_queue.pop(0))
+        if len(self._bar_item_queue) >= 5:
             self._bar_item_queue.pop(0)
-            legend_item_to_remove = self._legend_queue.pop(0)
-            self._legend_layout.removeWidget(legend_item_to_remove)
-            legend_item_to_remove.setParent(None)
-        self._bar_queue.append(bars)
         self._bar_item_queue.append(item)
-        self._plot.addItem(bars)
-        self._legend_queue.append(legend_item)
-        self._legend_layout.addWidget(legend_item)
-        self._bar_position += 1
-        if self._bar_position >= 5:
-            self._bar_position = 0
-        return brush_color
+        self._redraw_series()
+        return self._colors[(len(self._bar_item_queue) - 1) % len(self._colors)]
 
     def clear(self):
         """
-        Removes all bars from the plot
+        Removes all selected series from the plot.
         """
-        for bar in self._bar_queue:
-            self._plot.removeItem(bar)
-        self._bar_queue = list()
-        for legend_item in self._legend_queue:
-            self._legend_layout.removeWidget(legend_item)
-            legend_item.setParent(None)
-        self._legend_queue = list()
+        self._clear_rendered_series()
         self._bar_item_queue = list()
-        self._bar_position = 0
 
     def toggle_freeze(self, state):
         """
         Freezes when unfrozen, unfreezes when frozen
         """
-        self._frozen = not self._frozen
+        self._frozen = bool(state)
+
+    def _clear_rendered_series(self) -> None:
+        for series in self._bar_queue:
+            self._plot.removeItem(series)
+        self._bar_queue = list()
+        for legend_item in self._legend_queue:
+            self._legend_layout.removeWidget(legend_item)
+            legend_item.setParent(None)
+        self._legend_queue = list()
+
+    def _redraw_series(self) -> None:
+        """Render retained selections without changing parser-owned graph data."""
+        self._clear_rendered_series()
+        series_count = len(self._bar_item_queue)
+        for position, item in enumerate(self._bar_item_queue):
+            data = item.graph_data
+            time_reference = np.arange(len(data))
+            colour = self._colors[position % len(self._colors)]
+            if self._display_mode == 'line':
+                curve_colour = QColor(colour)
+                active = position == series_count - 1
+                if not active:
+                    curve_colour.setAlpha(155)
+                series = self._plot.plot(
+                    time_reference, data,
+                    pen=mkPen(curve_colour, width=3.2 if active else 1.8),
+                    connect='finite',
+                )
+                series_added = True
+            else:
+                group_width = 0.9
+                bar_width = group_width / 5
+                bar_offset = - (group_width / 2) + 0.5 * bar_width + position * bar_width
+                series = BarGraphItem(
+                    x=np.subtract(time_reference, bar_offset), width=bar_width,
+                    height=data, brush=colour, pen=None)
+                series_added = False
+            annotation = item.get_data(0)
+            if isinstance(annotation, tuple):
+                annotation = annotation[0] + annotation[1]
+            legend_item = self.create_legend_item(colour, annotation)
+            self._bar_queue.append(series)
+            if not series_added:
+                self._plot.addItem(series)
+            self._legend_queue.append(legend_item)
+            self._legend_layout.addWidget(legend_item)
 
 
 class SizeGrip(QSizeGrip):

@@ -34,7 +34,8 @@ class WorkbenchRuleEditor(QDialog):
     """
 
     def __init__(
-            self, parent, rule_set: WorkbenchRuleSet, *, auto_enable: bool = False):
+            self, parent, rule_set: WorkbenchRuleSet, *, auto_enable: bool = False,
+            geometry=None):
         super().__init__(parent)
         self.setObjectName("analysisWorkbenchRuleEditor")
         self.setProperty("consoleRole", "ruleEditorDialog")
@@ -146,6 +147,8 @@ class WorkbenchRuleEditor(QDialog):
         outer.addWidget(self.buttons)
 
         self._populate(rule_set.rules)
+        if geometry:
+            self.restoreGeometry(geometry)
 
     def accept(self) -> None:
         try:

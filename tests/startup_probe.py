@@ -356,12 +356,56 @@ def main() -> int:
         assert all(button.property("accentIndex") == "1"
                    for button in ui.widgets.analysis_menu_buttons)
         assert ui.widgets.analysis_modified_chip.property("accentIndex") == "1"
+        simple_mode = ui.window.findChild(QWidget, "analysisSimpleMode")
+        advanced_mode = ui.window.findChild(QWidget, "analysisAdvancedMode")
+        filter_row = ui.widgets.analysis_filter_row
+        time_rule_row = ui.widgets.analysis_time_rule_row
+        assert simple_mode is not None and simple_mode.isChecked()
+        assert advanced_mode is not None and not advanced_mode.isChecked()
+        assert filter_row.isHidden()
+        assert time_rule_row.isHidden()
+        assert not ui.widgets.analysis_lens_buttons[0].isHidden()
+        assert all(button.isHidden() for button in ui.widgets.analysis_lens_buttons[1:])
         freeze_buttons = ui.window.findChildren(QWidget, "analysisFreezeButton")
+        plot_style_buttons = ui.window.findChildren(QWidget, "analysisPlotStyleButton")
         clear_buttons = ui.window.findChildren(QWidget, "analysisClearButton")
         assert len(freeze_buttons) == 4
+        assert len(plot_style_buttons) == 4
         assert len(clear_buttons) == 4
         assert all(button.property("consoleRole") == "actionButton"
-                   for button in freeze_buttons + clear_buttons)
+                   for button in freeze_buttons + plot_style_buttons + clear_buttons)
+        assert all(button.text() == "LIVE PLOT" for button in freeze_buttons)
+        assert all(button.text() == "BARS" for button in plot_style_buttons)
+        assert all(button.isHidden() for button in plot_style_buttons)
+        assert all(plot.display_mode == "line" and not plot.frozen
+                   for plot in ui.widgets.analysis_plots)
+        advanced_mode.click()
+        ui.app.processEvents()
+        assert advanced_mode.isChecked() and not simple_mode.isChecked()
+        assert not filter_row.isHidden()
+        assert not time_rule_row.isHidden()
+        assert all(not button.isHidden() for button in ui.widgets.analysis_lens_buttons)
+        assert all(not button.isHidden() for button in plot_style_buttons)
+        plot_style_buttons[0].click()
+        ui.app.processEvents()
+        assert sum(plot.display_mode == "bar" for plot in ui.widgets.analysis_plots) == 1
+        assert plot_style_buttons[0].text() == "LINES"
+        plot_style_buttons[0].click()
+        ui.app.processEvents()
+        assert all(plot.display_mode == "line" for plot in ui.widgets.analysis_plots)
+        freeze_buttons[0].click()
+        ui.app.processEvents()
+        assert sum(plot.frozen for plot in ui.widgets.analysis_plots) == 1
+        assert freeze_buttons[0].text() == "FROZEN"
+        freeze_buttons[0].click()
+        ui.app.processEvents()
+        assert all(not plot.frozen for plot in ui.widgets.analysis_plots)
+        simple_mode.click()
+        ui.app.processEvents()
+        assert simple_mode.isChecked() and not advanced_mode.isChecked()
+        assert filter_row.isHidden()
+        assert time_rule_row.isHidden()
+        assert ui.tables.analysis_display_lens == "CORE"
         assert ui.window.findChild(
             QWidget, "analysisCopyButton").property("consoleRole") == "actionButton"
         assert ui.widgets.analysis_copy_combobox.property("consoleRole") == "compactCombo"
@@ -377,8 +421,8 @@ def main() -> int:
         ui.app.processEvents()
         assert ui.widgets.main_tabber.currentIndex() == 1
         assert ui.widgets.main_menu_buttons[1].isChecked()
-        time_rule_row = ui.window.findChild(
-            QWidget, "analysisWorkbenchTimeRuleRow")
+        advanced_mode.click()
+        ui.app.processEvents()
         assert time_rule_row.minimumSizeHint().width() <= time_rule_row.width()
         for index, button in enumerate(ui.widgets.analysis_menu_buttons):
             button.click()

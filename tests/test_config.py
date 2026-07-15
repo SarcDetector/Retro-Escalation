@@ -21,6 +21,7 @@ class OSCRSettingsTests(unittest.TestCase):
             settings = OSCRSettings(Path(temp_dir, "settings.ini"))
 
             self.assertFalse(settings.auto_scan)
+            self.assertEqual(settings.analysis_presentation_mode, "simple")
             self.assertEqual(settings.combat_min_lines, 20)
             self.assertEqual(settings.combats_to_parse, 10)
             self.assertEqual(settings.graph_resolution, 0.2)
@@ -47,6 +48,7 @@ class OSCRSettingsTests(unittest.TestCase):
             settings_path = Path(temp_dir, "settings.ini")
             settings = OSCRSettings(settings_path)
             settings.auto_scan = True
+            settings.analysis_presentation_mode = "advanced"
             settings.combats_to_parse = 7
             settings.graph_resolution = 0.5
             settings.language = "de"
@@ -74,6 +76,7 @@ class OSCRSettingsTests(unittest.TestCase):
             restored = OSCRSettings(settings_path)
 
             self.assertIs(restored.auto_scan, True)
+            self.assertEqual(restored.analysis_presentation_mode, "advanced")
             self.assertEqual(restored.combats_to_parse, 7)
             self.assertEqual(restored.graph_resolution, 0.5)
             self.assertEqual(restored.language, "de")
@@ -155,6 +158,15 @@ class OSCRSettingsTests(unittest.TestCase):
             self.assertEqual(
                 restored.command_console_accents,
                 ["#FF8A2A", "#D4AD3F", "#9A6BC4", "#4FC3CC", "#D94B55"])
+
+    def test_unknown_analysis_presentation_mode_returns_to_simple(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_path = Path(temp_dir, "settings.ini")
+            settings = OSCRSettings(settings_path)
+            settings._settings.setValue("analysis_presentation_mode", "dense")
+            settings._settings.sync()
+
+            self.assertEqual(OSCRSettings(settings_path).analysis_presentation_mode, "simple")
 
 
 if __name__ == "__main__":

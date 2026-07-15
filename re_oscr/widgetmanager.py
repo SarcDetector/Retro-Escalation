@@ -69,10 +69,12 @@ class WidgetManager():
         self.analysis_tree_tabber: QTabWidget
         self.analysis_graph_button: FlipButton
         self.analysis_lens_buttons: list[QPushButton] = list()
+        self.analysis_presentation_buttons: list[QPushButton] = list()
         self.analysis_plots: list = list()
         self.analysis_filter_scope: QComboBox | None = None
         self.analysis_filter_entry: QLineEdit | None = None
         self.analysis_filter_add_button: QPushButton | None = None
+        self.analysis_filter_row: QFrame | None = None
         self.analysis_filter_clause_row: QFrame | None = None
         self.analysis_filter_clause_scroll: QScrollArea | None = None
         self.analysis_filter_clause_container: QFrame | None = None
@@ -83,10 +85,12 @@ class WidgetManager():
         self.analysis_rule_chip_buttons: list[QPushButton] = list()
         self.analysis_start_entry: QLineEdit | None = None
         self.analysis_end_entry: QLineEdit | None = None
+        self.analysis_time_rule_row: QFrame | None = None
         self.analysis_truth_chip: QLabel | None = None
         self.analysis_modified_chip: QLabel | None = None
         self.analysis_event_count_chip: QLabel | None = None
         self.analysis_reset_button: QPushButton | None = None
+        self.analysis_plot_style_buttons: list[QPushButton] = list()
 
         self.ladder_selector: QListWidget
         self.favorite_ladder_selector: QListWidget

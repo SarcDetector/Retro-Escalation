@@ -38,6 +38,7 @@ class AnalysisView:
         # Analysis rail colour instead of borrowing unrelated page accents.
         self.mode_accent_indices = (1, 1, 1, 1)
         self._command_heading_title: QLabel | None = None
+        self._analysis_presentation_mode = 'simple'
 
     def build(self, parent_frame: QFrame) -> None:
         if self.command_console:
@@ -100,12 +101,11 @@ class AnalysisView:
         telemetry_surface.frame.setMinimumHeight(px(175, self.theme.scale))
         self.widgets.analysis_tree_tabber = tree_tabber
         splitter.addWidget(telemetry_surface.frame)
-        # Analysis is chart-led: the telemetry tree remains independently
-        # scrollable, while the plot needs enough height for readable spikes,
-        # axes, and its legend.  A 3:2 first-run split also avoids presenting a
-        # large empty tree surface for the common five-player summary.
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 2)
+        # The graph stays persistently available, but the telemetry tree is the
+        # primary work surface.  The splitter remains user-adjustable for an
+        # investigation that needs a larger plot.
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 3)
 
         analysis_tables = []
         plots = []
@@ -120,6 +120,8 @@ class AnalysisView:
         self.widgets.analysis_plots = plots
         if self.workbench_controller is not None:
             self.workbench_controller.attach_controls()
+        self._set_analysis_presentation_mode(
+            getattr(self.settings, 'analysis_presentation_mode', 'simple'), persist=False)
 
         parent_frame.setLayout(layout)
         self._restore_splitter(splitter)
@@ -200,10 +202,10 @@ class AnalysisView:
         from ..console.tokens import px
 
         available = max(2, splitter.height() - splitter.handleWidth())
-        # Wide/tall workspaces are chart-led; short windows reserve enough room
-        # for a practical drill-down rather than a one-row telemetry viewport.
+        # Keep a readable live graph strip while giving the drill-down tree the
+        # majority of the first-run workspace.
         compact = available < px(480, self.theme.scale)
-        upper = round(available * (0.47 if compact else 0.6))
+        upper = round(available * (0.42 if compact else 0.38))
         splitter.setSizes((upper, available - upper))
 
     def _build_command_heading(self) -> QFrame:
@@ -269,6 +271,52 @@ class AnalysisView:
         self.widgets.analysis_menu_buttons = buttons
         deck_layout.addWidget(mode_row)
 
+        presentation_row = QFrame()
+        presentation_row.setObjectName('commandConsoleAnalysisPresentationRow')
+        presentation_row.setProperty('consoleRole', 'analysisPresentationRow')
+        presentation_layout = QHBoxLayout()
+        presentation_layout.setContentsMargins(
+            px(10, self.theme.scale), px(3, self.theme.scale),
+            px(10, self.theme.scale), px(3, self.theme.scale))
+        presentation_layout.setSpacing(px(8, self.theme.scale))
+        presentation_label = QLabel('ANALYSIS VIEW //')
+        presentation_label.setProperty('consoleRole', 'eyebrow')
+        presentation_layout.addWidget(presentation_label)
+
+        simple_button = action_button('SIMPLE', 'analysisSimpleMode', 1, primary=True)
+        advanced_button = action_button('ADVANCED', 'analysisAdvancedMode', 1)
+        for button, mode in ((simple_button, 'simple'), (advanced_button, 'advanced')):
+            button.setCheckable(True)
+            button.clicked.connect(
+                lambda _checked=False, selected=mode:
+                self._set_analysis_presentation_mode(selected))
+            presentation_layout.addWidget(button)
+        presentation_layout.addStretch(1)
+
+        truth_chip = chip('PARSER TRUTH', 'analysisParserTruthChip')
+        truth_chip.setProperty('status', 'truth')
+        presentation_layout.addWidget(truth_chip)
+        self.widgets.analysis_truth_chip = truth_chip
+
+        modified_chip = chip('MODIFIED VIEW', 'analysisModifiedViewChip')
+        modified_chip.setProperty('status', 'modified')
+        modified_chip.setProperty('accentIndex', '1')
+        presentation_layout.addWidget(modified_chip)
+        self.widgets.analysis_modified_chip = modified_chip
+
+        count_chip = chip('NO COMBAT', 'analysisWorkbenchEventCount')
+        presentation_layout.addWidget(count_chip)
+        self.widgets.analysis_event_count_chip = count_chip
+
+        reset_button = action_button('RESET', 'analysisWorkbenchReset', 1)
+        reset_button.setToolTip('Reset all Analysis modifiers to parser truth')
+        presentation_layout.addWidget(reset_button)
+        self.widgets.analysis_reset_button = reset_button
+
+        presentation_row.setLayout(presentation_layout)
+        self.widgets.analysis_presentation_buttons = [simple_button, advanced_button]
+        deck_layout.addWidget(presentation_row)
+
         modifier_bar = QFrame()
         modifier_bar.setObjectName('commandConsoleAnalysisModifierBar')
         modifier_bar.setProperty('consoleRole', 'modifierBar')
@@ -319,27 +367,8 @@ class AnalysisView:
         filter_layout.addWidget(add_filter_button)
         self.widgets.analysis_filter_add_button = add_filter_button
 
-        truth_chip = chip('PARSER TRUTH', 'analysisParserTruthChip')
-        truth_chip.setProperty('status', 'truth')
-        filter_layout.addWidget(truth_chip)
-        self.widgets.analysis_truth_chip = truth_chip
-
-        modified_chip = chip('MODIFIED VIEW', 'analysisModifiedViewChip')
-        modified_chip.setProperty('status', 'modified')
-        modified_chip.setProperty('accentIndex', '1')
-        filter_layout.addWidget(modified_chip)
-        self.widgets.analysis_modified_chip = modified_chip
-
-        count_chip = chip('NO COMBAT', 'analysisWorkbenchEventCount')
-        filter_layout.addWidget(count_chip)
-        self.widgets.analysis_event_count_chip = count_chip
-
-        reset_button = action_button('RESET', 'analysisWorkbenchReset', 1)
-        reset_button.setToolTip('Reset all Analysis modifiers to parser truth')
-        filter_layout.addWidget(reset_button)
-        self.widgets.analysis_reset_button = reset_button
-
         filter_row.setLayout(filter_layout)
+        self.widgets.analysis_filter_row = filter_row
         modifier_layout.addWidget(filter_row)
 
         # Structured clauses are intentionally a second, normally absent line.
@@ -458,6 +487,7 @@ class AnalysisView:
         self.widgets.analysis_rules_button = rules_button
 
         time_row.setLayout(time_layout)
+        self.widgets.analysis_time_rule_row = time_row
         modifier_layout.addWidget(time_row)
 
         modifier_bar.setLayout(modifier_layout)
@@ -599,21 +629,29 @@ class AnalysisView:
         from ..console.components import action_button
         from ..console.tokens import SURFACES
 
-        plot_widget, plot_bundle_frame = self._build_plot_bundle()
+        plot_widget, plot_bundle_frame = self._build_plot_bundle(instrument=True)
         plot_widget.set_viewport_background(SURFACES['raised'])
         graph_surface.body_layout.addWidget(plot_bundle_frame)
 
-        freeze_button = action_button(
-            tr('Freeze Graph').upper(), 'analysisFreezeButton', 1)
-        freeze_button.setToolTip(tr('Freeze Graph'))
+        freeze_button = action_button('LIVE PLOT', 'analysisFreezeButton', 1)
+        freeze_button.setToolTip('Live plot: select rows to add their curves')
         freeze_button.setCheckable(True)
-        freeze_button.setChecked(True)
+        freeze_button.setChecked(False)
         freeze_button.setProperty('toggleAction', True)
-        freeze_button.setProperty('visualActive', True)
+        freeze_button.setProperty('visualActive', False)
         freeze_button.clicked.connect(plot_widget.toggle_freeze)
         freeze_button.clicked.connect(
-            lambda checked, button=freeze_button: self._sync_toggle_visual(button, checked))
+            lambda checked, button=freeze_button:
+            self._sync_graph_freeze(button, checked))
         graph_surface.cap.layout().addWidget(freeze_button)
+
+        style_button = action_button('BARS', 'analysisPlotStyleButton', 1)
+        style_button.setToolTip('Switch to a detailed grouped-bar comparison')
+        style_button.clicked.connect(
+            lambda _checked=False, plot=plot_widget, button=style_button:
+            self._toggle_plot_style(plot, button))
+        graph_surface.cap.layout().addWidget(style_button)
+        self.widgets.analysis_plot_style_buttons.append(style_button)
 
         clear_button = action_button(
             tr('Clear Graph').upper(), 'analysisClearButton', 1)
@@ -672,7 +710,7 @@ class AnalysisView:
         tree_frame.setLayout(tree_layout)
         return tree, plot_widget
 
-    def _build_plot_bundle(self) -> tuple[AnalysisPlot, QFrame]:
+    def _build_plot_bundle(self, instrument: bool = False) -> tuple[AnalysisPlot, QFrame]:
         plot_bundle_frame = create_frame(self.theme, size_policy=SMINMAX)
         plot_bundle_layout = QVBoxLayout()
         plot_bundle_layout.setContentsMargins(0, 0, 0, 0)
@@ -683,13 +721,65 @@ class AnalysisView:
         plot_legend_layout.setContentsMargins(0, 0, 0, 0)
         plot_legend_layout.setSpacing(2 * self.theme['defaults']['margin'])
         plot_legend_frame.setLayout(plot_legend_layout)
-        plot_widget = AnalysisPlot(self.theme, self.theme['plot']['color_cycler'])
+        plot_widget = AnalysisPlot(
+            self.theme, self.theme['plot']['color_cycler'],
+            presentation='instrument' if instrument else 'legacy')
+        plot_widget.setObjectName('commandConsoleAnalysisPlot' if instrument else 'analysisPlot')
         plot_widget.setStyleSheet(self.theme.get_style('plot_widget_nullifier'))
         plot_widget.setSizePolicy(SMINMAX)
         plot_bundle_layout.addWidget(plot_widget)
         plot_bundle_layout.addWidget(plot_legend_frame, alignment=AHCENTER)
         plot_bundle_frame.setLayout(plot_bundle_layout)
         return plot_widget, plot_bundle_frame
+
+    @staticmethod
+    def _sync_graph_freeze(button, frozen: bool) -> None:
+        button.setText('FROZEN' if frozen else 'LIVE PLOT')
+        button.setToolTip(
+            'Graph selection is frozen' if frozen else
+            'Live plot: select rows to add their curves')
+        AnalysisView._sync_toggle_visual(button, frozen)
+
+    @staticmethod
+    def _toggle_plot_style(plot: AnalysisPlot, button) -> None:
+        if plot.display_mode == 'line':
+            plot.set_display_mode('bar')
+            button.setText('LINES')
+            button.setToolTip('Return to the readable live line plot')
+        else:
+            plot.set_display_mode('line')
+            button.setText('BARS')
+            button.setToolTip('Switch to a detailed grouped-bar comparison')
+
+    def _set_analysis_presentation_mode(self, mode: str, persist: bool = True) -> None:
+        """Progressively disclose advanced controls without changing their state."""
+        resolved = str(mode).strip().lower()
+        if resolved not in ('simple', 'advanced'):
+            resolved = 'simple'
+        self._analysis_presentation_mode = resolved
+        if persist:
+            self.settings.analysis_presentation_mode = resolved
+        advanced = resolved == 'advanced'
+
+        for button in self.widgets.analysis_presentation_buttons:
+            active = button.objectName() == (
+                'analysisAdvancedMode' if advanced else 'analysisSimpleMode')
+            button.setChecked(active)
+            self._sync_toggle_visual(button, active)
+
+        for row in (
+                self.widgets.analysis_filter_row,
+                self.widgets.analysis_time_rule_row):
+            if row is not None:
+                row.setVisible(advanced)
+
+        for index, button in enumerate(self.widgets.analysis_lens_buttons):
+            button.setVisible(advanced or index == 0)
+        for button in self.widgets.analysis_plot_style_buttons:
+            button.setVisible(advanced)
+
+        if not advanced:
+            self._select_telemetry_lens('CORE')
 
     def _build_tree(
             self, tree_model: TreeModel, is_heal_table: bool,

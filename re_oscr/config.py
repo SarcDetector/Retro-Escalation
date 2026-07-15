@@ -39,7 +39,7 @@ class OSCRConfig():
 
 class OSCRSettings():
 
-    __slots__ = ('_settings', 'analysis_graph', 'auto_scan', 'combat_min_lines',
+    __slots__ = ('_settings', 'analysis_graph', 'analysis_presentation_mode', 'auto_scan', 'combat_min_lines',
                  'command_console_accents', 'command_console_background_mode',
                  'command_console_background_opacity', 'command_console_background_path',
                  'command_console_palette_preset',
@@ -49,6 +49,7 @@ class OSCRSettings():
                  'seconds_between_combats', 'sto_log_path', 'ui_scale', 'state__analysis_splitter',
                  'state__geometry', 'state__live_geometry', 'state__live_splitter',
                  'state__overview_splitter', 'state__sidebar_collapsed',
+                 'state__workbench_rule_editor_geometry',
                  'liveparser__auto_enabled', 'liveparser__columns',
                  'liveparser__copy_kills', 'liveparser__graph_active', 'liveparser__graph_field',
                  'liveparser__player_display', 'liveparser__window_scale',
@@ -58,6 +59,7 @@ class OSCRSettings():
 
     def __init__(self, settings_file_path: Path):
         self.analysis_graph: bool = True
+        self.analysis_presentation_mode: str = 'simple'
         self.auto_scan: bool = False
         self.command_console_accents: list[str] = list(DEFAULT_COMMAND_CONSOLE_PALETTE)
         self.command_console_background_mode: str = DEFAULT_COMMAND_CONSOLE_BACKGROUND
@@ -92,6 +94,7 @@ class OSCRSettings():
         self.state__live_splitter: QByteArray = QByteArray()
         self.state__overview_splitter: QByteArray = QByteArray()
         self.state__sidebar_collapsed: bool = False
+        self.state__workbench_rule_editor_geometry: QByteArray = QByteArray()
 
         self.liveparser__auto_enabled: bool = False
         self.liveparser__columns: list[bool] = [True, False, True, False, False, False, False]
@@ -115,6 +118,8 @@ class OSCRSettings():
             self.command_console_palette_preset = 'command'
         self.command_console_accents = list(resolve_command_console_palette(
             self.command_console_palette_preset, self.command_console_accents))
+        if self.analysis_presentation_mode not in ('simple', 'advanced'):
+            self.analysis_presentation_mode = 'simple'
 
     def load_settings(self):
         """

@@ -380,8 +380,11 @@ class AnalysisWorkbenchController(QObject):
             self.parent,
             self._working_rule_set,
             auto_enable=self._auto_enabled_for(self._selected_rule_set()),
+            geometry=getattr(self.settings, 'state__workbench_rule_editor_geometry', None),
         )
         dialog_code = dialog.exec()
+        if self.settings is not None and hasattr(dialog, 'saveGeometry'):
+            self.settings.state__workbench_rule_editor_geometry = dialog.saveGeometry()
         edited = dialog.result_rule_set
         auto_enable = bool(getattr(dialog, "result_auto_enable", False))
         if hasattr(dialog, "setParent"):
