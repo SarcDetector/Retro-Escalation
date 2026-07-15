@@ -54,6 +54,8 @@ def main() -> int:
     command_shell = ui.window.findChild(QWidget, "commandConsoleApplicationShell")
     default_shell = ui.window.findChild(QWidget, "defaultApplicationShell")
     if expected_theme_id == COMMAND_CONSOLE_THEME_ID:
+        from re_oscr.console.tokens import SURFACES
+
         assert ui.workbench is not None
         assert command_shell is not None
         assert default_shell is None
@@ -109,6 +111,10 @@ def main() -> int:
             ui.graphs.dps_bar_plot._plot.getAxis("left").style["tickFont"].pointSize()
             == ui.theme.get_font("live_plot_widget").pointSize()
         )
+        for plot in (
+                ui.graphs.dps_bar_plot, ui.graphs.dps_graph_plot,
+                ui.graphs.dmg_bar_plot):
+            assert plot._plot.backgroundBrush().color().name().upper() == SURFACES["raised"]
         assert ui.window.findChild(QWidget, "commandConsoleOverviewSummaryDeck") is not None
         assert ui.window.findChild(QWidget, "commandConsoleOverviewMetricBar") is not None
         assert ui.window.findChild(QWidget, "commandConsoleOverviewTitle").text() == (
@@ -117,7 +123,28 @@ def main() -> int:
         assert [button.text() for button in ui.widgets.overview_metric_buttons] == [
             "T1  SUMMARY", "T2  DAMAGE OUT", "T3  DAMAGE IN", "T4  HEALING",
             "T5  ALL METRICS"]
+        assert [button.property("accentIndex")
+                for button in ui.widgets.overview_metric_buttons] == [
+                    "0", "0", "0", "0", "0"]
         assert ui.widgets.overview_metric_buttons[0].isChecked()
+        for mode_index in range(len(ui.widgets.overview_metric_buttons)):
+            ui.widgets.switch_overview_metric_group(mode_index)
+            assert [button.isChecked()
+                    for button in ui.widgets.overview_metric_buttons] == [
+                        index == mode_index
+                        for index in range(len(ui.widgets.overview_metric_buttons))]
+            assert [button.property("visualActive")
+                    for button in ui.widgets.overview_metric_buttons] == [
+                        index == mode_index
+                        for index in range(len(ui.widgets.overview_metric_buttons))]
+        ui.widgets.switch_overview_metric_group(0)
+        for mode_index in range(len(ui.widgets.overview_menu_buttons)):
+            ui.widgets.switch_overview_tab(mode_index)
+            assert [button.property("visualActive")
+                    for button in ui.widgets.overview_menu_buttons] == [
+                        index == mode_index
+                        for index in range(len(ui.widgets.overview_menu_buttons))]
+        ui.widgets.switch_overview_tab(0)
         telemetry_row = [float(index + 1) for index in range(24)]
         ui.parser.overview_table_model.set_data(
             [telemetry_row], [f"Metric {index}" for index in range(24)], ["Test@handle"])

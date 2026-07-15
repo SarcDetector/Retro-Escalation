@@ -44,7 +44,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .tokens import BORDERS, SURFACES, TEXT, ConsoleTokens, px
+from .tokens import BORDERS, SURFACES, TEXT, ConsoleTokens, blend, px
 
 
 _FIRST_PRESENTATION_ROLE = Qt.ItemDataRole.UserRole.value + 1
@@ -679,7 +679,18 @@ class OverviewMeterDelegate(QStyledItemDelegate):
         painter.restore()
 
     def _row_rect(self, option: QStyleOptionViewItem, gap: int) -> QRect:
-        widget_width = option.widget.width() if option.widget is not None else option.rect.right() + 1
+        # Both the main and frozen delegates paint one logical row canvas.  The
+        # frozen view clips that shared canvas instead of starting a second,
+        # differently-scaled meter at the Operator-column boundary.
+        owner = self.parent()
+        if isinstance(owner, QTableView):
+            widget_width = owner.viewport().width()
+        else:
+            widget_width = (
+                option.widget.width()
+                if option.widget is not None
+                else option.rect.right() + 1
+            )
         top = option.rect.top() + gap // 2
         return QRect(0, top, widget_width, max(1, option.rect.height() - gap))
 
@@ -717,10 +728,20 @@ class OverviewMeterDelegate(QStyledItemDelegate):
     def _paint_grid_row(
             self, painter: QPainter, option: QStyleOptionViewItem,
             _index: QModelIndex, accent_index: int, selected: bool) -> None:
-        background = SURFACES["raised"] if _index.row() % 2 else SURFACES["base"]
-        if selected:
-            background = self._tokens.accent_tint(accent_index)
+        background = self._grid_row_background(
+            _index.row(), accent_index, selected)
         painter.fillRect(option.rect, QColor(background))
+        if _index.column() == OverviewDisplayProxy.IDENTITY_COLUMN:
+            painter.fillRect(
+                option.rect.left(), option.rect.top(), px(3, self._tokens.scale),
+                option.rect.height(), QColor(self._tokens.accents[accent_index]))
+
+    def _grid_row_background(
+            self, row: int, accent_index: int, selected: bool) -> str:
+        """Keep operator colour identity in every numeric-grid table mode."""
+        surface = SURFACES["raised"] if row % 2 else SURFACES["base"]
+        accent_ratio = 0.26 if selected else (0.14 if row % 2 else 0.16)
+        return blend(self._tokens.accents[accent_index], surface, accent_ratio)
 
     def _paint_identity(
             self, painter: QPainter, option: QStyleOptionViewItem,
@@ -844,6 +865,7 @@ class OverviewTableView(QTableView):
         self.viewport().stackUnder(self._frozen_view)
 
         self.horizontalHeader().sectionResized.connect(self._main_section_resized)
+        self.horizontalHeader().geometriesChanged.connect(self._queue_geometry_update)
         self.verticalHeader().sectionResized.connect(self._main_row_resized)
         self._frozen_view.verticalHeader().sectionResized.connect(self._frozen_row_resized)
         self.horizontalHeader().sortIndicatorChanged.connect(
@@ -952,11 +974,16 @@ class OverviewTableView(QTableView):
             self._frozen_view.hide()
             return
         identity_width = self.columnWidth(OverviewDisplayProxy.IDENTITY_COLUMN)
+        main_header_height = self.horizontalHeader().height()
+        frozen_header = self._frozen_view.horizontalHeader()
+        if frozen_header.height() != main_header_height:
+            frozen_header.setFixedHeight(main_header_height)
+            self._frozen_view.updateGeometries()
         self._frozen_view.setGeometry(
             self.frameWidth(),
             self.frameWidth(),
             identity_width,
-            self.viewport().height() + self.horizontalHeader().height(),
+            self.viewport().height() + main_header_height,
         )
         self._frozen_view.show()
 

@@ -273,7 +273,8 @@ class LegendPlot(QFrame):
     """Represents a plot widget with legend below the plot area."""
 
     def __init__(
-            self, theme: AppTheme, x_unit: str = '', y_unit: str = '', y_font: str = 'plot_widget'):
+            self, theme: AppTheme, x_unit: str = '', y_unit: str = '',
+            y_font: str = 'plot_widget', viewport_background: str | None = None):
         super().__init__()
         self._theme: AppTheme = theme
         self.setStyleSheet(self._theme.get_style('plot_widget'))
@@ -285,7 +286,7 @@ class LegendPlot(QFrame):
             'bottom', self._theme.get_font('plot_widget'), self._theme['defaults']['fg'], x_unit)
         self._plot.setAxisItems({'left': left_axis, 'bottom': bottom_axis})
         self._plot.setStyleSheet(self._theme.get_style('plot_widget_nullifier'))
-        self._plot.setBackground(None)
+        self.set_viewport_background(viewport_background)
         self._plot.setMouseEnabled(False, False)
         self._plot.setMenuEnabled(False)
         self._plot.hideButtons()
@@ -298,6 +299,10 @@ class LegendPlot(QFrame):
         self._layout.addWidget(self._legend, alignment=ACENTER)
         self.setLayout(self._layout)
         self._plot.hide()
+
+    def set_viewport_background(self, colour: str | None) -> None:
+        """Set the pyqtgraph scene brush without relying on Qt widget QSS."""
+        self._plot.setBackground(colour)
 
     def set_padding_fraction(self, padding: float = 0.01):
         """

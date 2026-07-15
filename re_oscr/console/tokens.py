@@ -340,6 +340,13 @@ class ConsoleTokens:
                 f"selection-color:{TEXT['primary']};}}"
             ),
             (
+                "QTableView[consoleRole='telemetryTable'] QHeaderView,"
+                "QTableView[consoleRole='frozenIdentityTable'] QHeaderView,"
+                "QTableView[consoleRole='telemetryTable'] QTableCornerButton::section,"
+                "QTableView[consoleRole='frozenIdentityTable'] QTableCornerButton::section {"
+                f"background-color:{SURFACES['base']};border:none;}}"
+            ),
+            (
                 "QTableView[consoleRole='telemetryTable'] QHeaderView::section,"
                 "QTableView[consoleRole='frozenIdentityTable'] QHeaderView::section {"
                 f"background-color:{SURFACES['base']};color:{TEXT['eyebrow']};"

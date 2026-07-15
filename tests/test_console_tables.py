@@ -4,9 +4,9 @@ from copy import deepcopy
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QMimeData, QModelIndex, Qt
+from PySide6.QtCore import QMimeData, QModelIndex, QPoint, QRect, Qt
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QStyleOptionViewItem
 
 from re_oscr.console.tables import (
     BarFractionRole,
@@ -17,7 +17,7 @@ from re_oscr.console.tables import (
     RankRole,
     RawValueRole,
 )
-from re_oscr.console.tokens import ConsoleTokens
+from re_oscr.console.tokens import SURFACES, ConsoleTokens
 from re_oscr.datamodels import OverviewTableModel, SortingProxy
 
 
@@ -263,6 +263,35 @@ class OverviewTableViewTests(unittest.TestCase):
         view.show()
         process_events()
 
+        # Native styles may give the sortable main header a taller size hint
+        # than the frozen identity header.  Their viewport and row origins
+        # must still remain identical.
+        frozen.horizontalHeader().setFixedHeight(
+            max(1, view.horizontalHeader().height() - 5))
+        view.update_frozen_geometry()
+        process_events()
+        self.assertEqual(
+            frozen.horizontalHeader().height(), view.horizontalHeader().height())
+        self.assertEqual(
+            frozen.viewport().mapToGlobal(QPoint(0, 0)).y(),
+            view.viewport().mapToGlobal(QPoint(0, 0)).y(),
+            (
+                view.frameWidth(), frozen.frameWidth(),
+                view.horizontalHeader().geometry().getRect(),
+                frozen.horizontalHeader().geometry().getRect(),
+                view.viewport().geometry().getRect(),
+                frozen.viewport().geometry().getRect(),
+            ),
+        )
+        self.assertEqual(
+            frozen.visualRect(display.index(0, display.IDENTITY_COLUMN)).top(),
+            view.visualRect(display.index(0, display.SOURCE_COLUMN_OFFSET)).top(),
+        )
+        self.assertEqual(
+            frozen.visualRect(display.index(0, display.IDENTITY_COLUMN)).height(),
+            view.visualRect(display.index(0, display.SOURCE_COLUMN_OFFSET)).height(),
+        )
+
         self.assertGreater(view.verticalScrollBar().maximum(), 0)
         scroll_value = min(
             view.verticalScrollBar().maximum(),
@@ -295,6 +324,36 @@ class OverviewTableViewTests(unittest.TestCase):
         self.assertEqual(
             frozen.horizontalHeader().sortIndicatorOrder(),
             Qt.SortOrder.DescendingOrder,
+        )
+
+    def test_frozen_and_main_delegate_share_one_meter_canvas_width(self):
+        _source, _sorter, _display, view = self.make_view()
+        view.resize(560, 220)
+        view.show()
+        process_events()
+
+        option = QStyleOptionViewItem()
+        option.widget = view.frozen_view.viewport()
+        option.rect = QRect(0, 0, view.frozen_view.viewport().width(), 39)
+        row_rect = view.itemDelegate()._row_rect(option, 5)
+
+        self.assertEqual(row_rect.left(), 0)
+        self.assertEqual(row_rect.width(), view.viewport().width())
+
+    def test_numeric_grid_rows_keep_distinct_operator_accents(self):
+        _source, _sorter, _display, view = self.make_view()
+        delegate = view.itemDelegate()
+
+        row_colours = [
+            delegate._grid_row_background(0, index, False)
+            for index in range(len(self.tokens.accents))
+        ]
+
+        self.assertEqual(len(set(row_colours)), len(self.tokens.accents))
+        self.assertNotIn(SURFACES["base"], row_colours)
+        self.assertNotEqual(
+            delegate._grid_row_background(0, 0, False),
+            delegate._grid_row_background(0, 0, True),
         )
 
     def test_frozen_identity_ignores_horizontal_scrolling(self):

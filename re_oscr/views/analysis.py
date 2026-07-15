@@ -441,8 +441,10 @@ class AnalysisView:
             self, graph_surface, tree_frame: QFrame, tree_model: TreeModel,
             is_heal_table: bool, mode_index: int) -> tuple[QTreeView, AnalysisPlot]:
         from ..console.components import action_button
+        from ..console.tokens import SURFACES
 
         plot_widget, plot_bundle_frame = self._build_plot_bundle()
+        plot_widget.set_viewport_background(SURFACES['raised'])
         graph_surface.body_layout.addWidget(plot_bundle_frame)
 
         freeze_button = action_button(

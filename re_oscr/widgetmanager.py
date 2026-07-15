@@ -134,10 +134,12 @@ class WidgetManager():
         """
         self.overview_tabber.setCurrentIndex(tab_index)
         for index, button in enumerate(self.overview_menu_buttons):
-            if index == tab_index:
-                button.setChecked(True)
-            else:
-                button.setChecked(False)
+            active = index == tab_index
+            button.setChecked(active)
+            if button.property('consoleRole') == 'modeControl':
+                button.setProperty('visualActive', active)
+                from .console.tokens import refresh_style
+                refresh_style(button, descendants=False)
 
     def switch_overview_metric_group(self, group_index: int):
         """Show a readable Overview metric group while keeping the complete dataset available."""
@@ -155,7 +157,12 @@ class WidgetManager():
                     self.overview_table.setColumnHidden(column, column not in visible_columns)
                 self.overview_table.resizeColumnsToContents()
         for index, button in enumerate(self.overview_metric_buttons):
-            button.setChecked(index == safe_index)
+            active = index == safe_index
+            button.setChecked(active)
+            if button.property('consoleRole') == 'modeControl':
+                button.setProperty('visualActive', active)
+                from .console.tokens import refresh_style
+                refresh_style(button, descendants=False)
 
     def update_overview_telemetry(
             self, map_name: str, difficulty: str, log_duration: float,

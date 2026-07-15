@@ -21,15 +21,20 @@ class AnalysisGraphs():
         self.heal_out_plot: AnalysisPlot
         self.heal_in_plot: AnalysisPlot
 
-    def create_overview_plots(self, compact_labels: bool = False):
+    def create_overview_plots(
+            self, compact_labels: bool = False,
+            viewport_background: str | None = None):
         """
         Creates and styles overview plots and returns them.
         """
         y_font = 'live_plot_widget' if compact_labels else 'app'
-        self.dps_bar_plot = LegendPlot(self._theme, y_font=y_font)
+        self.dps_bar_plot = LegendPlot(
+            self._theme, y_font=y_font, viewport_background=viewport_background)
         self.dps_bar_plot.set_padding_fraction(0.01)
-        self.dps_graph_plot = LegendPlot(self._theme, x_unit='s')
-        self.dmg_bar_plot = LegendPlot(self._theme, x_unit='s')
+        self.dps_graph_plot = LegendPlot(
+            self._theme, x_unit='s', viewport_background=viewport_background)
+        self.dmg_bar_plot = LegendPlot(
+            self._theme, x_unit='s', viewport_background=viewport_background)
 
     def clear_overview_plots(self):
         """

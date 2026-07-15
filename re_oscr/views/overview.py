@@ -48,7 +48,14 @@ class OverviewView:
         self.widgets.overview_splitter = splitter
         layout.addWidget(splitter, 1)
 
-        self.graphs.create_overview_plots(compact_labels=self.command_console)
+        viewport_background = None
+        if self.command_console:
+            # pyqtgraph owns a graphics-scene brush that Qt stylesheets cannot reach.
+            from ..console.tokens import SURFACES
+            viewport_background = SURFACES['raised']
+        self.graphs.create_overview_plots(
+            compact_labels=self.command_console,
+            viewport_background=viewport_background)
         overview_tabber = QTabWidget(parent_frame)
         overview_tabber.setObjectName(
             'commandConsoleOverviewGraphPanel' if self.command_console else 'defaultOverviewGraph')
