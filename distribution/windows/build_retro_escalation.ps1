@@ -65,7 +65,8 @@ Copy-Item `
     -Force
 
 $commit = (& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot rev-parse HEAD).Trim()
-$workingTree = if (& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot diff --quiet) {
+$workingTreeStatus = & git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot status --porcelain
+$workingTree = if ([string]::IsNullOrWhiteSpace($workingTreeStatus)) {
     'clean'
 }
 else {
