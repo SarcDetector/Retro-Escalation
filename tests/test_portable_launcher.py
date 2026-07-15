@@ -16,7 +16,7 @@ class RetroEscalationLauncherTests(unittest.TestCase):
         self.assertNotEqual(config_dir.name, "OSCR_UI")
 
     def test_development_build_version_identifies_fork(self):
-        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0.dev8+re.oscr")
+        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0.dev9+re.oscr")
 
     def test_legacy_retro_escalation_config_directory_migrates(self):
         with tempfile.TemporaryDirectory() as temp_dir:

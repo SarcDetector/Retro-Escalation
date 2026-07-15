@@ -13,7 +13,7 @@ from main import Launcher
 
 
 class RetroEscalationLauncher:
-    __version__ = '11.1.0.dev8+re.oscr'
+    __version__ = '11.1.0.dev9+re.oscr'
 
     @staticmethod
     def default_config_dir() -> str:
