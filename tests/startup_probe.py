@@ -169,7 +169,8 @@ def main() -> int:
         ui.widgets.switch_overview_metric_group(0)
         ui.parser.overview_table_model.clear()
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisHeading") is not None
-        assert ui.window.findChild(QWidget, "commandConsoleAnalysisTitle").text() == "ANALYSIS"
+        assert ui.window.findChild(
+            QWidget, "commandConsoleAnalysisTitle").text() == "AWAITING ENCOUNTER"
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisCommandDeck") is not None
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisModifierBar") is not None
         assert ui.window.findChild(QWidget, "analysisWorkbenchFilter") is (
@@ -256,6 +257,9 @@ def main() -> int:
             "B1  DAMAGE OUT", "B2  DAMAGE TAKEN", "B3  HEALS OUT", "B4  HEALS IN"]
         assert all(button.property("consoleRole") == "modeControl"
                    for button in ui.widgets.analysis_menu_buttons)
+        assert all(button.property("accentIndex") == "1"
+                   for button in ui.widgets.analysis_menu_buttons)
+        assert ui.widgets.analysis_modified_chip.property("accentIndex") == "1"
         freeze_buttons = ui.window.findChildren(QWidget, "analysisFreezeButton")
         clear_buttons = ui.window.findChildren(QWidget, "analysisClearButton")
         assert len(freeze_buttons) == 4

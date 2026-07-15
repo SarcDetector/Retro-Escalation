@@ -25,18 +25,29 @@ from PySide6.QtCore import (
     QAbstractProxyModel,
     QMimeData,
     QModelIndex,
+    Property,
     QPersistentModelIndex,
     QRect,
     QSize,
     Qt,
     QTimer,
 )
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QResizeEvent
+from PySide6.QtGui import (
+    QBrush,
+    QColor,
+    QFont,
+    QFontMetrics,
+    QPainter,
+    QPalette,
+    QResizeEvent,
+)
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QFrame,
     QHeaderView,
     QStyle,
+    QStyleOptionHeader,
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QTableView,
@@ -1071,6 +1082,114 @@ class OverviewTableView(QTableView):
         QTimer.singleShot(0, self.update_frozen_geometry)
 
 
+class _AnalysisIdentityHeader(QHeaderView):
+    """Paint the frozen identity caption without editing parser header data."""
+
+    identity_label = "SOURCE"
+
+    def paintSection(
+            self, painter: QPainter, rect: QRect, logical_index: int) -> None:
+        if logical_index != AnalysisTreeView.IDENTITY_COLUMN:
+            super().paintSection(painter, rect, logical_index)
+            return
+        option = QStyleOptionHeader()
+        self.initStyleOptionForIndex(option, logical_index)
+        option.rect = rect
+        option.text = self.identity_label
+        painter.save()
+        self.style().drawControl(
+            QStyle.ControlElement.CE_Header,
+            option,
+            painter,
+            self,
+        )
+        painter.restore()
+
+
+class AnalysisTreeDelegate(QStyledItemDelegate):
+    """Paint hierarchy as a quiet, scan-friendly telemetry surface.
+
+    All styling is derived from existing indexes and the view's expansion
+    state.  No roles are added to the parser model and no data is written back.
+    """
+
+    def __init__(self, owner: "AnalysisTreeView"):
+        super().__init__(owner)
+        self._owner = owner
+
+    def paint(
+            self, painter: QPainter, option: QStyleOptionViewItem,
+            index: QModelIndex) -> None:
+        display_option = QStyleOptionViewItem(option)
+        self.initStyleOption(display_option, index)
+
+        selected = bool(
+            display_option.state & QStyle.StateFlag.State_Selected)
+        background = self._row_background(index, selected)
+        brush = QBrush(background)
+        display_option.backgroundBrush = brush
+        for role in (
+                QPalette.ColorRole.Base,
+                QPalette.ColorRole.AlternateBase,
+                QPalette.ColorRole.Highlight):
+            display_option.palette.setBrush(role, brush)
+        display_option.palette.setColor(
+            QPalette.ColorRole.HighlightedText, QColor(TEXT["primary"]))
+
+        style = (
+            display_option.widget.style()
+            if display_option.widget is not None
+            else QApplication.style()
+        )
+        style.drawControl(
+            QStyle.ControlElement.CE_ItemViewItem,
+            display_option,
+            painter,
+            display_option.widget,
+        )
+
+        if (
+                index.column() == AnalysisTreeView.IDENTITY_COLUMN
+                and self._is_expanded_parent(index)):
+            painter.save()
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(self._owner.analysis_accent_color)
+            painter.drawRect(QRect(
+                option.rect.left(), option.rect.top(),
+                self._owner.analysis_spine_width, option.rect.height()))
+            painter.restore()
+
+    def _row_background(self, index: QModelIndex, selected: bool) -> QColor:
+        depth = self._depth(index)
+        surface = SURFACES["raised"] if depth == 0 else SURFACES["base"]
+        ratio = max(0.035, 0.10 - depth * 0.025)
+        if self._is_expanded_parent(index):
+            ratio += 0.09
+        if selected:
+            ratio = max(ratio, 0.22)
+        return QColor(blend(
+            self._owner.analysis_accent_color.name(), surface, ratio))
+
+    @staticmethod
+    def _depth(index: QModelIndex) -> int:
+        depth = 0
+        parent = index.parent()
+        while parent.isValid():
+            depth += 1
+            parent = parent.parent()
+        return depth
+
+    def _is_expanded_parent(self, index: QModelIndex) -> bool:
+        identity = index.sibling(index.row(), AnalysisTreeView.IDENTITY_COLUMN)
+        model = identity.model()
+        return (
+            identity.isValid()
+            and model is not None
+            and model.rowCount(identity) > 0
+            and self._owner.isExpanded(identity)
+        )
+
+
 class AnalysisTreeView(QTreeView):
     """Analysis tree with a view-only frozen identity column.
 
@@ -1087,14 +1206,20 @@ class AnalysisTreeView(QTreeView):
         super().__init__(parent)
         self._model_connections: list[tuple[object, object]] = []
         self._syncing_expansion = False
+        self._analysis_accent_color = QColor(TEXT["eyebrow"])
+        self._analysis_spine_width = 3
+        self._delegate = AnalysisTreeDelegate(self)
+        self.setItemDelegate(self._delegate)
 
         frozen = QTreeView(self)
+        frozen.setHeader(_AnalysisIdentityHeader(Qt.Orientation.Horizontal, frozen))
         self._frozen_view = frozen
         frozen.setObjectName("analysisFrozenIdentityTree")
         # Use the same role as the main tree so global Command Console rules
         # produce identical fonts, padding, and therefore row heights.
         frozen.setProperty("consoleRole", "analysisTree")
         frozen.setProperty("frozenIdentity", True)
+        frozen.setItemDelegate(self._delegate)
         frozen.setFrameShape(QFrame.Shape.NoFrame)
         frozen.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         frozen.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -1110,6 +1235,7 @@ class AnalysisTreeView(QTreeView):
 
         self.viewport().stackUnder(frozen)
         self.header().sectionResized.connect(self._main_section_resized)
+        self.header().geometriesChanged.connect(self._queue_geometry_update)
         self.header().sortIndicatorChanged.connect(frozen.header().setSortIndicator)
         frozen.header().sectionClicked.connect(self._frozen_section_clicked)
         self.verticalScrollBar().valueChanged.connect(
@@ -1126,6 +1252,41 @@ class AnalysisTreeView(QTreeView):
         frozen.expanded.connect(self._frozen_expanded)
         frozen.collapsed.connect(self._frozen_collapsed)
         frozen.show()
+
+    def _get_analysis_accent_color(self) -> QColor:
+        return QColor(self._analysis_accent_color)
+
+    def _set_analysis_accent_color(self, colour: QColor) -> None:
+        resolved = QColor(colour)
+        if not resolved.isValid() or resolved == self._analysis_accent_color:
+            return
+        self._analysis_accent_color = resolved
+        self.viewport().update()
+        self._frozen_view.viewport().update()
+
+    def _get_analysis_spine_width(self) -> int:
+        return self._analysis_spine_width
+
+    def _set_analysis_spine_width(self, width: int) -> None:
+        resolved = max(1, int(width))
+        if resolved == self._analysis_spine_width:
+            return
+        self._analysis_spine_width = resolved
+        self.viewport().update()
+        self._frozen_view.viewport().update()
+
+    analysisAccentColor = Property(
+        QColor, _get_analysis_accent_color, _set_analysis_accent_color)
+    analysisSpineWidth = Property(
+        int, _get_analysis_spine_width, _set_analysis_spine_width)
+
+    @property
+    def analysis_accent_color(self) -> QColor:
+        return QColor(self._analysis_accent_color)
+
+    @property
+    def analysis_spine_width(self) -> int:
+        return self._analysis_spine_width
 
     @property
     def frozen_view(self) -> QTreeView:
@@ -1256,11 +1417,16 @@ class AnalysisTreeView(QTreeView):
             self._frozen_view.hide()
             return
         identity_width = self.columnWidth(self.IDENTITY_COLUMN)
+        main_header_height = self.header().height()
+        frozen_header = self._frozen_view.header()
+        if frozen_header.height() != main_header_height:
+            frozen_header.setFixedHeight(main_header_height)
+            self._frozen_view.updateGeometries()
         self._frozen_view.setGeometry(
             self.frameWidth(),
             self.frameWidth(),
             identity_width,
-            self.viewport().height() + self.header().height(),
+            self.viewport().height() + main_header_height,
         )
         self._frozen_view.show()
 

@@ -14,6 +14,7 @@ from .workbench import (
     WorkbenchIndexCache,
     WorkbenchQueryResult,
     WorkbenchState,
+    count_effective_events,
     derive_workbench_combat,
 )
 
@@ -69,8 +70,10 @@ class AnalysisWorkbenchController(QObject):
         self.tables.set_analysis_modified(False)
         self._reset_modifier_controls()
         self._clear_plots()
-        self._update_controls(0, 0)
-        self.state_changed.emit(self.state, 0, 0)
+        total_count = self._source_event_count()
+        visible_count = total_count or 0
+        self._update_controls(visible_count, total_count)
+        self.state_changed.emit(self.state, visible_count, visible_count)
 
     @Slot(str)
     def apply_text_filter(self, text: str) -> None:
@@ -177,8 +180,8 @@ class AnalysisWorkbenchController(QObject):
                 result = None
                 view = None
                 display_combat = self.source_combat
-                selected_count = 0
-                total_count = 0
+                total_count = self._source_event_count()
+                selected_count = total_count or 0
         except (WorkbenchDataError, ValueError) as error:
             self.view_failed.emit(str(error))
             return False
@@ -190,7 +193,7 @@ class AnalysisWorkbenchController(QObject):
         self.current_result = result
         self.current_view = view
         self._update_controls(selected_count, total_count)
-        self.state_changed.emit(candidate, selected_count, total_count)
+        self.state_changed.emit(candidate, selected_count, total_count or 0)
         return True
 
     @Slot()
@@ -232,7 +235,19 @@ class AnalysisWorkbenchController(QObject):
         for plot in self.widgets.analysis_plots:
             plot.clear()
 
-    def _update_controls(self, selected_count: int, total_count: int) -> None:
+    def _source_event_count(self) -> int | None:
+        """Return the parser-consumed event count when the combat can be indexed."""
+        if self.source_combat is None:
+            return None
+        try:
+            return count_effective_events(self.source_combat)
+        except WorkbenchDataError:
+            # Analysis remains usable for an incomplete/invalid combat even if
+            # the display-only Workbench cannot truthfully count its events.
+            return None
+
+    def _update_controls(
+            self, selected_count: int, total_count: int | None) -> None:
         has_combat = self.source_combat is not None
         modified = has_combat and self.state.is_modified
         if self.widgets.analysis_truth_chip is not None:
@@ -241,9 +256,16 @@ class AnalysisWorkbenchController(QObject):
             self.widgets.analysis_modified_chip.setVisible(modified)
         if self.widgets.analysis_event_count_chip is not None:
             if modified:
-                text = f"{selected_count:,} / {total_count:,} EVENTS"
+                text = (
+                    f"{selected_count:,} / {total_count:,} EVENTS"
+                    if total_count is not None
+                    else f"{selected_count:,} EVENTS // MODIFIED"
+                )
             elif has_combat:
-                text = "PARSER OUTPUT"
+                text = (
+                    f"{total_count:,} EVENTS"
+                    if total_count is not None else "PARSER OUTPUT"
+                )
             else:
                 text = "NO COMBAT"
             self.widgets.analysis_event_count_chip.setText(text)

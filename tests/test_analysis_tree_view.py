@@ -4,10 +4,11 @@ import unittest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QItemSelection, QItemSelectionModel, QModelIndex, QSize, Qt
-from PySide6.QtGui import QStandardItem, QStandardItemModel
+from PySide6.QtGui import QColor, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import QApplication
 
 from re_oscr.console.tables import AnalysisTreeView
+from re_oscr.console.tokens import ConsoleTokens
 from re_oscr.datamodels import TreeSelectionModel
 
 
@@ -104,6 +105,77 @@ class AnalysisTreeViewTests(unittest.TestCase):
         process_events()
         self.assertTrue(view.isExpanded(parent))
 
+    def test_delegate_derives_hierarchy_tint_and_expanded_parent_spine(self):
+        model, _selection, view = self.make_view()
+        parent = model.index(0, 0, QModelIndex())
+        child = model.index(0, 0, parent)
+        delegate = view.itemDelegate()
+
+        self.assertIs(delegate, view.frozen_view.itemDelegate())
+        self.assertEqual(delegate._depth(parent), 0)
+        self.assertEqual(delegate._depth(child), 1)
+        self.assertFalse(delegate._is_expanded_parent(parent))
+        self.assertNotEqual(
+            delegate._row_background(parent, False),
+            delegate._row_background(child, False),
+        )
+
+        view.expand(parent)
+        process_events()
+        self.assertTrue(delegate._is_expanded_parent(parent))
+        self.assertEqual(view.analysis_spine_width, 3)
+        self.assertNotEqual(
+            delegate._row_background(parent, False),
+            delegate._row_background(child, False),
+        )
+
+    def test_analysis_accent_updates_the_shared_delegate_palette(self):
+        _model, _selection, view = self.make_view()
+        colour = QColor("#A65FD4")
+
+        view.analysisAccentColor = colour
+        process_events()
+
+        self.assertEqual(view.analysis_accent_color, colour)
+        self.assertIs(view.itemDelegate(), view.frozen_view.itemDelegate())
+
+    def test_console_stylesheet_supplies_live_analysis_accent_and_scale(self):
+        _model, _selection, view = self.make_view()
+        app = QApplication.instance()
+        previous_stylesheet = app.styleSheet()
+        self.addCleanup(app.setStyleSheet, previous_stylesheet)
+        tokens = ConsoleTokens(
+            scale=2.0,
+            accents=("#35A67A", "#A65FD4", "#40B8C5", "#D6A946", "#D55757"),
+        )
+
+        app.setStyleSheet(tokens.stylesheet())
+        view.show()
+        process_events()
+
+        self.assertEqual(view.analysis_accent_color, QColor(tokens.accents[1]))
+        self.assertEqual(view.analysis_spine_width, 6)
+
+    def test_frozen_source_header_does_not_mutate_model_header_data(self):
+        model, _selection, view = self.make_view()
+        model.setHeaderData(
+            AnalysisTreeView.IDENTITY_COLUMN,
+            Qt.Orientation.Horizontal,
+            "",
+            Qt.ItemDataRole.DisplayRole,
+        )
+        process_events()
+
+        self.assertEqual(
+            model.headerData(
+                AnalysisTreeView.IDENTITY_COLUMN,
+                Qt.Orientation.Horizontal,
+                Qt.ItemDataRole.DisplayRole,
+            ),
+            "",
+        )
+        self.assertEqual(view.frozen_view.header().identity_label, "SOURCE")
+
     def test_vertical_scroll_and_model_driven_row_heights_match(self):
         model, _selection, view = self.make_view(rows=60)
         frozen = view.frozen_view
@@ -154,6 +226,13 @@ class AnalysisTreeViewTests(unittest.TestCase):
         self.assertEqual(
             frozen.header().sortIndicatorOrder(), Qt.SortOrder.DescendingOrder)
         self.assertIs(frozen.model(), model)
+
+        view.resize(420, 220)
+        view.show()
+        process_events()
+        view.header().setFixedHeight(41)
+        process_events()
+        self.assertEqual(frozen.header().height(), 41)
 
     def test_frozen_identity_header_forwards_sort_and_toggles_order(self):
         model, _selection, view = self.make_view()

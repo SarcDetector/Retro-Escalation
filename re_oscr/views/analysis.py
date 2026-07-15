@@ -34,7 +34,10 @@ class AnalysisView:
         self.copy_callback = copy_callback
         self.command_console = command_console
         self.workbench_controller = workbench_controller
-        self.mode_accent_indices = (0, 4, 3, 2)
+        # Workspace modes belong to Analysis, so the active state uses the
+        # Analysis rail colour instead of borrowing unrelated page accents.
+        self.mode_accent_indices = (1, 1, 1, 1)
+        self._command_heading_title: QLabel | None = None
 
     def build(self, parent_frame: QFrame) -> None:
         if self.command_console:
@@ -50,6 +53,7 @@ class AnalysisView:
         layout.setContentsMargins(*([px(12, self.theme.scale)] * 4))
         layout.setSpacing(px(10, self.theme.scale))
         layout.addWidget(self._build_command_heading())
+        self.parser.combat_displayed.connect(self._update_command_heading)
         layout.addWidget(self._build_command_switcher())
 
         splitter = QSplitter(OVERTICAL)
@@ -78,9 +82,9 @@ class AnalysisView:
         graph_tabber = self._build_command_tabber(
             parent_frame, [surface.frame for surface in graph_surfaces],
             'commandConsoleAnalysisGraphPanel')
-        # Preserve enough plot viewport for readable Y-axis labels at the supported
-        # 1280x720 minimum while still leaving the telemetry tree independently scrollable.
-        graph_tabber.setMinimumHeight(px(170, self.theme.scale))
+        # Keep the chart useful at the supported 1280x720 minimum without reducing
+        # the telemetry tree to a single visible row.
+        graph_tabber.setMinimumHeight(px(150, self.theme.scale))
         self.widgets.analysis_graph_tabber = graph_tabber
         splitter.addWidget(graph_tabber)
 
@@ -92,10 +96,15 @@ class AnalysisView:
         tree_tabber = self._build_command_tabber(
             telemetry_surface.body, tree_frames, 'commandConsoleAnalysisTelemetryTabs')
         telemetry_surface.body_layout.addWidget(tree_tabber)
+        telemetry_surface.frame.setMinimumHeight(px(175, self.theme.scale))
         self.widgets.analysis_tree_tabber = tree_tabber
         splitter.addWidget(telemetry_surface.frame)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 1)
+        # Analysis is chart-led: the telemetry tree remains independently
+        # scrollable, while the plot needs enough height for readable spikes,
+        # axes, and its legend.  A 3:2 first-run split also avoids presenting a
+        # large empty tree surface for the common five-player summary.
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
 
         analysis_tables = []
         plots = []
@@ -178,17 +187,21 @@ class AnalysisView:
         if self.settings.state__analysis_splitter:
             splitter.restoreState(self.settings.state__analysis_splitter)
         elif self.command_console:
-            # Construction happens before the window has its final height.  Large equal
-            # weights are applied once the shown window has a real geometry.
+            # Construction happens before the window has its final height.  Apply the
+            # chart-led default once the shown window has a real geometry.
             QTimer.singleShot(0, lambda: self._balance_command_splitter(splitter))
         else:
             height = splitter.height()
             splitter.setSizes((height * 0.5, height * 0.5))
 
-    @staticmethod
-    def _balance_command_splitter(splitter: QSplitter) -> None:
+    def _balance_command_splitter(self, splitter: QSplitter) -> None:
+        from ..console.tokens import px
+
         available = max(2, splitter.height() - splitter.handleWidth())
-        upper = available // 2
+        # Wide/tall workspaces are chart-led; short windows reserve enough room
+        # for a practical drill-down rather than a one-row telemetry viewport.
+        compact = available < px(480, self.theme.scale)
+        upper = round(available * (0.47 if compact else 0.6))
         splitter.setSizes((upper, available - upper))
 
     def _build_command_heading(self) -> QFrame:
@@ -196,10 +209,26 @@ class AnalysisView:
 
         panel = cap_line(
             self.theme.scale, 'commandConsoleAnalysisHeading',
-            'SELECTED ENCOUNTER // EVENT AND SOURCE TELEMETRY', 'ANALYSIS', 1)
+            'SELECTED ENCOUNTER // EVENT AND SOURCE TELEMETRY',
+            'AWAITING ENCOUNTER', 1)
         panel.eyebrow.setObjectName('commandConsoleAnalysisEyebrow')
         panel.title.setObjectName('commandConsoleAnalysisTitle')
+        self._command_heading_title = panel.title
         return panel.frame
+
+    def _update_command_heading(self, combat) -> None:
+        """Show selected-combat identity without altering parser-owned data."""
+        if self._command_heading_title is None:
+            return
+        map_name = str(getattr(combat, 'map', '') or '').strip()
+        difficulty = str(getattr(combat, 'difficulty', '') or '').strip()
+        if map_name:
+            title = map_name.upper()
+            if difficulty:
+                title = f'{title} [{difficulty.upper()}]'
+        else:
+            title = 'UNIDENTIFIED ENCOUNTER'
+        self._command_heading_title.setText(title)
 
     def _build_command_switcher(self) -> QFrame:
         from ..console.components import action_button, chip, mode_button
@@ -210,7 +239,7 @@ class AnalysisView:
         deck.setProperty('consoleRole', 'analysisCommandDeck')
         deck_layout = QVBoxLayout()
         deck_layout.setContentsMargins(0, 0, 0, 0)
-        deck_layout.setSpacing(px(5, self.theme.scale))
+        deck_layout.setSpacing(0)
 
         mode_row = QFrame()
         mode_row.setObjectName('commandConsoleAnalysisModeRow')
@@ -231,7 +260,7 @@ class AnalysisView:
                 self.widgets.switch_analysis_tab(tab_index))
             button.setChecked(index == 0)
             button.setProperty('visualActive', index == 0)
-            button.setMinimumHeight(px(42, self.theme.scale))
+            button.setMinimumHeight(px(36, self.theme.scale))
             mode_layout.addWidget(button, 1)
             buttons.append(button)
         mode_row.setLayout(mode_layout)
@@ -249,8 +278,8 @@ class AnalysisView:
         filter_row.setProperty('consoleRole', 'workbenchFilterRow')
         filter_layout = QHBoxLayout()
         filter_layout.setContentsMargins(
-            px(10, self.theme.scale), px(6, self.theme.scale),
-            px(10, self.theme.scale), px(6, self.theme.scale))
+            px(10, self.theme.scale), px(3, self.theme.scale),
+            px(10, self.theme.scale), px(3, self.theme.scale))
         filter_layout.setSpacing(px(8, self.theme.scale))
         modifier_label = QLabel('WORKBENCH // FILTER')
         modifier_label.setProperty('consoleRole', 'eyebrow')
@@ -285,7 +314,7 @@ class AnalysisView:
 
         modified_chip = chip('MODIFIED VIEW', 'analysisModifiedViewChip')
         modified_chip.setProperty('status', 'modified')
-        modified_chip.setProperty('accentIndex', '4')
+        modified_chip.setProperty('accentIndex', '1')
         filter_layout.addWidget(modified_chip)
         self.widgets.analysis_modified_chip = modified_chip
 
@@ -305,8 +334,8 @@ class AnalysisView:
         time_row.setProperty('consoleRole', 'workbenchTimeRow')
         time_layout = QHBoxLayout()
         time_layout.setContentsMargins(
-            px(10, self.theme.scale), px(4, self.theme.scale),
-            px(10, self.theme.scale), px(5, self.theme.scale))
+            px(10, self.theme.scale), px(2, self.theme.scale),
+            px(10, self.theme.scale), px(2, self.theme.scale))
         time_layout.setSpacing(px(8, self.theme.scale))
         time_label = QLabel('TIME CUT // SECONDS')
         time_label.setProperty('consoleRole', 'eyebrow')
@@ -552,6 +581,7 @@ class AnalysisView:
             tree.setProperty('consoleRole', 'analysisTree')
             tree.setAlternatingRowColors(True)
             tree.setIndentation(px(18, self.theme.scale))
+            tree.header().setFixedHeight(px(32, self.theme.scale))
             tree.header().setSortIndicatorShown(True)
         if is_heal_table:
             tree_model.header_data = tr(HEAL_TREE_HEADER)

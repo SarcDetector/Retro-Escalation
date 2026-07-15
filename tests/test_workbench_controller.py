@@ -102,7 +102,8 @@ class AnalysisWorkbenchControllerTests(unittest.TestCase):
         self.assertIsNone(self.controller.current_view)
         self.assertFalse(self.widgets.analysis_truth_chip.isHidden())
         self.assertTrue(self.widgets.analysis_modified_chip.isHidden())
-        self.assertEqual(self.widgets.analysis_event_count_chip.text(), "PARSER OUTPUT")
+        self.assertEqual(self.widgets.analysis_event_count_chip.text(), "3 EVENTS")
+        self.assertEqual(len(self.controller.cache), 0)
         self.assertFalse(self.widgets.analysis_reset_button.isEnabled())
         self.assertEqual(self.tables.modified_states[-1], False)
         self.assertTrue(all(plot.clear_count == 1 for plot in self.widgets.analysis_plots))
@@ -115,6 +116,7 @@ class AnalysisWorkbenchControllerTests(unittest.TestCase):
 
         self.assertTrue(self.controller.state.is_modified)
         self.assertEqual(self.controller.current_result.count, 2)
+        self.assertEqual(len(self.controller.cache), 1)
         derived = self.controller.current_view.combat
         self.assertIs(self.parser.displayed_analysis[-1], derived)
         self.assertIsNot(derived, self.source)
@@ -151,7 +153,7 @@ class AnalysisWorkbenchControllerTests(unittest.TestCase):
         self.assertEqual(self.tables.modified_states[-1], False)
         self.assertFalse(self.widgets.analysis_truth_chip.isHidden())
         self.assertTrue(self.widgets.analysis_modified_chip.isHidden())
-        self.assertEqual(self.widgets.analysis_event_count_chip.text(), "PARSER OUTPUT")
+        self.assertEqual(self.widgets.analysis_event_count_chip.text(), "3 EVENTS")
         self.assertFalse(self.widgets.analysis_reset_button.isEnabled())
         self.assertTrue(all(plot.clear_count == 3 for plot in self.widgets.analysis_plots))
 
@@ -190,7 +192,7 @@ class AnalysisWorkbenchControllerTests(unittest.TestCase):
         self.assertIsNone(self.controller.current_view)
         self.assertIsNone(self.controller.current_result)
         self.assertEqual(self.tables.modified_states[-1], False)
-        self.assertEqual(self.widgets.analysis_event_count_chip.text(), "PARSER OUTPUT")
+        self.assertEqual(self.widgets.analysis_event_count_chip.text(), "2 EVENTS")
 
     def test_failed_candidate_is_transactional_and_emits_error(self):
         unfinished = make_combat([make_line(0)])

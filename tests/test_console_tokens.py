@@ -156,6 +156,10 @@ class ConsoleTokenTests(unittest.TestCase):
             "QPushButton[consoleRole='actionButton']:hover",
             "QPushButton[consoleRole='actionButton']:focus",
             "QPushButton[consoleRole='actionButton']:disabled",
+            "QSplitter#commandConsoleAnalysisSplitter::handle:hover",
+            "QTreeView[consoleRole='analysisTree'] QScrollBar::handle:horizontal:hover",
+            "QTreeView[consoleRole='analysisTree'] QScrollBar::handle:vertical:hover",
+            "AnalysisTreeView",
         )
         for selector in required_selectors:
             with self.subTest(selector=selector):

@@ -272,19 +272,24 @@ class ConsoleTokens:
             ),
             (
                 "QFrame[consoleRole='analysisCommandDeck'] {"
-                "background:transparent;border:none;}"
+                f"background-color:{SURFACES['base']};border:none;"
+                f"border-radius:{radius_panel}px;}}"
             ),
             (
                 "QFrame[consoleRole='analysisModeRow'] {"
                 f"background-color:{SURFACES['base']};"
-                f"border:1px solid {BORDERS['hairline']};"
-                f"border-radius:{radius_panel}px;}}"
+                "border:none;"
+                f"border-bottom:1px solid {BORDERS['hairline']};"
+                f"border-top-left-radius:{radius_panel}px;"
+                f"border-top-right-radius:{radius_panel}px;}}"
             ),
             (
                 "QFrame[consoleRole='modifierBar'] {"
                 f"background-color:{SURFACES['base']};"
-                f"border:1px solid {BORDERS['hairline']};"
-                f"border-radius:{radius_panel}px;}}"
+                "border:none;"
+                f"border-left:{drawer_cap}px solid {self.accents[1]};"
+                f"border-bottom-left-radius:{radius_panel}px;"
+                f"border-bottom-right-radius:{radius_panel}px;}}"
             ),
             (
                 "QFrame[consoleRole='workbenchFilterRow'] {"
@@ -306,7 +311,7 @@ class ConsoleTokens:
             (
                 "QLineEdit[consoleRole='workbenchFilter']:hover,"
                 "QLineEdit[consoleRole='workbenchFilter']:focus {"
-                f"border-color:{BORDERS['focus']};}}"
+                f"border-color:{self.accents[1]};}}"
             ),
             (
                 "QLabel[consoleRole='chip'][status='truth'] {"
@@ -330,6 +335,10 @@ class ConsoleTokens:
                 "QSplitter#commandConsoleAnalysisSplitter::handle {"
                 f"background-color:{BORDERS['hairline']};min-height:{px(7, s)}px;"
                 f"margin:{px(3, s)}px {px(18, s)}px;}}"
+            ),
+            (
+                "QSplitter#commandConsoleAnalysisSplitter::handle:hover {"
+                f"background-color:{self.accent_edge(1)};}}"
             ),
             (
                 "QTableView[consoleRole='telemetryTable'],"
@@ -364,8 +373,13 @@ class ConsoleTokens:
                 f"selection-color:{TEXT['primary']};outline:none;}}"
             ),
             (
+                "AnalysisTreeView {"
+                f"qproperty-analysisAccentColor:{self.accents[1]};"
+                f"qproperty-analysisSpineWidth:{px(3, s)};}}"
+            ),
+            (
                 "QTreeView[consoleRole='analysisTree']::item {"
-                f"border:none;padding:{px(3, s)}px {px(6, s)}px;}}"
+                f"border:none;padding:{px(2, s)}px {px(6, s)}px;}}"
             ),
             (
                 "QTreeView[consoleRole='analysisTree']::item:selected {"
@@ -381,6 +395,44 @@ class ConsoleTokens:
                 f"font-family:'Roboto Mono';font-size:{px(11, s)}px;font-weight:600;}}"
             ),
             (
+                "QTreeView[consoleRole='analysisTree'] QScrollBar:horizontal {"
+                f"background-color:{SURFACES['overlay']};height:{px(10, s)}px;"
+                f"margin:{px(2, s)}px 0 0 0;border:none;}}"
+            ),
+            (
+                "QTreeView[consoleRole='analysisTree'] QScrollBar::handle:horizontal {"
+                f"background-color:{BORDERS['control']};min-width:{px(36, s)}px;"
+                f"border-radius:{px(4, s)}px;}}"
+            ),
+            (
+                "QTreeView[consoleRole='analysisTree'] QScrollBar::handle:horizontal:hover {"
+                f"background-color:{self.accents[1]};}}"
+            ),
+            (
+                "QTreeView[consoleRole='analysisTree'] QScrollBar:vertical {"
+                f"background-color:{SURFACES['overlay']};width:{px(10, s)}px;"
+                f"margin:0 0 0 {px(2, s)}px;border:none;}}"
+            ),
+            (
+                "QTreeView[consoleRole='analysisTree'] QScrollBar::handle:vertical {"
+                f"background-color:{BORDERS['control']};min-height:{px(36, s)}px;"
+                f"border-radius:{px(4, s)}px;}}"
+            ),
+            (
+                "QTreeView[consoleRole='analysisTree'] QScrollBar::handle:vertical:hover {"
+                f"background-color:{self.accents[1]};}}"
+            ),
+            (
+                "QTreeView[consoleRole='analysisTree'] QScrollBar::add-line,"
+                "QTreeView[consoleRole='analysisTree'] QScrollBar::sub-line {"
+                "width:0;height:0;background:transparent;border:none;}"
+            ),
+            (
+                "QTreeView[consoleRole='analysisTree'] QScrollBar::add-page,"
+                "QTreeView[consoleRole='analysisTree'] QScrollBar::sub-page {"
+                "background:transparent;border:none;}"
+            ),
+            (
                 "QComboBox[consoleRole='compactCombo'] {"
                 f"background-color:{SURFACES['overlay']};color:{TEXT['secondary']};"
                 f"border:1px solid {BORDERS['control']};"
@@ -392,6 +444,13 @@ class ConsoleTokens:
                 "QComboBox[consoleRole='compactCombo']:hover,"
                 "QComboBox[consoleRole='compactCombo']:focus {"
                 f"color:{TEXT['primary']};border-color:{BORDERS['focus']};}}"
+            ),
+            (
+                "QComboBox#analysisWorkbenchScope:hover,"
+                "QComboBox#analysisWorkbenchScope:focus,"
+                "QComboBox#analysisCopyMode:hover,"
+                "QComboBox#analysisCopyMode:focus {"
+                f"color:{TEXT['primary']};border-color:{self.accents[1]};}}"
             ),
             (
                 "QComboBox[consoleRole='compactCombo'] QAbstractItemView {"
@@ -537,7 +596,7 @@ class ConsoleTokens:
         # over a dynamic-property + pseudo-state selector on nested controls.  These stable
         # Analysis object names provide an equally palette-aware, deterministic active state.
         # Keep the mapping beside the token palette instead of introducing view-local colours.
-        for mode_number, accent_index in enumerate((0, 4, 3, 2), start=1):
+        for mode_number, accent_index in enumerate((1, 1, 1, 1), start=1):
             accent = self.accents[accent_index]
             edge = self.accent_edge(accent_index)
             inverse = contrast_text(accent)

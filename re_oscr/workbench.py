@@ -276,6 +276,20 @@ def derive_workbench_combat(result: WorkbenchQueryResult) -> WorkbenchCombatView
     return WorkbenchCombatView(source, derived, result.state)
 
 
+def count_effective_events(combat: Combat) -> int:
+    """Count parser-consumed events without constructing the full search index.
+
+    The command-bar readout is visible before a user applies any modifier.  A
+    lightweight pass keeps that readout truthful while preserving the
+    Workbench cache's documented lazy allocation of its NumPy search columns.
+    """
+    if combat.start_time is None or combat.end_time is None:
+        raise WorkbenchDataError("combat must have official start and end times")
+    if combat.end_time < combat.start_time:
+        raise WorkbenchDataError("combat end time precedes its start time")
+    return sum(1 for _ordinal, _line in _effective_lines(combat))
+
+
 def _new_display_combat(source: Combat, state: WorkbenchState) -> Combat:
     derived = Combat(
         graph_resolution=source.graph_resolution,
@@ -441,6 +455,7 @@ def _readonly_array(values, dtype):
 
 __all__ = (
     "CombatEventIndex",
+    "count_effective_events",
     "derive_workbench_combat",
     "WorkbenchCombatView",
     "WorkbenchDataError",
