@@ -23,13 +23,18 @@ class RetroEscalationLauncherTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             app_data = root / "AppData"
+            xdg_config = root / "config"
             installed_package = root / "site-packages"
             installed_package.mkdir()
             with patch("retro_escalation.Launcher.base_path", return_value=str(installed_package)), \
-                    patch.dict(os.environ, {"APPDATA": str(app_data)}, clear=False):
+                    patch.dict(os.environ, {
+                        "APPDATA": str(app_data),
+                        "XDG_CONFIG_HOME": str(xdg_config),
+                    }, clear=False):
                 config_dir = Path(RetroEscalationLauncher.default_config_dir())
 
-        self.assertEqual(config_dir, app_data / "RE-OSCR")
+        expected_root = app_data if sys.platform == "win32" else xdg_config
+        self.assertEqual(config_dir, expected_root / "RE-OSCR")
 
     def test_legacy_retro_escalation_config_directory_migrates(self):
         with tempfile.TemporaryDirectory() as temp_dir:
