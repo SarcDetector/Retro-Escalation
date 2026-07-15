@@ -1,4 +1,5 @@
 from collections import deque
+from dataclasses import replace
 from datetime import datetime, timedelta
 import unittest
 from unittest.mock import patch
@@ -10,11 +11,15 @@ from OSCR.datamodels import LogLine
 from OSCR.parser import analyze_combat
 
 from re_oscr.workbench import (
+    BUNDLED_WORKBENCH_RULE_SETS,
     CombatEventIndex,
     derive_workbench_combat,
     WorkbenchDataError,
     WorkbenchFilterClause,
     WorkbenchIndexCache,
+    WorkbenchRule,
+    WorkbenchRuleMatch,
+    WorkbenchRuleSet,
     WorkbenchState,
 )
 
@@ -62,6 +67,19 @@ def iter_identity_tree_items(model):
         item = pending.pop()
         yield item
         pending.extend(item._children)
+
+
+def tree_label(item) -> str:
+    data = item.data
+    if isinstance(data, tuple) and len(data) in (14, 22):
+        data = data[0]
+    if isinstance(data, tuple):
+        return "".join(str(part) for part in data[:2])
+    return str(data)
+
+
+def child_with_label(item, label: str):
+    return next(child for child in item._children if tree_label(child) == label)
 
 
 class WorkbenchStateTests(unittest.TestCase):
@@ -126,6 +144,127 @@ class WorkbenchStateTests(unittest.TestCase):
         self.assertEqual((flag.operator, flag.value), ("HAS", "Critical"))
         self.assertEqual((maximum.field, maximum.operator, maximum.value), (
             "MAGNITUDE", "LTE", 42.0))
+
+    def test_only_enabled_rules_mark_state_modified(self):
+        disabled = WorkbenchRule(
+            "group", WorkbenchRuleMatch("event", "Beam"), "Beams")
+        enabled = replace(disabled, enabled=True)
+
+        self.assertFalse(WorkbenchState(rules=(disabled,)).is_modified)
+        state = WorkbenchState(rules=[disabled, enabled])
+        self.assertTrue(state.is_modified)
+        self.assertEqual(state.rules, (disabled, enabled))
+        self.assertEqual(state.active_rules, (enabled,))
+
+        with self.assertRaisesRegex(TypeError, "WorkbenchRule"):
+            WorkbenchState(rules=("unsafe",))
+
+    def test_disabled_rules_keep_the_exact_parser_truth_combat(self):
+        source = analyze_combat(make_combat([make_line(0, event_name="Beam Array")]))
+        disabled = WorkbenchRule(
+            "GROUP", WorkbenchRuleMatch("EVENT", "Beam*"), "Beams")
+
+        view = derive_workbench_combat(
+            CombatEventIndex(source).query(WorkbenchState(rules=(disabled,))))
+
+        self.assertIs(view.combat, source)
+        self.assertIs(view.source_combat, source)
+        self.assertFalse(view.is_modified)
+
+
+class WorkbenchRuleTests(unittest.TestCase):
+    def test_matchers_normalize_fields_and_use_anchored_literal_star_globs(self):
+        exact = WorkbenchRuleMatch(" event_name ", " beam?i ")
+        wildcard = WorkbenchRuleMatch("SOURCE_NAME", "drone *")
+        line = make_line(
+            0, event_name="Beam?I", source_name="Drone Alpha", source_id="C[drone]")
+
+        self.assertEqual((exact.field, exact.pattern, exact.mode), (
+            "EVENT", "beam?i", "EXACT"))
+        self.assertTrue(exact.matches(line))
+        self.assertFalse(exact.matches(line._replace(event_name="BeamXI")))
+        self.assertTrue(wildcard.matches(line))
+        self.assertFalse(wildcard.matches(line._replace(source_name="My Drone Alpha")))
+
+    def test_rule_set_accepts_singular_and_multiple_matches_and_round_trips(self):
+        value = {
+            "name": "ISE rules",
+            "version": 1,
+            "rules": [
+                {
+                    "type": "group",
+                    "matches": [
+                        {"field": "event_name", "pattern": "Advanced Piezo*"},
+                        {"field": "event_name", "pattern": "Technical Overload"},
+                    ],
+                    "label": "Advanced Piezo Beam Array",
+                    "enabled": True,
+                },
+                {
+                    "type": "reverse",
+                    "match": {"field": "source_name", "pattern": "Tachyon Drone*"},
+                    "enabled": False,
+                },
+            ],
+        }
+
+        rule_set = WorkbenchRuleSet.from_dict(value)
+        restored = WorkbenchRuleSet.from_json(rule_set.to_json())
+
+        self.assertEqual(restored, rule_set)
+        self.assertEqual(rule_set.rules[0].display_label, (
+            "GROUP: Advanced Piezo Beam Array"))
+        self.assertEqual(rule_set.rules[1].display_label, "REVERSE: Tachyon Drone*")
+        self.assertIn("matches", rule_set.to_dict()["rules"][0])
+        self.assertIn("match", rule_set.to_dict()["rules"][1])
+
+    def test_rule_set_json_validation_is_strict_and_transaction_safe(self):
+        invalid_values = (
+            {"name": "Rules", "version": 2, "rules": []},
+            {"name": "Rules", "version": 1, "rules": [], "code": "run()"},
+            {
+                "name": "Rules", "version": 1,
+                "rules": [{
+                    "type": "group",
+                    "match": {"field": "target_name", "pattern": "Target"},
+                    "label": "Targets",
+                }],
+            },
+            {
+                "name": "Rules", "version": 1,
+                "rules": [{
+                    "type": "reverse",
+                    "match": {"field": "event_name", "pattern": "Beam"},
+                    "matches": [{"field": "event_name", "pattern": "Beam"}],
+                }],
+            },
+            {
+                "name": "Rules", "version": 1,
+                "rules": [{
+                    "type": "group",
+                    "match": {"field": "event_name", "pattern": "Beam"},
+                    "label": "",
+                }],
+            },
+        )
+        for value in invalid_values:
+            with self.subTest(value=value):
+                with self.assertRaises((TypeError, ValueError)):
+                    WorkbenchRuleSet.from_dict(value)
+
+        with self.assertRaisesRegex(ValueError, "duplicate JSON key"):
+            WorkbenchRuleSet.from_json(
+                '{"name":"First","name":"Second","version":1,"rules":[]}')
+
+    def test_bundled_examples_are_read_only_ordered_and_default_off(self):
+        self.assertEqual(len(BUNDLED_WORKBENCH_RULE_SETS), 1)
+        bundled = BUNDLED_WORKBENCH_RULE_SETS[0]
+        self.assertTrue(bundled.read_only)
+        self.assertEqual(
+            [rule.label for rule in bundled.rules[:2]],
+            ["Advanced Piezo Beam Array", "Tachyon Net Drones"],
+        )
+        self.assertTrue(all(not rule.enabled for rule in bundled.rules))
 
 
 class CombatEventIndexTests(unittest.TestCase):
@@ -557,6 +696,134 @@ class WorkbenchCombatDerivationTests(unittest.TestCase):
             [line.event_name for line in derived.log_data], ["Beam", "Terminal Hit"])
         self.assertEqual(tuple(source.log_data), source_lines)
         self.assertIsNot(derived.damage_out, source.damage_out)
+
+    def test_custom_group_preserves_original_effect_children_totals_and_graphs(self):
+        source = analyze_combat(make_combat([
+            make_line(
+                0, event_name="Advanced Piezo Beam", event_id="Piezo",
+                magnitude=100, flags="Critical"),
+            make_line(
+                1, event_name="Technical Overload", event_id="Overload",
+                magnitude=250),
+            make_line(2, event_name="Other Beam", event_id="Other", magnitude=50),
+        ]))
+        source_lines = tuple(source.log_data)
+        source_root = source.damage_out._root
+        source_actor = source.damage_out._player._children[0]
+        rule = WorkbenchRule(
+            "group",
+            (
+                WorkbenchRuleMatch("event", "Advanced Piezo*"),
+                WorkbenchRuleMatch("event", "Technical Overload"),
+            ),
+            "Advanced Piezo Beam Array",
+            True,
+        )
+        result = CombatEventIndex(source).query(WorkbenchState(rules=(rule,)))
+
+        derived = derive_workbench_combat(result).combat
+        actor = derived.damage_out._player._children[0]
+        group = child_with_label(actor, "Advanced Piezo Beam Array")
+
+        self.assertEqual(result.count, 3)
+        self.assertEqual(
+            [tree_label(child) for child in group._children],
+            ["Advanced Piezo Beam", "Technical Overload"],
+        )
+        self.assertEqual(tree_label(group._children[0]._children[0]), "Target 1")
+        self.assertEqual(actor.data[1:], source_actor.data[1:])
+        np.testing.assert_array_equal(actor.graph_data, source_actor.graph_data)
+        self.assertEqual(tuple(source.log_data), source_lines)
+        self.assertIs(source.damage_out._root, source_root)
+        self.assertIsNot(derived.damage_out, source.damage_out)
+
+    def test_reverse_and_group_compose_for_all_four_analysis_models(self):
+        lines = [
+            make_line(
+                0, source_name="Drone Alpha", source_id="C[10 Drone]",
+                target_name="Target", target_id="C[1 Target]",
+                event_name="Tachyon Net Drones", event_id="Tachyon", magnitude=100),
+            make_line(
+                1, source_name="Drone Beta", source_id="C[11 Drone]",
+                target_name="Target", target_id="C[1 Target]",
+                event_name="Tachyon Net Drones", event_id="Tachyon", magnitude=200),
+            make_line(
+                2, source_name="Drone Alpha", source_id="C[10 Drone]",
+                target_name="Ally", target_id="P[2]",
+                event_name="Tachyon Net Drones", event_id="Tachyon Heal",
+                event_type="HitPoints", magnitude=-30, magnitude2=0),
+            make_line(
+                3, source_name="Drone Beta", source_id="C[11 Drone]",
+                target_name="Ally", target_id="P[2]",
+                event_name="Tachyon Net Drones", event_id="Tachyon Heal",
+                event_type="HitPoints", magnitude=-70, magnitude2=0),
+        ]
+        source = analyze_combat(make_combat(lines))
+        original_models = (
+            source.damage_out, source.damage_in, source.heals_out, source.heals_in)
+        group = WorkbenchRule(
+            "GROUP", WorkbenchRuleMatch("EVENT", "Tachyon Net*"),
+            "Tachyon Systems", True)
+        reverse = WorkbenchRule(
+            "REVERSE", WorkbenchRuleMatch("EVENT", "Tachyon Net*"),
+            "Tachyon Net Drones", True)
+
+        derived = derive_workbench_combat(CombatEventIndex(source).query(
+            WorkbenchState(rules=(group, reverse)))).combat
+
+        actor_specs = (
+            (original_models[0]._player._children[0], derived.damage_out._player._children[0]),
+            (original_models[1]._npc._children[0], derived.damage_in._npc._children[0]),
+            (original_models[2]._player._children[0], derived.heals_out._player._children[0]),
+            (original_models[3]._player._children[0], derived.heals_in._player._children[0]),
+        )
+        for original_actor, projected_actor in actor_specs:
+            with self.subTest(actor=tree_label(projected_actor)):
+                wrapper = child_with_label(projected_actor, "Tachyon Systems")
+                effect = child_with_label(wrapper, "Tachyon Net Drones")
+                self.assertEqual(len(effect._children), 2)
+                source_labels = {tree_label(child) for child in effect._children}
+                self.assertTrue(any(
+                    label.startswith("Drone Alpha") for label in source_labels))
+                self.assertTrue(any(
+                    label.startswith("Drone Beta") for label in source_labels))
+                self.assertEqual(projected_actor.data[1:], original_actor.data[1:])
+                np.testing.assert_array_equal(
+                    projected_actor.graph_data, original_actor.graph_data)
+
+        # Outgoing reversal retains target leaves; incoming reversal ends at source rows.
+        damage_out_effect = child_with_label(
+            child_with_label(derived.damage_out._player._children[0], "Tachyon Systems"),
+            "Tachyon Net Drones",
+        )
+        self.assertTrue(all(source_row.child_count == 1 for source_row in damage_out_effect._children))
+        damage_in_effect = child_with_label(
+            child_with_label(derived.damage_in._npc._children[0], "Tachyon Systems"),
+            "Tachyon Net Drones",
+        )
+        self.assertTrue(all(source_row.child_count == 0 for source_row in damage_in_effect._children))
+
+    def test_first_enabled_group_rule_wins_and_reordering_is_deterministic(self):
+        source = analyze_combat(make_combat([make_line(0, event_name="Beam Array")]))
+        broad = WorkbenchRule(
+            "GROUP", WorkbenchRuleMatch("EVENT", "Beam*"), "Broad", True)
+        exact = WorkbenchRule(
+            "GROUP", WorkbenchRuleMatch("EVENT", "Beam Array"), "Exact", True)
+        index = CombatEventIndex(source)
+
+        broad_first = derive_workbench_combat(
+            index.query(WorkbenchState(rules=(broad, exact)))).combat
+        exact_first = derive_workbench_combat(
+            index.query(WorkbenchState(rules=(exact, broad)))).combat
+
+        self.assertEqual(
+            tree_label(broad_first.damage_out._player._children[0]._children[0]), "Broad")
+        self.assertEqual(
+            tree_label(exact_first.damage_out._player._children[0]._children[0]), "Exact")
+        self.assertEqual(
+            broad_first.damage_out._player._children[0].data[2],
+            exact_first.damage_out._player._children[0].data[2],
+        )
 
 
 if __name__ == "__main__":

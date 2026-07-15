@@ -495,9 +495,16 @@ class ConsoleTokens:
             (
                 "QComboBox#analysisWorkbenchScope:hover,"
                 "QComboBox#analysisWorkbenchScope:focus,"
+                "QComboBox#analysisWorkbenchRuleSet:hover,"
+                "QComboBox#analysisWorkbenchRuleSet:focus,"
                 "QComboBox#analysisCopyMode:hover,"
                 "QComboBox#analysisCopyMode:focus {"
                 f"color:{TEXT['primary']};border-color:{self.accents[1]};}}"
+            ),
+            (
+                "QComboBox#analysisWorkbenchRuleSet:disabled {"
+                f"background-color:{SURFACES['base']};color:{TEXT['muted']};"
+                f"border-color:{BORDERS['hairline']};}}"
             ),
             (
                 "QComboBox[consoleRole='compactCombo'] QAbstractItemView {"

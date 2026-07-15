@@ -101,10 +101,13 @@ class REOSCRApplication():
         self.workbench: AnalysisWorkbenchController | None = None
         if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
             self.workbench = AnalysisWorkbenchController(
-                self.parser, self.tables, self.widgets)
+                self.parser, self.tables, self.widgets,
+                config_dir=self.config.config_dir,
+                parent=self.window,
+            )
             self.workbench.view_failed.connect(
                 lambda detail: self.status_bar.status_message.emit(
-                    'Workbench filter rejected', detail))
+                    'Workbench modifier rejected', detail))
         self.league: OSCRLeagueConnector = OSCRLeagueConnector(
             self.widgets, self.dialogs, self.theme, self.config, self.settings, self.parser,
             self.upload_dialog)

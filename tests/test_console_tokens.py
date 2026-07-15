@@ -160,6 +160,8 @@ class ConsoleTokenTests(unittest.TestCase):
             "QScrollArea[consoleRole='workbenchClauseScroll'] QScrollBar:horizontal",
             "QPushButton[consoleRole='filterClauseChip']",
             "QPushButton[consoleRole='filterClauseChip']:hover",
+            "QComboBox#analysisWorkbenchRuleSet:hover",
+            "QComboBox#analysisWorkbenchRuleSet:disabled",
             "QSplitter#commandConsoleAnalysisSplitter::handle:hover",
             "QTreeView[consoleRole='analysisTree'] QScrollBar::handle:horizontal:hover",
             "QTreeView[consoleRole='analysisTree'] QScrollBar::handle:vertical:hover",

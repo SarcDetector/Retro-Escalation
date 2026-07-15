@@ -1,6 +1,9 @@
 import os
+from dataclasses import replace
+import tempfile
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -8,6 +11,7 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
+    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -17,8 +21,16 @@ from PySide6.QtWidgets import (
 
 from OSCR.parser import analyze_combat
 
-from re_oscr.workbench import WorkbenchFilterClause, WorkbenchState
+from re_oscr.workbench import (
+    BUNDLED_WORKBENCH_RULE_SETS,
+    WorkbenchFilterClause,
+    WorkbenchRule,
+    WorkbenchRuleMatch,
+    WorkbenchRuleSet,
+    WorkbenchState,
+)
 from re_oscr.workbenchcontroller import AnalysisWorkbenchController
+from re_oscr.workbenchrules import WorkbenchRuleSetStore
 from tests.test_workbench import make_combat, make_line
 
 
@@ -69,6 +81,9 @@ class FakeWidgets:
         self.analysis_filter_clause_layout = QHBoxLayout(
             self.analysis_filter_clause_container)
         self.analysis_filter_clause_buttons = []
+        self.analysis_rule_set_selector = QComboBox()
+        self.analysis_rules_button = QPushButton("RULES")
+        self.analysis_rule_chip_buttons = []
         self.analysis_start_entry = QLineEdit()
         self.analysis_end_entry = QLineEdit()
         self.analysis_truth_chip = QLabel()
@@ -121,6 +136,27 @@ class AnalysisWorkbenchControllerTests(unittest.TestCase):
         self.draft_filter(scope, value)
         self.widgets.analysis_filter_add_button.click()
 
+    def edited_bundled_rules(self, *enabled_indices):
+        enabled = set(enabled_indices)
+        working = self.controller._working_rule_set
+        return replace(
+            working,
+            rules=tuple(
+                replace(rule, enabled=index in enabled)
+                for index, rule in enumerate(working.rules)
+            ),
+        )
+
+    def accept_rule_editor(self, edited):
+        dialog = SimpleNamespace(
+            result_rule_set=edited,
+            exec=lambda: QDialog.DialogCode.Accepted,
+        )
+        with patch(
+                "re_oscr.workbenchcontroller.WorkbenchRuleEditor",
+                return_value=dialog):
+            self.controller.edit_rules()
+
     def test_binding_official_combat_starts_in_parser_truth_state(self):
         self.bind_source()
 
@@ -135,6 +171,144 @@ class AnalysisWorkbenchControllerTests(unittest.TestCase):
         self.assertFalse(self.widgets.analysis_reset_button.isEnabled())
         self.assertEqual(self.tables.modified_states[-1], False)
         self.assertTrue(all(plot.clear_count == 1 for plot in self.widgets.analysis_plots))
+
+    def test_bundled_rule_selector_loads_read_only_definitions_default_off(self):
+        self.assertEqual(
+            self.widgets.analysis_rule_set_selector.count(),
+            len(BUNDLED_WORKBENCH_RULE_SETS),
+        )
+        self.assertEqual(
+            self.widgets.analysis_rule_set_selector.itemText(0),
+            "COMMUNITY EXAMPLES // BUNDLED",
+        )
+        self.assertTrue(self.widgets.analysis_rules_button.isEnabled())
+        self.assertTrue(self.controller._working_rule_set.read_only)
+        self.assertEqual(self.controller._working_rule_set.enabled_rules, ())
+        self.assertEqual(self.controller.state, WorkbenchState.parser_truth())
+
+    def test_custom_rule_set_loads_into_selector_but_activation_remains_per_combat(self):
+        custom = WorkbenchRuleSet(
+            "My combat rules",
+            (
+                WorkbenchRule(
+                    "GROUP", (WorkbenchRuleMatch("EVENT", "Beam*"),),
+                    "Beam weapons", enabled=True),
+            ),
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            WorkbenchRuleSetStore(temp_dir).save((custom,))
+            widgets = FakeWidgets()
+            controller = AnalysisWorkbenchController(
+                self.parser, self.tables, widgets, config_dir=temp_dir)
+            controller.attach_controls()
+
+            self.assertEqual(widgets.analysis_rule_set_selector.count(), 2)
+            self.assertEqual(
+                widgets.analysis_rule_set_selector.itemText(1),
+                "MY COMBAT RULES // CUSTOM",
+            )
+            widgets.analysis_rule_set_selector.setCurrentIndex(1)
+            self.assertEqual(controller._working_rule_set.enabled_rules, ())
+            self.assertEqual(controller.state.rules, ())
+
+            self.parser.combat_displayed.emit(self.source)
+            self.assertEqual(controller.state, WorkbenchState.parser_truth())
+            self.assertEqual(controller._working_rule_set.enabled_rules, ())
+            self.assertEqual(widgets.analysis_rule_chip_buttons, [])
+
+            # Disconnect this temporary controller before its temporary store disappears.
+            self.parser.combat_displayed.disconnect(controller.bind_combat)
+
+    def test_enabled_rule_applies_as_modified_view_and_chip_disables_only_that_rule(self):
+        self.bind_source()
+        enabled = self.edited_bundled_rules(0)
+
+        self.accept_rule_editor(enabled)
+
+        self.assertEqual(self.controller.state.rules, enabled.enabled_rules)
+        self.assertTrue(self.controller.state.is_modified)
+        self.assertIsNotNone(self.controller.current_view)
+        self.assertIsNot(self.parser.displayed_analysis[-1], self.source)
+        self.assertEqual(len(self.widgets.analysis_rule_chip_buttons), 1)
+        chip = self.widgets.analysis_rule_chip_buttons[0]
+        self.assertEqual(chip.property("consoleRole"), "filterClauseChip")
+        self.assertEqual(chip.property("modifierType"), "rule")
+        self.assertIn(enabled.enabled_rules[0].display_label, chip.text())
+        self.assertFalse(self.widgets.analysis_filter_clause_row.isHidden())
+        self.assertTrue(self.widgets.analysis_reset_button.isEnabled())
+
+        chip.click()
+
+        self.assertEqual(self.controller.state.rules, ())
+        self.assertEqual(self.controller._working_rule_set.enabled_rules, ())
+        self.assertEqual(self.widgets.analysis_rule_chip_buttons, [])
+        self.assertTrue(self.widgets.analysis_filter_clause_row.isHidden())
+        self.assertIs(self.parser.displayed_analysis[-1], self.source)
+        self.assertFalse(self.tables.modified_states[-1])
+        self.assertTrue(self.controller._working_rule_set.read_only)
+
+    def test_reset_and_combat_switch_disable_rule_toggles_and_remove_chips(self):
+        self.bind_source()
+        self.accept_rule_editor(self.edited_bundled_rules(0, 1))
+        self.assertEqual(len(self.widgets.analysis_rule_chip_buttons), 2)
+
+        self.controller.reset()
+
+        self.assertEqual(self.controller.state, WorkbenchState.parser_truth())
+        self.assertEqual(self.controller._working_rule_set.enabled_rules, ())
+        self.assertEqual(self.widgets.analysis_rule_chip_buttons, [])
+        self.assertTrue(self.widgets.analysis_filter_clause_row.isHidden())
+
+        self.accept_rule_editor(self.edited_bundled_rules(0))
+        self.assertEqual(len(self.widgets.analysis_rule_chip_buttons), 1)
+        second = analyzed_combat(combat_id=81, owner_names=("Carol", "Dan"))
+        self.parser._parser.current_combat = second
+        self.parser._parser.combats.append(second)
+
+        self.parser.combat_displayed.emit(second)
+
+        self.assertIs(self.controller.source_combat, second)
+        self.assertEqual(self.controller.state, WorkbenchState.parser_truth())
+        self.assertEqual(self.controller._working_rule_set.enabled_rules, ())
+        self.assertEqual(self.widgets.analysis_rule_chip_buttons, [])
+        self.assertTrue(self.widgets.analysis_filter_clause_row.isHidden())
+
+    def test_rule_editor_cancel_and_failed_apply_leave_accepted_state_unchanged(self):
+        self.bind_source()
+        self.widgets.analysis_filter_entry.setText("Alice")
+        accepted_state = self.controller.state
+        accepted_display = self.parser.displayed_analysis[-1]
+        accepted_working = self.controller._working_rule_set
+        edited = self.edited_bundled_rules(0)
+
+        rejected_dialog = SimpleNamespace(
+            result_rule_set=edited,
+            exec=lambda: QDialog.DialogCode.Rejected,
+        )
+        with patch(
+                "re_oscr.workbenchcontroller.WorkbenchRuleEditor",
+                return_value=rejected_dialog):
+            self.controller.edit_rules()
+
+        self.assertEqual(self.controller.state, accepted_state)
+        self.assertIs(self.parser.displayed_analysis[-1], accepted_display)
+        self.assertEqual(self.controller._working_rule_set, accepted_working)
+
+        accepted_dialog = SimpleNamespace(
+            result_rule_set=edited,
+            exec=lambda: QDialog.DialogCode.Accepted,
+        )
+        with (
+                patch(
+                    "re_oscr.workbenchcontroller.WorkbenchRuleEditor",
+                    return_value=accepted_dialog),
+                patch.object(self.controller, "apply_state", return_value=False)):
+            self.controller.edit_rules()
+
+        self.assertEqual(self.controller.state, accepted_state)
+        self.assertIs(self.parser.displayed_analysis[-1], accepted_display)
+        self.assertEqual(self.controller._working_rule_set, accepted_working)
+        self.assertEqual(self.widgets.analysis_rule_chip_buttons, [])
 
     def test_add_button_requires_combat_and_nonblank_value(self):
         self.assertFalse(self.widgets.analysis_filter_add_button.isEnabled())

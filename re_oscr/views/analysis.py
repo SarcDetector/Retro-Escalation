@@ -353,7 +353,7 @@ class AnalysisView:
             px(10, self.theme.scale), px(2, self.theme.scale))
         clause_row_layout.setSpacing(px(8, self.theme.scale))
 
-        clause_label = QLabel('ACTIVE FILTERS //')
+        clause_label = QLabel('ACTIVE MODIFIERS //')
         clause_label.setObjectName('analysisWorkbenchClauseLabel')
         clause_label.setProperty('consoleRole', 'eyebrow')
         clause_row_layout.addWidget(clause_label)
@@ -392,9 +392,11 @@ class AnalysisView:
         self.widgets.analysis_filter_clause_container = clause_container
         self.widgets.analysis_filter_clause_layout = clause_layout
         self.widgets.analysis_filter_clause_buttons = []
+        self.widgets.analysis_rule_chip_buttons = []
         modifier_layout.addWidget(clause_row)
 
         time_row = QFrame()
+        time_row.setObjectName('analysisWorkbenchTimeRuleRow')
         time_row.setProperty('consoleRole', 'workbenchTimeRow')
         time_layout = QHBoxLayout()
         time_layout.setContentsMargins(
@@ -421,10 +423,37 @@ class AnalysisView:
         self.widgets.analysis_end_entry = end_entry
         time_layout.addWidget(end_entry)
 
-        inclusive = QLabel('INCLUSIVE // LEAVE BLANK FOR FULL RANGE')
+        inclusive = QLabel('INCLUSIVE // BLANK = FULL RANGE')
         inclusive.setProperty('consoleRole', 'muted')
         time_layout.addWidget(inclusive)
         time_layout.addStretch(1)
+
+        rule_set_label = QLabel('RULE SET')
+        rule_set_label.setProperty('consoleRole', 'eyebrow')
+        time_layout.addWidget(rule_set_label)
+
+        rule_set_selector = QComboBox()
+        rule_set_selector.setObjectName('analysisWorkbenchRuleSet')
+        rule_set_selector.setProperty('consoleRole', 'compactCombo')
+        rule_set_selector.setProperty('accentIndex', '1')
+        rule_set_selector.setToolTip(
+            'Choose the ordered grouping and source-reversal rules for this combat')
+        rule_set_selector.setMinimumWidth(px(146, self.theme.scale))
+        rule_set_selector.setMaximumWidth(px(210, self.theme.scale))
+        # The controller supplies only validated bundled or user rule sets.  An
+        # empty shell must not imply that an unnamed rule set is active.
+        rule_set_selector.setEnabled(False)
+        time_layout.addWidget(rule_set_selector)
+        self.widgets.analysis_rule_set_selector = rule_set_selector
+
+        rules_button = action_button(
+            'RULES', 'analysisWorkbenchRules', 1)
+        rules_button.setToolTip('Open the ordered Analysis rule-set editor')
+        rules_button.setMaximumWidth(px(76, self.theme.scale))
+        rules_button.setEnabled(False)
+        time_layout.addWidget(rules_button)
+        self.widgets.analysis_rules_button = rules_button
+
         time_row.setLayout(time_layout)
         modifier_layout.addWidget(time_row)
 

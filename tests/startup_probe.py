@@ -190,6 +190,10 @@ def main() -> int:
             ui.widgets.analysis_start_entry)
         assert ui.window.findChild(QWidget, "analysisWorkbenchEnd") is (
             ui.widgets.analysis_end_entry)
+        assert ui.window.findChild(QWidget, "analysisWorkbenchRuleSet") is (
+            ui.widgets.analysis_rule_set_selector)
+        assert ui.window.findChild(QWidget, "analysisWorkbenchRules") is (
+            ui.widgets.analysis_rules_button)
         assert ui.window.findChild(QWidget, "analysisParserTruthChip") is (
             ui.widgets.analysis_truth_chip)
         assert ui.window.findChild(QWidget, "analysisModifiedViewChip") is (
@@ -211,6 +215,9 @@ def main() -> int:
         assert ui.widgets.analysis_filter_clause_row.isHidden()
         assert ui.widgets.analysis_filter_clause_layout.count() == 0
         assert ui.widgets.analysis_filter_clause_buttons == []
+        assert ui.widgets.analysis_rule_chip_buttons == []
+        assert ui.window.findChild(
+            QWidget, "analysisWorkbenchClauseLabel").text() == "ACTIVE MODIFIERS //"
         assert (
             ui.widgets.analysis_filter_clause_scroll.horizontalScrollBarPolicy()
             == Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -219,6 +226,9 @@ def main() -> int:
             == Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         assert ui.widgets.analysis_start_entry.placeholderText() == "START"
         assert ui.widgets.analysis_end_entry.placeholderText() == "END"
+        assert ui.widgets.analysis_rule_set_selector.count() >= 1
+        assert ui.widgets.analysis_rules_button.text() == "RULES"
+        assert ui.widgets.analysis_rules_button.property("accentIndex") == "1"
         assert ui.widgets.analysis_truth_chip.isHidden()
         assert ui.widgets.analysis_modified_chip.isHidden()
         assert ui.widgets.analysis_event_count_chip.text() == "NO COMBAT"
@@ -303,6 +313,9 @@ def main() -> int:
         ui.app.processEvents()
         assert ui.widgets.main_tabber.currentIndex() == 1
         assert ui.widgets.main_menu_buttons[1].isChecked()
+        time_rule_row = ui.window.findChild(
+            QWidget, "analysisWorkbenchTimeRuleRow")
+        assert time_rule_row.minimumSizeHint().width() <= time_rule_row.width()
         for index, button in enumerate(ui.widgets.analysis_menu_buttons):
             button.click()
             ui.app.processEvents()
@@ -372,6 +385,8 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "analysisWorkbenchClauseRow") is None
         assert ui.window.findChild(QWidget, "analysisWorkbenchClauseScroll") is None
         assert ui.window.findChild(QWidget, "analysisWorkbenchClauseContainer") is None
+        assert ui.window.findChild(QWidget, "analysisWorkbenchRuleSet") is None
+        assert ui.window.findChild(QWidget, "analysisWorkbenchRules") is None
         assert ui.window.findChild(QWidget, "analysisParserTruthChip") is None
         assert ui.window.findChild(QWidget, "analysisModifiedViewChip") is None
         assert ui.window.findChild(QWidget, "analysisWorkbenchEventCount") is None

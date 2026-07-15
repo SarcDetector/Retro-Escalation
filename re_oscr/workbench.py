@@ -10,7 +10,10 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, replace
 from datetime import timedelta
+import json
 from math import isfinite
+import re
+from typing import Any, Mapping
 from weakref import ReferenceType, WeakKeyDictionary, ref
 
 import numpy as np
@@ -18,8 +21,12 @@ from numpy.typing import NDArray
 
 from OSCR.combat import Combat
 from OSCR.constants import HEAL_TREE_HEADER, TREE_HEADER
-from OSCR.datamodels import LogLine, TreeModel
-from OSCR.parser import analyze_combat
+from OSCR.datamodels import LogLine, TreeItem, TreeModel
+from OSCR.parser import (
+    analyze_combat,
+    combine_children_damage_stats,
+    combine_children_heal_stats,
+)
 
 
 QUEEN_NAME = "Borg Queen Octahedron"
@@ -28,6 +35,15 @@ HIVE_INTRO_ENTITY = "Space_Borg_Dreadnought_Hive_Intro"
 
 class WorkbenchDataError(ValueError):
     """Raised when a combat is not ready to be indexed safely."""
+
+
+def _validated_rule_text(value: object, field: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{field} must be a string")
+    value = value.strip()
+    if not value:
+        raise ValueError(f"{field} must not be empty")
+    return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +149,255 @@ class WorkbenchFilterClause:
 
 
 @dataclass(frozen=True, slots=True)
+class WorkbenchRuleMatch:
+    """One safe, declarative event/source matcher for a Workbench rule.
+
+    Matching is case-insensitive against the original visible log-line name.  ``*`` is the only
+    wildcard metacharacter; every other character is literal and the pattern is anchored to the
+    complete value.  This deliberately small grammar keeps imported rule sets data-only.
+    """
+
+    field: str
+    pattern: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.field, str):
+            raise TypeError("rule match field must be a string")
+        field = self.field.strip().upper()
+        aliases = {
+            "EVENT": "EVENT",
+            "EVENT_NAME": "EVENT",
+            "SOURCE": "SOURCE",
+            "SOURCE_NAME": "SOURCE",
+        }
+        try:
+            field = aliases[field]
+        except KeyError as error:
+            raise ValueError("rule match field must be event_name or source_name") from error
+        pattern = _validated_rule_text(self.pattern, "rule match pattern")
+        object.__setattr__(self, "field", field)
+        object.__setattr__(self, "pattern", pattern)
+
+    @property
+    def mode(self) -> str:
+        return "WILDCARD" if "*" in self.pattern else "EXACT"
+
+    def matches(self, line: LogLine) -> bool:
+        """Match only original event/source display names from ``line``."""
+        value = line.event_name if self.field == "EVENT" else line.source_name
+        pattern = re.escape(self.pattern.casefold()).replace(r"\*", ".*")
+        return re.fullmatch(pattern, value.casefold(), flags=re.DOTALL) is not None
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> WorkbenchRuleMatch:
+        data = _strict_mapping(value, "rule match", {"field", "pattern"})
+        _require_keys(data, "rule match", {"field", "pattern"})
+        return cls(data["field"], data["pattern"])
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "field": "event_name" if self.field == "EVENT" else "source_name",
+            "pattern": self.pattern,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class WorkbenchRule:
+    """One ordered custom-grouping or indirect-source reversal rule."""
+
+    rule_type: str
+    matches: tuple[WorkbenchRuleMatch, ...]
+    label: str = ""
+    enabled: bool = False
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.rule_type, str):
+            raise TypeError("rule type must be a string")
+        rule_type = self.rule_type.strip().upper()
+        if rule_type not in {"GROUP", "REVERSE"}:
+            raise ValueError("rule type must be group or reverse")
+
+        if isinstance(self.matches, WorkbenchRuleMatch):
+            matches = (self.matches,)
+        else:
+            try:
+                matches = tuple(self.matches)
+            except TypeError as error:
+                raise TypeError(
+                    "rule matches must be an iterable of WorkbenchRuleMatch values") from error
+        if not matches:
+            raise ValueError("rule must contain at least one match")
+        if not all(isinstance(match, WorkbenchRuleMatch) for match in matches):
+            raise TypeError("rule matches must contain only WorkbenchRuleMatch values")
+
+        if not isinstance(self.enabled, bool):
+            raise TypeError("rule enabled must be a boolean")
+        if rule_type == "GROUP":
+            label = _validated_rule_text(self.label, "group label")
+        else:
+            if not isinstance(self.label, str):
+                raise TypeError("reverse label must be a string")
+            label = self.label.strip()
+
+        object.__setattr__(self, "rule_type", rule_type)
+        object.__setattr__(self, "matches", matches)
+        object.__setattr__(self, "label", label)
+
+    @property
+    def type(self) -> str:
+        """JSON-compatible alias for ``rule_type``."""
+        return self.rule_type
+
+    @property
+    def display_label(self) -> str:
+        if self.rule_type == "GROUP":
+            return f"GROUP: {self.label}"
+        label = self.label or self.matches[0].pattern
+        return f"REVERSE: {label}"
+
+    def matches_line(self, line: LogLine) -> bool:
+        return self.enabled and any(match.matches(line) for match in self.matches)
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> WorkbenchRule:
+        data = _strict_mapping(
+            value, "rule", {"type", "match", "matches", "label", "enabled"})
+        _require_keys(data, "rule", {"type"})
+        if "match" in data and "matches" in data:
+            raise ValueError("rule must use match or matches, not both")
+        if "match" in data:
+            matches = (WorkbenchRuleMatch.from_dict(data["match"]),)
+        elif "matches" in data:
+            raw_matches = data["matches"]
+            if not isinstance(raw_matches, list):
+                raise TypeError("rule matches must be a JSON array")
+            matches = tuple(WorkbenchRuleMatch.from_dict(match) for match in raw_matches)
+        else:
+            raise ValueError("rule is missing required key: match or matches")
+        return cls(
+            data["type"],
+            matches,
+            data.get("label", ""),
+            data.get("enabled", False),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "type": self.rule_type.casefold(),
+            "enabled": self.enabled,
+        }
+        if len(self.matches) == 1:
+            result["match"] = self.matches[0].to_dict()
+        else:
+            result["matches"] = [match.to_dict() for match in self.matches]
+        if self.rule_type == "GROUP":
+            result["label"] = self.label
+        elif self.label:
+            result["label"] = self.label
+        return result
+
+
+@dataclass(frozen=True, slots=True)
+class WorkbenchRuleSet:
+    """A strict versioned, ordered collection of declarative Workbench rules."""
+
+    name: str
+    rules: tuple[WorkbenchRule, ...]
+    version: int = 1
+    read_only: bool = False
+
+    def __post_init__(self) -> None:
+        name = _validated_rule_text(self.name, "rule-set name")
+        if isinstance(self.version, bool) or not isinstance(self.version, int):
+            raise TypeError("rule-set version must be an integer")
+        if self.version != 1:
+            raise ValueError(f"unsupported rule-set version: {self.version}")
+        if not isinstance(self.read_only, bool):
+            raise TypeError("rule-set read_only must be a boolean")
+        try:
+            rules = tuple(self.rules)
+        except TypeError as error:
+            raise TypeError("rule-set rules must be an iterable of WorkbenchRule values") from error
+        if not all(isinstance(rule, WorkbenchRule) for rule in rules):
+            raise TypeError("rule-set rules must contain only WorkbenchRule values")
+        object.__setattr__(self, "name", name)
+        object.__setattr__(self, "rules", rules)
+
+    @property
+    def enabled_rules(self) -> tuple[WorkbenchRule, ...]:
+        return tuple(rule for rule in self.rules if rule.enabled)
+
+    @classmethod
+    def from_dict(
+            cls, value: Mapping[str, Any], *, read_only: bool = False) -> WorkbenchRuleSet:
+        data = _strict_mapping(value, "rule set", {"name", "version", "rules"})
+        _require_keys(data, "rule set", {"name", "version", "rules"})
+        if not isinstance(data["rules"], list):
+            raise TypeError("rule-set rules must be a JSON array")
+        return cls(
+            data["name"],
+            tuple(WorkbenchRule.from_dict(rule) for rule in data["rules"]),
+            data["version"],
+            read_only,
+        )
+
+    @classmethod
+    def from_json(cls, text: str, *, read_only: bool = False) -> WorkbenchRuleSet:
+        if not isinstance(text, str):
+            raise TypeError("rule-set JSON must be a string")
+        try:
+            value = json.loads(text, object_pairs_hook=_reject_duplicate_json_keys)
+        except json.JSONDecodeError as error:
+            raise ValueError(f"invalid rule-set JSON: {error.msg}") from error
+        return cls.from_dict(value, read_only=read_only)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "version": self.version,
+            "rules": [rule.to_dict() for rule in self.rules],
+        }
+
+    def to_json(self, *, indent: int | None = 2) -> str:
+        return json.dumps(self.to_dict(), ensure_ascii=False, indent=indent)
+
+
+BUNDLED_WORKBENCH_RULE_SET = WorkbenchRuleSet(
+    "Community examples",
+    (
+        WorkbenchRule(
+            "GROUP",
+            (
+                WorkbenchRuleMatch("EVENT", "Advanced Piezo*"),
+                WorkbenchRuleMatch("EVENT", "Technical Overload"),
+            ),
+            "Advanced Piezo Beam Array",
+        ),
+        WorkbenchRule(
+            "REVERSE",
+            (WorkbenchRuleMatch("EVENT", "Tachyon Net Drones*"),),
+            "Tachyon Net Drones",
+        ),
+        WorkbenchRule(
+            "REVERSE",
+            (WorkbenchRuleMatch("EVENT", "Spore-Infused Anomalies"),),
+            "Spore-Infused Anomalies",
+        ),
+        WorkbenchRule(
+            "GROUP",
+            (
+                WorkbenchRuleMatch("EVENT", "Dark Matter Laced Quantum Torpedo*"),
+                WorkbenchRuleMatch("EVENT", "Dark Matter Dissolution"),
+            ),
+            "Dark Matter Laced Quantum Torpedo",
+        ),
+    ),
+    read_only=True,
+)
+BUNDLED_WORKBENCH_RULE_SETS = (BUNDLED_WORKBENCH_RULE_SET,)
+
+
+@dataclass(frozen=True, slots=True)
 class WorkbenchState:
     """The complete, default-off modifier state shared by all four Analysis modes."""
 
@@ -142,6 +407,7 @@ class WorkbenchState:
     event_query: str = ""
     text_query: str = ""
     clauses: tuple[WorkbenchFilterClause, ...] = ()
+    rules: tuple[WorkbenchRule, ...] = ()
     start_seconds: float | None = None
     end_seconds: float | None = None
 
@@ -154,6 +420,14 @@ class WorkbenchState:
         if not all(isinstance(clause, WorkbenchFilterClause) for clause in clauses):
             raise TypeError("clauses must contain only WorkbenchFilterClause values")
         object.__setattr__(self, "clauses", clauses)
+
+        try:
+            rules = tuple(self.rules)
+        except TypeError as error:
+            raise TypeError("rules must be an iterable of WorkbenchRule values") from error
+        if not all(isinstance(rule, WorkbenchRule) for rule in rules):
+            raise TypeError("rules must contain only WorkbenchRule values")
+        object.__setattr__(self, "rules", rules)
 
         for field_name in ("start_seconds", "end_seconds"):
             value = getattr(self, field_name)
@@ -173,9 +447,14 @@ class WorkbenchState:
             self.event_query.strip(),
             self.text_query.strip(),
             bool(self.clauses),
+            any(rule.enabled for rule in self.rules),
             self.start_seconds is not None,
             self.end_seconds is not None,
         ))
+
+    @property
+    def active_rules(self) -> tuple[WorkbenchRule, ...]:
+        return tuple(rule for rule in self.rules if rule.enabled)
 
     def with_changes(self, **changes) -> WorkbenchState:
         """Return a changed state while leaving the current one untouched."""
@@ -428,6 +707,7 @@ def derive_workbench_combat(result: WorkbenchQueryResult) -> WorkbenchCombatView
     if selected_lines:
         analyze_combat(derived)
         _rebuild_display_graphs(derived, selected_lines)
+        _project_rule_models(derived, selected_lines, result.state)
     else:
         _initialize_empty_models(derived)
 
@@ -572,6 +852,280 @@ def _aggregate_graph_data(item) -> NDArray[np.float64]:
     return item.graph_data
 
 
+@dataclass(frozen=True, slots=True)
+class _ProjectionLeaf:
+    """One unique official leaf plus its display-only rule placement."""
+
+    line: LogLine
+    leaf: TreeItem
+    actor: TreeItem
+    actor_key: tuple[str, ...]
+    source_label: object
+    group_index: int | None
+    group_rule: WorkbenchRule | None
+    reversed_source: bool
+
+
+def _project_rule_models(
+        combat: Combat, lines: tuple[LogLine, ...], state: WorkbenchState) -> None:
+    """Replace only derived model roots with grouped/reversed display projections.
+
+    The official analyzer has already produced every metric and leaf graph.  This stage copies
+    those completed leaves into fresh trees and uses the parser's own branch aggregation helpers;
+    neither the selected ``LogLine`` objects nor an official source model is modified.
+    """
+    if not state.active_rules:
+        return
+    damage_lines = tuple(line for line in lines if not _is_heal_line(line))
+    heal_lines = tuple(line for line in lines if _is_heal_line(line))
+    combat.damage_out = _project_rule_model(
+        combat.damage_out, damage_lines, state.rules, outgoing=True, healing=False)
+    combat.damage_in = _project_rule_model(
+        combat.damage_in, damage_lines, state.rules, outgoing=False, healing=False)
+    combat.heals_out = _project_rule_model(
+        combat.heals_out, heal_lines, state.rules, outgoing=True, healing=True)
+    combat.heals_in = _project_rule_model(
+        combat.heals_in, heal_lines, state.rules, outgoing=False, healing=True)
+
+
+def _project_rule_model(
+        source_model: TreeModel, lines: tuple[LogLine, ...],
+        rules: tuple[WorkbenchRule, ...], *, outgoing: bool, healing: bool) -> TreeModel:
+    """Build one rule-aware tree while retaining all official leaf values exactly once."""
+    header = HEAL_TREE_HEADER if healing else TREE_HEADER
+    leaf_specs: dict[int, _ProjectionLeaf] = {}
+    any_structural_match = False
+
+    for line in lines:
+        group_match = _first_matching_rule(rules, "GROUP", line)
+        reverse_match = _first_matching_rule(rules, "REVERSE", line)
+        reversed_source = reverse_match is not None and bool(line.source_name)
+        any_structural_match |= group_match is not None or reversed_source
+        if outgoing:
+            spec = _outgoing_projection_leaf(
+                source_model, line, group_match, reversed_source, len(header))
+        else:
+            spec = _incoming_projection_leaf(
+                source_model, line, group_match, reversed_source, len(header))
+
+        leaf_identity = id(spec.leaf)
+        previous = leaf_specs.get(leaf_identity)
+        if previous is not None:
+            previous_signature = (
+                previous.group_index,
+                previous.reversed_source,
+                previous.source_label,
+            )
+            current_signature = (spec.group_index, spec.reversed_source, spec.source_label)
+            if current_signature != previous_signature:
+                raise WorkbenchDataError(
+                    "one parser leaf matched conflicting grouping rules")
+            continue
+        leaf_specs[leaf_identity] = spec
+
+    # An enabled but inapplicable rule still marks the view modified, but it must not disturb the
+    # official hierarchy merely by being present.
+    if not any_structural_match:
+        return source_model
+
+    projected = TreeModel(header)
+    duration = len(source_model._root.graph_data)
+    for root_item in (projected._root, projected._player, projected._npc):
+        root_item.graph_data = np.zeros(duration, dtype=np.float64)
+
+    branches: dict[tuple[int, object], TreeItem] = {}
+    actors: dict[tuple[bool, tuple[str, ...]], TreeItem] = {}
+
+    for spec in leaf_specs.values():
+        player_category = spec.actor.parent is source_model._player
+        category = projected._player if player_category else projected._npc
+        actor_cache_key = (player_category, spec.actor_key)
+        actor = actors.get(actor_cache_key)
+        if actor is None:
+            actor = TreeItem(_row_identity(spec.actor.data, len(header)), category)
+            category.append_child(actor)
+            actors[actor_cache_key] = actor
+            projected.actor_index[spec.actor_key] = actor
+
+        parent = actor
+        if spec.group_rule is not None:
+            parent = _projection_branch(
+                parent,
+                ("group", spec.group_index, spec.group_rule.label),
+                spec.group_rule.label,
+                branches,
+            )
+
+        if spec.reversed_source:
+            parent = _projection_branch(
+                parent,
+                ("event", spec.line.event_name, spec.line.event_id),
+                spec.line.event_name,
+                branches,
+            )
+            if outgoing:
+                parent = _projection_branch(
+                    parent,
+                    ("source", spec.line.source_name, spec.line.source_id),
+                    spec.source_label,
+                    branches,
+                )
+                leaf_data = spec.leaf.data
+            else:
+                # Incoming tables already use the target as their actor.  The existing official
+                # event leaf supplies the values; replacing only its identity makes source the
+                # child without changing a single metric.
+                leaf_data = _row_with_identity(spec.leaf.data, spec.source_label, len(header))
+        elif spec.group_rule is not None:
+            if spec.line.source_name or not outgoing:
+                parent = _projection_branch(
+                    parent,
+                    (
+                        "source",
+                        spec.line.source_name or spec.line.owner_name,
+                        spec.line.source_id or spec.line.owner_id,
+                    ),
+                    spec.source_label,
+                    branches,
+                )
+            parent = _projection_branch(
+                parent,
+                ("event", spec.line.event_name, spec.line.event_id),
+                spec.line.event_name,
+                branches,
+            )
+            leaf_data = spec.leaf.data
+        else:
+            for original in _branch_path(spec.actor, spec.leaf):
+                parent = _projection_branch(
+                    parent,
+                    ("original", id(original)),
+                    _row_identity(original.data, len(header)),
+                    branches,
+                )
+            leaf_data = spec.leaf.data
+
+        leaf = TreeItem(tuple(leaf_data), parent)
+        leaf.graph_data = np.array(spec.leaf.graph_data, dtype=np.float64, copy=True)
+        parent.append_child(leaf)
+
+    for category in (projected._player, projected._npc):
+        for actor in category._children:
+            _complete_projection_branch(actor, healing)
+    _aggregate_graph_data(projected._root)
+    return projected
+
+
+def _first_matching_rule(
+        rules: tuple[WorkbenchRule, ...], rule_type: str,
+        line: LogLine) -> tuple[int, WorkbenchRule] | None:
+    for index, rule in enumerate(rules):
+        if rule.rule_type == rule_type and rule.matches_line(line):
+            return index, rule
+    return None
+
+
+def _outgoing_projection_leaf(
+        model: TreeModel, line: LogLine,
+        group_match: tuple[int, WorkbenchRule] | None,
+        reversed_source: bool, header_length: int) -> _ProjectionLeaf:
+    actor_key = (line.owner_id,)
+    attacker_key = (line.owner_id, line.source_id) if line.source_name else actor_key
+    try:
+        actor = model.actor_index[actor_key]
+        leaf = model.target_index[attacker_key][line.event_name][line.target_id]
+    except KeyError as error:
+        raise WorkbenchDataError("official outgoing tree is missing a selected event") from error
+
+    if line.source_name:
+        source_item = model.pet_index.get(attacker_key)
+        source_label = (
+            _row_identity(source_item.data, header_length)
+            if source_item is not None else line.source_name
+        )
+    else:
+        source_label = _row_identity(actor.data, header_length)
+    group_index, group_rule = group_match or (None, None)
+    return _ProjectionLeaf(
+        line, leaf, actor, actor_key, source_label,
+        group_index, group_rule, reversed_source)
+
+
+def _incoming_projection_leaf(
+        model: TreeModel, line: LogLine,
+        group_match: tuple[int, WorkbenchRule] | None,
+        reversed_source: bool, header_length: int) -> _ProjectionLeaf:
+    actor_key = (line.target_id,)
+    source_key = line.source_id if line.source_name else line.owner_id
+    ability_key = line.source_id + line.event_id
+    try:
+        actor = model.actor_index[actor_key]
+        source_item = model.source_index[actor_key][source_key]
+        leaf = model.ability_index[actor_key][source_key][ability_key]
+    except KeyError as error:
+        raise WorkbenchDataError("official incoming tree is missing a selected event") from error
+    source_label = _row_identity(source_item.data, header_length)
+    group_index, group_rule = group_match or (None, None)
+    return _ProjectionLeaf(
+        line, leaf, actor, actor_key, source_label,
+        group_index, group_rule, reversed_source)
+
+
+def _projection_branch(
+        parent: TreeItem, key: object, label: object,
+        branches: dict[tuple[int, object], TreeItem]) -> TreeItem:
+    cache_key = (id(parent), key)
+    branch = branches.get(cache_key)
+    if branch is None:
+        branch = TreeItem(label, parent)
+        parent.append_child(branch)
+        branches[cache_key] = branch
+    return branch
+
+
+def _branch_path(actor: TreeItem, leaf: TreeItem) -> tuple[TreeItem, ...]:
+    path: list[TreeItem] = []
+    current = leaf.parent
+    while current is not actor:
+        if current is None:
+            raise WorkbenchDataError("official leaf is detached from its actor")
+        path.append(current)
+        current = current.parent
+    path.reverse()
+    return tuple(path)
+
+
+def _row_identity(data: object, header_length: int) -> object:
+    if isinstance(data, tuple) and len(data) == header_length:
+        return data[0]
+    return data
+
+
+def _row_with_identity(data: object, identity: object, header_length: int) -> tuple:
+    if not isinstance(data, tuple) or len(data) != header_length:
+        raise WorkbenchDataError("official leaf does not contain completed parser metrics")
+    row = list(data)
+    row[0] = identity
+    return tuple(row)
+
+
+def _complete_projection_branch(item: TreeItem, healing: bool) -> None:
+    for child in item._children:
+        if child._children:
+            _complete_projection_branch(child, healing)
+    if not item._children:
+        return
+    if healing:
+        combine_children_heal_stats(item)
+    else:
+        combine_children_damage_stats(item)
+    item.graph_data = np.sum(
+        [child.graph_data for child in item._children],
+        axis=0,
+        dtype=np.float64,
+    )
+
+
 def _is_hive_terminal_kill(line: LogLine) -> bool:
     # OSCR evaluates the Queen stop predicate only inside its damage branch.
     if _is_heal_line(line):
@@ -604,6 +1158,34 @@ def _validated_clause_text(value, field: str) -> str:
     return value
 
 
+def _strict_mapping(
+        value: object, label: str, allowed_keys: set[str]) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise TypeError(f"{label} must be a JSON object")
+    data = dict(value)
+    unknown = set(data) - allowed_keys
+    if unknown:
+        names = ", ".join(sorted(str(key) for key in unknown))
+        raise ValueError(f"{label} contains unknown keys: {names}")
+    return data
+
+
+def _require_keys(data: Mapping[str, Any], label: str, required: set[str]) -> None:
+    missing = required - set(data)
+    if missing:
+        names = ", ".join(sorted(missing))
+        raise ValueError(f"{label} is missing required keys: {names}")
+
+
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
 def _readonly_text(values) -> NDArray[np.str_]:
     array = np.asarray(tuple(values), dtype=np.str_)
     array.setflags(write=False)
@@ -625,6 +1207,8 @@ def _readonly_array(values, dtype):
 
 
 __all__ = (
+    "BUNDLED_WORKBENCH_RULE_SET",
+    "BUNDLED_WORKBENCH_RULE_SETS",
     "CombatEventIndex",
     "count_effective_events",
     "derive_workbench_combat",
@@ -633,5 +1217,8 @@ __all__ = (
     "WorkbenchFilterClause",
     "WorkbenchIndexCache",
     "WorkbenchQueryResult",
+    "WorkbenchRule",
+    "WorkbenchRuleMatch",
+    "WorkbenchRuleSet",
     "WorkbenchState",
 )

@@ -77,6 +77,9 @@ class WidgetManager():
         self.analysis_filter_clause_container: QFrame | None = None
         self.analysis_filter_clause_layout: QHBoxLayout | None = None
         self.analysis_filter_clause_buttons: list[QPushButton] = list()
+        self.analysis_rule_set_selector: QComboBox | None = None
+        self.analysis_rules_button: QPushButton | None = None
+        self.analysis_rule_chip_buttons: list[QPushButton] = list()
         self.analysis_start_entry: QLineEdit | None = None
         self.analysis_end_entry: QLineEdit | None = None
         self.analysis_truth_chip: QLabel | None = None
