@@ -207,6 +207,18 @@ class AnalysisTreeViewTests(unittest.TestCase):
         frozen.verticalScrollBar().setValue(scroll_value - 1)
         self.assertEqual(view.verticalScrollBar().value(), scroll_value - 1)
 
+    def test_metric_cell_height_controls_the_same_row_in_frozen_source_pane(self):
+        model, _selection, view = self.make_view()
+        parent = model.index(0, 0, QModelIndex())
+        model.item(0, 0).setSizeHint(QSize(180, 29))
+        model.item(0, 2).setSizeHint(QSize(180, 53))
+        view.resize(420, 190)
+        view.show()
+        process_events()
+
+        self.assertEqual(view.visualRect(parent).height(), 53)
+        self.assertEqual(view.frozen_view.visualRect(parent).height(), 53)
+
     def test_identity_width_and_sort_indicator_follow_main_header(self):
         model, _selection, view = self.make_view()
         frozen = view.frozen_view

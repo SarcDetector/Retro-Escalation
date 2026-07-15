@@ -37,6 +37,10 @@ class OSCRSettingsTests(unittest.TestCase):
             self.assertEqual(settings.command_console_background_mode, "none")
             self.assertEqual(settings.command_console_background_opacity, 0.28)
             self.assertEqual(settings.command_console_background_path, "")
+            self.assertFalse(settings.workbench_auto_enable_rules)
+            self.assertEqual(settings.workbench_auto_rules, "[]")
+            self.assertEqual(settings.workbench_auto_rule_set, "")
+            self.assertEqual(settings.workbench_rule_set, "Community examples")
 
     def test_settings_round_trip_without_losing_types(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -59,6 +63,10 @@ class OSCRSettingsTests(unittest.TestCase):
             settings.command_console_background_mode = "custom"
             settings.command_console_background_opacity = 0.42
             settings.command_console_background_path = "C:/Images/bridge.webp"
+            settings.workbench_rule_set = "My ISE rules"
+            settings.workbench_auto_enable_rules = True
+            settings.workbench_auto_rules = '["group-a","exclude-b"]'
+            settings.workbench_auto_rule_set = "My ISE rules"
             settings.state__sidebar_collapsed = True
             settings.store_settings()
             settings._settings.sync()
@@ -89,6 +97,11 @@ class OSCRSettingsTests(unittest.TestCase):
                 ["#102030", "#203040", "#304050", "#405060", "#506070"],
             )
             self.assertEqual(restored.command_console_background_mode, "custom")
+            self.assertEqual(restored.workbench_rule_set, "My ISE rules")
+            self.assertTrue(restored.workbench_auto_enable_rules)
+            self.assertEqual(
+                restored.workbench_auto_rules, '["group-a","exclude-b"]')
+            self.assertEqual(restored.workbench_auto_rule_set, "My ISE rules")
             self.assertEqual(restored.command_console_background_opacity, 0.42)
             self.assertEqual(
                 restored.command_console_background_path, "C:/Images/bridge.webp")

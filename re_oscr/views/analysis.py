@@ -437,7 +437,8 @@ class AnalysisView:
         rule_set_selector.setProperty('consoleRole', 'compactCombo')
         rule_set_selector.setProperty('accentIndex', '1')
         rule_set_selector.setToolTip(
-            'Choose the ordered grouping and source-reversal rules for this combat')
+            'Choose ordered grouping, source-reversal, and exclusion rules. '
+            'This selection is remembered; every rule starts OFF on a fresh combat.')
         rule_set_selector.setMinimumWidth(px(146, self.theme.scale))
         rule_set_selector.setMaximumWidth(px(210, self.theme.scale))
         # The controller supplies only validated bundled or user rule sets.  An

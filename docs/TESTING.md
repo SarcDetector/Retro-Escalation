@@ -90,8 +90,15 @@ Run every item once in OSCR-UI Legacy and once in Command Console.
   four modes. (Automated)
 - [x] Apply inclusive typed time cuts, clear individual bounds, and reset to parser-truth.
   (Automated)
+- [x] Apply ordered GROUP, REVERSE, and EXCLUDE rules; recompute exclusion duration/DPS locally;
+  reopen the preferred rule set with all per-combat toggles off. (Automated)
+- [x] Keep auto-enable default-off, persist an explicit preferred-rule opt-in, open fresh combats
+  as labelled modified views when opted in, and let RESET restore parser truth for the current
+  combat without erasing the preference. (Automated)
 - [x] Keep filtered graph bins aligned to the displayed window, including fractional event
   timestamps. (Automated)
+- [x] Keep frozen SOURCE rows aligned with metric rows when their fonts or content request
+  different heights. (Automated; tester screenshot regression)
 - [x] Label modified copies and keep League upload coordinates parser-owned. (Automated)
 - [ ] Exercise every copy mode.
 - [ ] Sort and horizontally scroll tables.

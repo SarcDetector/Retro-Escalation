@@ -52,7 +52,9 @@ class OSCRSettings():
                  'liveparser__auto_enabled', 'liveparser__columns',
                  'liveparser__copy_kills', 'liveparser__graph_active', 'liveparser__graph_field',
                  'liveparser__player_display', 'liveparser__window_scale',
-                 'liveparser__window_opacity', 'theme_id')
+                 'liveparser__window_opacity', 'theme_id',
+                 'workbench_auto_enable_rules', 'workbench_auto_rules',
+                 'workbench_auto_rule_set', 'workbench_rule_set')
 
     def __init__(self, settings_file_path: Path):
         self.analysis_graph: bool = True
@@ -79,6 +81,10 @@ class OSCRSettings():
         self.sto_log_path: str = ''
         self.theme_id: str = 'command_console'
         self.ui_scale: float = 1.0
+        self.workbench_auto_enable_rules: bool = False
+        self.workbench_auto_rules: str = '[]'
+        self.workbench_auto_rule_set: str = ''
+        self.workbench_rule_set: str = 'Community examples'
 
         self.state__analysis_splitter: QByteArray = QByteArray()
         self.state__geometry: QByteArray = QByteArray()

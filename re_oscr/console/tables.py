@@ -1117,6 +1117,20 @@ class AnalysisTreeDelegate(QStyledItemDelegate):
         super().__init__(owner)
         self._owner = owner
 
+    def sizeHint(
+            self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:
+        """Use one height for the identity pane and every metric cell in a logical row."""
+        hint = super().sizeHint(option, index)
+        model = index.model()
+        if model is None or index.column() != AnalysisTreeView.IDENTITY_COLUMN:
+            return hint
+        height = hint.height()
+        parent = index.parent()
+        for column in range(model.columnCount(parent)):
+            sibling = model.index(index.row(), column, parent)
+            height = max(height, super().sizeHint(option, sibling).height())
+        return QSize(hint.width(), height)
+
     def paint(
             self, painter: QPainter, option: QStyleOptionViewItem,
             index: QModelIndex) -> None:

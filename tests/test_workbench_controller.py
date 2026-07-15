@@ -1,5 +1,6 @@
 import os
 from dataclasses import replace
+import json
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -29,7 +30,11 @@ from re_oscr.workbench import (
     WorkbenchRuleSet,
     WorkbenchState,
 )
-from re_oscr.workbenchcontroller import AnalysisWorkbenchController
+from re_oscr.workbenchcontroller import (
+    AnalysisWorkbenchController,
+    _rule_preference_key,
+)
+from re_oscr.workbenchruleeditor import WorkbenchRuleEditor
 from re_oscr.workbenchrules import WorkbenchRuleSetStore
 from tests.test_workbench import make_combat, make_line
 
@@ -218,6 +223,129 @@ class AnalysisWorkbenchControllerTests(unittest.TestCase):
 
             # Disconnect this temporary controller before its temporary store disappears.
             self.parser.combat_displayed.disconnect(controller.bind_combat)
+
+    def test_preferred_rule_set_reopens_selected_with_every_toggle_off(self):
+        custom = WorkbenchRuleSet(
+            "My combat rules",
+            (WorkbenchRule(
+                "EXCLUDE", WorkbenchRuleMatch("EVENT", "Warp Core*"),
+                enabled=True),),
+        )
+        settings = SimpleNamespace(workbench_rule_set="My combat rules")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            WorkbenchRuleSetStore(temp_dir).save((custom,))
+            widgets = FakeWidgets()
+            controller = AnalysisWorkbenchController(
+                self.parser, self.tables, widgets,
+                config_dir=temp_dir, settings=settings)
+            controller.attach_controls()
+
+            self.assertEqual(widgets.analysis_rule_set_selector.currentIndex(), 1)
+            self.assertEqual(controller._working_rule_set.name, "My combat rules")
+            self.assertEqual(controller._working_rule_set.enabled_rules, ())
+            self.assertEqual(controller.state, WorkbenchState.parser_truth())
+
+            widgets.analysis_rule_set_selector.setCurrentIndex(0)
+            self.assertEqual(settings.workbench_rule_set, "Community examples")
+            self.parser.combat_displayed.disconnect(controller.bind_combat)
+
+    def test_opt_in_auto_profile_opens_each_fresh_combat_as_modified(self):
+        custom = WorkbenchRuleSet(
+            "Always grouped",
+            (
+                WorkbenchRule(
+                    "GROUP", WorkbenchRuleMatch("EVENT", "Beam*"),
+                    "Beam weapons"),
+                WorkbenchRule(
+                    "EXCLUDE", WorkbenchRuleMatch("EVENT", "Warp Core*")),
+            ),
+        )
+        settings = SimpleNamespace(
+            workbench_rule_set="Always grouped",
+            workbench_auto_enable_rules=True,
+            workbench_auto_rule_set="Always grouped",
+            workbench_auto_rules=json.dumps([
+                _rule_preference_key(custom.rules[0])]),
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Definition identity, not row position, controls the stored auto profile.
+            reordered = replace(custom, rules=tuple(reversed(custom.rules)))
+            WorkbenchRuleSetStore(temp_dir).save((reordered,))
+            widgets = FakeWidgets()
+            controller = AnalysisWorkbenchController(
+                self.parser, self.tables, widgets,
+                config_dir=temp_dir, settings=settings)
+            controller.attach_controls()
+
+            self.parser.combat_displayed.emit(self.source)
+
+            self.assertTrue(controller.state.is_modified)
+            self.assertEqual(len(controller.state.active_rules), 1)
+            self.assertEqual(controller.state.active_rules[0].rule_type, "GROUP")
+            self.assertFalse(widgets.analysis_modified_chip.isHidden())
+            self.assertIsNot(self.parser.displayed_analysis[-1], self.source)
+
+            controller.reset()
+            self.assertEqual(controller.state, WorkbenchState.parser_truth())
+            self.assertTrue(settings.workbench_auto_enable_rules)
+
+            second = analyzed_combat(combat_id=91, owner_names=("Carol", "Dan"))
+            self.parser._parser.current_combat = second
+            self.parser._parser.combats.append(second)
+            self.parser.combat_displayed.emit(second)
+            self.assertTrue(controller.state.is_modified)
+            self.assertEqual(len(controller.state.active_rules), 1)
+            self.parser.combat_displayed.disconnect(controller.bind_combat)
+
+    def test_rule_editor_saves_explicit_auto_enable_profile(self):
+        settings = SimpleNamespace(
+            workbench_rule_set="Community examples",
+            workbench_auto_enable_rules=False,
+            workbench_auto_rule_set="",
+            workbench_auto_rules="[]",
+        )
+        widgets = FakeWidgets()
+        controller = AnalysisWorkbenchController(
+            self.parser, self.tables, widgets, settings=settings)
+        controller.attach_controls()
+        self.parser.combat_displayed.emit(self.source)
+        edited = replace(
+            controller._working_rule_set,
+            rules=tuple(
+                replace(rule, enabled=index in {0, 2})
+                for index, rule in enumerate(controller._working_rule_set.rules)
+            ),
+        )
+        dialog = SimpleNamespace(
+            result_rule_set=edited,
+            result_auto_enable=True,
+            exec=lambda: QDialog.DialogCode.Accepted,
+        )
+
+        with patch(
+                "re_oscr.workbenchcontroller.WorkbenchRuleEditor",
+                return_value=dialog):
+            controller.edit_rules()
+
+        self.assertTrue(settings.workbench_auto_enable_rules)
+        self.assertEqual(settings.workbench_auto_rule_set, "Community examples")
+        stored_keys = json.loads(settings.workbench_auto_rules)
+        self.assertEqual(stored_keys, [
+            _rule_preference_key(edited.rules[0]),
+            _rule_preference_key(edited.rules[2]),
+        ])
+        self.parser.combat_displayed.disconnect(controller.bind_combat)
+
+    def test_rule_editor_auto_enable_toggle_is_explicit_and_defaults_from_setting(self):
+        dialog = WorkbenchRuleEditor(
+            None, self.controller._working_rule_set, auto_enable=True)
+        self.addCleanup(dialog.close)
+
+        self.assertTrue(dialog.auto_enable_toggle.isChecked())
+        self.assertIn("// ON", dialog.auto_enable_toggle.text())
+        dialog.auto_enable_toggle.click()
+        self.assertFalse(dialog.auto_enable_toggle.isChecked())
+        self.assertIn("// OFF", dialog.auto_enable_toggle.text())
 
     def test_enabled_rule_applies_as_modified_view_and_chip_disables_only_that_rule(self):
         self.bind_source()

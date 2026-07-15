@@ -103,6 +103,7 @@ class REOSCRApplication():
             self.workbench = AnalysisWorkbenchController(
                 self.parser, self.tables, self.widgets,
                 config_dir=self.config.config_dir,
+                settings=self.settings,
                 parent=self.window,
             )
             self.workbench.view_failed.connect(

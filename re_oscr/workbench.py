@@ -203,7 +203,7 @@ class WorkbenchRuleMatch:
 
 @dataclass(frozen=True, slots=True)
 class WorkbenchRule:
-    """One ordered custom-grouping or indirect-source reversal rule."""
+    """One ordered grouping, source-reversal, or event-exclusion rule."""
 
     rule_type: str
     matches: tuple[WorkbenchRuleMatch, ...]
@@ -214,8 +214,8 @@ class WorkbenchRule:
         if not isinstance(self.rule_type, str):
             raise TypeError("rule type must be a string")
         rule_type = self.rule_type.strip().upper()
-        if rule_type not in {"GROUP", "REVERSE"}:
-            raise ValueError("rule type must be group or reverse")
+        if rule_type not in {"GROUP", "REVERSE", "EXCLUDE"}:
+            raise ValueError("rule type must be group, reverse, or exclude")
 
         if isinstance(self.matches, WorkbenchRuleMatch):
             matches = (self.matches,)
@@ -236,7 +236,7 @@ class WorkbenchRule:
             label = _validated_rule_text(self.label, "group label")
         else:
             if not isinstance(self.label, str):
-                raise TypeError("reverse label must be a string")
+                raise TypeError(f"{rule_type.casefold()} label must be a string")
             label = self.label.strip()
 
         object.__setattr__(self, "rule_type", rule_type)
@@ -253,7 +253,7 @@ class WorkbenchRule:
         if self.rule_type == "GROUP":
             return f"GROUP: {self.label}"
         label = self.label or self.matches[0].pattern
-        return f"REVERSE: {label}"
+        return f"{self.rule_type}: {label}"
 
     def matches_line(self, line: LogLine) -> bool:
         return self.enabled and any(match.matches(line) for match in self.matches)
@@ -391,6 +391,11 @@ BUNDLED_WORKBENCH_RULE_SET = WorkbenchRuleSet(
             ),
             "Dark Matter Laced Quantum Torpedo",
         ),
+        WorkbenchRule(
+            "EXCLUDE",
+            (WorkbenchRuleMatch("SOURCE", "Warp Core Breach"),),
+            "Warp Core Breach",
+        ),
     ),
     read_only=True,
 )
@@ -455,6 +460,20 @@ class WorkbenchState:
     @property
     def active_rules(self) -> tuple[WorkbenchRule, ...]:
         return tuple(rule for rule in self.rules if rule.enabled)
+
+    @property
+    def exclusion_rules(self) -> tuple[WorkbenchRule, ...]:
+        """Return enabled rules that remove matching events before display analysis."""
+        return tuple(
+            rule for rule in self.rules
+            if rule.enabled and rule.rule_type == "EXCLUDE")
+
+    @property
+    def structural_rules(self) -> tuple[WorkbenchRule, ...]:
+        """Return enabled rules that only reshape the derived Analysis hierarchy."""
+        return tuple(
+            rule for rule in self.rules
+            if rule.enabled and rule.rule_type in {"GROUP", "REVERSE"})
 
     def with_changes(self, **changes) -> WorkbenchState:
         """Return a changed state while leaving the current one untouched."""
@@ -568,6 +587,10 @@ class CombatEventIndex:
         self._source_search = _readonly_identity_text(self.source_names, self.source_ids)
         self._target_search = _readonly_identity_text(self.target_names, self.target_ids)
         self._event_search = _readonly_identity_text(self.event_names, self.event_ids)
+        self._source_rule_names = _readonly_text(
+            value.casefold() for value in self.source_names)
+        self._event_rule_names = _readonly_text(
+            value.casefold() for value in self.event_names)
         self._type_search = _readonly_text(value.casefold() for value in self.event_types)
         flag_tokens = tuple(
             frozenset(
@@ -594,9 +617,11 @@ class CombatEventIndex:
         return self._source_combat_ref()
 
     def query(self, state: WorkbenchState | None = None) -> WorkbenchQueryResult:
-        """Apply all populated filters with AND semantics and inclusive time bounds."""
+        """Apply exclusions, AND-composed filters, and inclusive time bounds."""
         state = state or WorkbenchState.parser_truth()
         mask = np.ones(len(self), dtype=np.bool_)
+
+        mask &= self._exclusion_survivor_mask(state)
 
         for text, column in (
                 (state.owner_query, self._owner_search),
@@ -626,6 +651,31 @@ class CombatEventIndex:
 
         mask.setflags(write=False)
         return WorkbenchQueryResult(self, state, mask)
+
+    def _exclusion_survivor_mask(self, state: WorkbenchState) -> NDArray[np.bool_]:
+        """Return events not removed by any enabled exclusion rule."""
+        survivors = np.ones(len(self), dtype=np.bool_)
+        for rule in state.exclusion_rules:
+            matched = np.zeros(len(self), dtype=np.bool_)
+            for match in rule.matches:
+                values = (
+                    self._event_rule_names
+                    if match.field == "EVENT" else self._source_rule_names)
+                folded_pattern = match.pattern.casefold()
+                if "*" not in folded_pattern:
+                    matched |= values == folded_pattern
+                    continue
+                pattern = re.compile(
+                    re.escape(folded_pattern).replace(r"\*", ".*"),
+                    flags=re.DOTALL,
+                )
+                matched |= np.fromiter(
+                    (pattern.fullmatch(value) is not None for value in values),
+                    dtype=np.bool_,
+                    count=len(self),
+                )
+            survivors &= ~matched
+        return survivors
 
     def _clause_mask(self, clause: WorkbenchFilterClause) -> NDArray[np.bool_]:
         identity_columns = {
@@ -700,7 +750,7 @@ def derive_workbench_combat(result: WorkbenchQueryResult) -> WorkbenchCombatView
     if result.is_parser_truth:
         return WorkbenchCombatView(source, source, result.state)
 
-    derived = _new_display_combat(source, result.state)
+    derived = _new_display_combat(source, result)
     selected_lines = result.lines
     derived.log_data = deque(selected_lines)
 
@@ -732,7 +782,7 @@ def count_effective_events(combat: Combat) -> int:
     return sum(1 for _ordinal, _line in _effective_lines(combat))
 
 
-def _new_display_combat(source: Combat, state: WorkbenchState) -> Combat:
+def _new_display_combat(source: Combat, result: WorkbenchQueryResult) -> Combat:
     derived = Combat(
         graph_resolution=source.graph_resolution,
         id=source.id,
@@ -744,12 +794,13 @@ def _new_display_combat(source: Combat, state: WorkbenchState) -> Combat:
     )
     derived.map = source.map
     derived.difficulty = source.difficulty
-    derived.start_time, derived.end_time = _derived_time_window(source, state)
+    derived.start_time, derived.end_time = _derived_time_window(source, result)
     return derived
 
 
-def _derived_time_window(source: Combat, state: WorkbenchState):
-    """Return inclusive explicit cut bounds, clamped to the official combat interval."""
+def _derived_time_window(source: Combat, result: WorkbenchQueryResult):
+    """Return the local exclusion/cut window without letting filters alter duration."""
+    state = result.state
     duration = (source.end_time - source.start_time).total_seconds()
 
     def clamp(offset: float) -> float:
@@ -757,6 +808,20 @@ def _derived_time_window(source: Combat, state: WorkbenchState):
 
     start_offset = clamp(state.start_seconds) if state.start_seconds is not None else 0.0
     end_offset = clamp(state.end_seconds) if state.end_seconds is not None else duration
+
+    # Exclusions intentionally re-derive local combat duration.  Compute their surviving outer
+    # bounds independently of ordinary filters so an owner/name predicate cannot silently inflate
+    # DPS by shrinking the clock.  Explicit time cuts remain the initial inclusive boundary.
+    if state.exclusion_rules:
+        survivors = result.index._exclusion_survivor_mask(state)
+        survivors &= result.index.elapsed_seconds >= start_offset
+        survivors &= result.index.elapsed_seconds <= end_offset
+        positions = np.flatnonzero(survivors)
+        if positions.size:
+            start_offset = float(result.index.elapsed_seconds[int(positions[0])])
+            end_offset = float(result.index.elapsed_seconds[int(positions[-1])])
+        else:
+            end_offset = start_offset
     return (
         source.start_time + timedelta(seconds=start_offset),
         source.start_time + timedelta(seconds=end_offset),
@@ -874,7 +939,7 @@ def _project_rule_models(
     those completed leaves into fresh trees and uses the parser's own branch aggregation helpers;
     neither the selected ``LogLine`` objects nor an official source model is modified.
     """
-    if not state.active_rules:
+    if not state.structural_rules:
         return
     damage_lines = tuple(line for line in lines if not _is_heal_line(line))
     heal_lines = tuple(line for line in lines if _is_heal_line(line))

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import json
 from math import isfinite
 from pathlib import Path
 
@@ -46,12 +47,13 @@ class AnalysisWorkbenchController(QObject):
 
     def __init__(
             self, parser, tables, widgets, config_dir: str | Path | None = None,
-            parent=None):
+            settings=None, parent=None):
         super().__init__()
         self.parser = parser
         self.tables = tables
         self.widgets = widgets
         self.parent = parent
+        self.settings = settings
         self.cache = WorkbenchIndexCache()
         self.state = WorkbenchState.parser_truth()
         self.source_combat: Combat | None = None
@@ -106,17 +108,23 @@ class AnalysisWorkbenchController(QObject):
 
     @Slot(Combat)
     def bind_combat(self, combat: Combat) -> None:
-        """Reset modifiers whenever the user displays a different official combat."""
+        """Open parser truth or the user's explicit auto-enabled preferred rule profile."""
         self.source_combat = combat
         self.state = WorkbenchState.parser_truth()
         self.current_result = None
         self.current_view = None
-        self._working_rule_set = _disabled_rule_set(self._selected_rule_set())
+        self._working_rule_set = self._rule_set_with_auto_preferences(
+            self._selected_rule_set())
         self.tables.set_analysis_modified(False)
         self._reset_modifier_controls()
         self._clear_plots()
         total_count = self._source_event_count()
         visible_count = total_count or 0
+        if self._working_rule_set.enabled_rules:
+            candidate = WorkbenchState(rules=self._working_rule_set.enabled_rules)
+            if self.apply_state(candidate):
+                return
+            self._working_rule_set = _disabled_rule_set(self._selected_rule_set())
         self._update_controls(visible_count, total_count)
         self.state_changed.emit(self.state, visible_count, visible_count)
 
@@ -363,13 +371,19 @@ class AnalysisWorkbenchController(QObject):
         else:
             self.state = self.state.with_changes(rules=())
             self._update_controls(0, 0)
+        self._remember_selected_rule_set()
 
     @Slot()
     def edit_rules(self) -> None:
         """Edit one immutable snapshot and apply its enabled rules transactionally."""
-        dialog = WorkbenchRuleEditor(self.parent, self._working_rule_set)
+        dialog = WorkbenchRuleEditor(
+            self.parent,
+            self._working_rule_set,
+            auto_enable=self._auto_enabled_for(self._selected_rule_set()),
+        )
         dialog_code = dialog.exec()
         edited = dialog.result_rule_set
+        auto_enable = bool(getattr(dialog, "result_auto_enable", False))
         if hasattr(dialog, "setParent"):
             dialog.setParent(None)
         if hasattr(dialog, "deleteLater"):
@@ -429,6 +443,8 @@ class AnalysisWorkbenchController(QObject):
             _disabled_rule_set(edited) if self.source_combat is None else edited)
         if definitions_changed:
             self._populate_rule_set_selector(selected_index)
+        self._remember_selected_rule_set()
+        self._store_auto_preferences(edited, auto_enable)
         if self.source_combat is None:
             self.state = candidate
             self._update_controls(0, 0)
@@ -629,9 +645,20 @@ class AnalysisWorkbenchController(QObject):
             self._custom_rule_sets = ()
             self.view_failed.emit(str(error))
         self.rule_sets = (*BUNDLED_WORKBENCH_RULE_SETS, *self._custom_rule_sets)
-        self._selected_rule_set_index = 0
-        self._working_rule_set = _disabled_rule_set(self.rule_sets[0])
-        self._populate_rule_set_selector(0)
+        preferred_name = str(
+            getattr(self.settings, "workbench_rule_set", "") or "").casefold()
+        selected_index = next(
+            (
+                index for index, rule_set in enumerate(self.rule_sets)
+                if rule_set.name.casefold() == preferred_name
+            ),
+            0,
+        )
+        self._selected_rule_set_index = selected_index
+        self._working_rule_set = self._rule_set_with_auto_preferences(
+            self.rule_sets[selected_index])
+        self._populate_rule_set_selector(selected_index)
+        self._remember_selected_rule_set()
         self._rule_sets_loaded = True
 
     def _populate_rule_set_selector(self, selected_index: int) -> None:
@@ -689,6 +716,55 @@ class AnalysisWorkbenchController(QObject):
             return False
         return True
 
+    def _remember_selected_rule_set(self) -> None:
+        """Remember the preferred definition set, never its per-combat ON toggles."""
+        if self.settings is not None:
+            self.settings.workbench_rule_set = self._selected_rule_set().name
+
+    def _auto_enabled_for(self, rule_set: WorkbenchRuleSet) -> bool:
+        if self.settings is None:
+            return False
+        return (
+            bool(getattr(self.settings, "workbench_auto_enable_rules", False))
+            and str(getattr(
+                self.settings, "workbench_auto_rule_set", "") or "").casefold()
+            == rule_set.name.casefold()
+        )
+
+    def _rule_set_with_auto_preferences(
+            self, rule_set: WorkbenchRuleSet) -> WorkbenchRuleSet:
+        disabled = _disabled_rule_set(rule_set)
+        if not self._auto_enabled_for(rule_set):
+            return disabled
+        raw_rules = str(getattr(
+            self.settings, "workbench_auto_rules", "[]") or "[]")
+        try:
+            stored_keys = json.loads(raw_rules)
+        except (TypeError, ValueError):
+            stored_keys = []
+        if not isinstance(stored_keys, list):
+            stored_keys = []
+        keys = {value for value in stored_keys if isinstance(value, str)}
+        return replace(
+            disabled,
+            rules=tuple(
+                replace(rule, enabled=_rule_preference_key(rule) in keys)
+                for rule in disabled.rules
+            ),
+        )
+
+    def _store_auto_preferences(
+            self, rule_set: WorkbenchRuleSet, enabled: bool) -> None:
+        if self.settings is None:
+            return
+        self.settings.workbench_auto_enable_rules = bool(enabled)
+        self.settings.workbench_auto_rule_set = rule_set.name
+        self.settings.workbench_auto_rules = json.dumps([
+            _rule_preference_key(rule)
+            for rule in rule_set.rules
+            if rule.enabled
+        ], separators=(",", ":"))
+
 
 def _disabled_rule_set(rule_set: WorkbenchRuleSet) -> WorkbenchRuleSet:
     return replace(
@@ -712,6 +788,16 @@ def _same_rule_definition(left: WorkbenchRule, right: WorkbenchRule) -> bool:
         left.rule_type == right.rule_type
         and left.matches == right.matches
         and left.label == right.label
+    )
+
+
+def _rule_preference_key(rule: WorkbenchRule) -> str:
+    """Return a stable identity unaffected by enable state or rule ordering."""
+    return json.dumps(
+        replace(rule, enabled=False).to_dict(),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
     )
 
 

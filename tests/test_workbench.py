@@ -155,6 +155,8 @@ class WorkbenchStateTests(unittest.TestCase):
         self.assertTrue(state.is_modified)
         self.assertEqual(state.rules, (disabled, enabled))
         self.assertEqual(state.active_rules, (enabled,))
+        self.assertEqual(state.structural_rules, (enabled,))
+        self.assertEqual(state.exclusion_rules, ())
 
         with self.assertRaisesRegex(TypeError, "WorkbenchRule"):
             WorkbenchState(rules=("unsafe",))
@@ -205,6 +207,12 @@ class WorkbenchRuleTests(unittest.TestCase):
                     "match": {"field": "source_name", "pattern": "Tachyon Drone*"},
                     "enabled": False,
                 },
+                {
+                    "type": "exclude",
+                    "match": {"field": "source_name", "pattern": "Warp Core Breach"},
+                    "label": "Warp Core Breach",
+                    "enabled": False,
+                },
             ],
         }
 
@@ -215,6 +223,7 @@ class WorkbenchRuleTests(unittest.TestCase):
         self.assertEqual(rule_set.rules[0].display_label, (
             "GROUP: Advanced Piezo Beam Array"))
         self.assertEqual(rule_set.rules[1].display_label, "REVERSE: Tachyon Drone*")
+        self.assertEqual(rule_set.rules[2].display_label, "EXCLUDE: Warp Core Breach")
         self.assertIn("matches", rule_set.to_dict()["rules"][0])
         self.assertIn("match", rule_set.to_dict()["rules"][1])
 
@@ -265,6 +274,7 @@ class WorkbenchRuleTests(unittest.TestCase):
             ["Advanced Piezo Beam Array", "Tachyon Net Drones"],
         )
         self.assertTrue(all(not rule.enabled for rule in bundled.rules))
+        self.assertEqual(bundled.rules[-1].rule_type, "EXCLUDE")
 
 
 class CombatEventIndexTests(unittest.TestCase):
@@ -644,6 +654,74 @@ class WorkbenchCombatDerivationTests(unittest.TestCase):
             index.query(WorkbenchState(owner_query="Alice"))).combat
         self.assertEqual(filtered.start_time, source.start_time)
         self.assertEqual(filtered.end_time, source.end_time)
+
+    def test_exclusion_rules_remove_events_and_recompute_local_time_and_dps(self):
+        source = analyze_combat(make_combat([
+            make_line(
+                0, source_name="Warp Core Breach", source_id="C[core 1]",
+                event_name="Core Damage", magnitude=600),
+            make_line(2, event_name="Beam A", magnitude=600),
+            make_line(8, event_name="Beam B", magnitude=600),
+            make_line(
+                10, source_name="Warp Core Breach", source_id="C[core 2]",
+                event_name="Core Damage", magnitude=600),
+        ]))
+        original_lines = tuple(source.log_data)
+        original_window = (source.start_time, source.end_time)
+        exclusion = WorkbenchRule(
+            "EXCLUDE",
+            WorkbenchRuleMatch("SOURCE", "Warp Core*"),
+            "Warp Core Breach",
+            True,
+        )
+        state = WorkbenchState(owner_query="Alice", rules=(exclusion,))
+
+        result = CombatEventIndex(source).query(state)
+        derived = derive_workbench_combat(result).combat
+
+        self.assertEqual([line.event_name for line in result.lines], ["Beam A", "Beam B"])
+        self.assertEqual(derived.start_time, ORIGIN + timedelta(seconds=2))
+        self.assertEqual(derived.end_time, ORIGIN + timedelta(seconds=8))
+        self.assertEqual(derived.meta["log_duration"], 6.0)
+        actor = derived.damage_out._player._children[0]
+        self.assertEqual(actor.data[2], 1200.0)
+        self.assertEqual(actor.data[19], 6.0)
+        self.assertEqual(actor.data[1], 200.0)
+        self.assertEqual(tuple(source.log_data), original_lines)
+        self.assertEqual((source.start_time, source.end_time), original_window)
+
+    def test_exclusion_timing_ignores_ordinary_filters_but_respects_explicit_cut(self):
+        source = analyze_combat(make_combat([
+            make_line(0, owner_name="Other", event_name="Boundary A"),
+            make_line(2, owner_name="Alice", event_name="Focused"),
+            make_line(8, owner_name="Other", event_name="Boundary B"),
+            make_line(10, source_name="Noise", event_name="Excluded"),
+        ]))
+        exclusion = WorkbenchRule(
+            "EXCLUDE", WorkbenchRuleMatch("EVENT", "Excluded"), enabled=True)
+        derived = derive_workbench_combat(CombatEventIndex(source).query(WorkbenchState(
+            owner_query="Alice",
+            rules=(exclusion,),
+            start_seconds=1,
+            end_seconds=9,
+        ))).combat
+
+        self.assertEqual([line.event_name for line in derived.log_data], ["Focused"])
+        self.assertEqual(derived.start_time, ORIGIN + timedelta(seconds=2))
+        self.assertEqual(derived.end_time, ORIGIN + timedelta(seconds=8))
+
+    def test_excluding_every_event_builds_a_safe_zero_duration_view(self):
+        source = analyze_combat(make_combat([make_line(0), make_line(10)]))
+        exclusion = WorkbenchRule(
+            "EXCLUDE", WorkbenchRuleMatch("EVENT", "*"), enabled=True)
+
+        derived = derive_workbench_combat(CombatEventIndex(source).query(
+            WorkbenchState(rules=(exclusion,)))).combat
+
+        self.assertEqual(tuple(derived.log_data), ())
+        self.assertEqual(derived.start_time, source.start_time)
+        self.assertEqual(derived.end_time, source.start_time)
+        self.assertEqual(derived.meta["log_duration"], 0.0)
 
     def test_filtered_graphs_keep_fractional_events_on_the_display_window_timeline(self):
         source = analyze_combat(make_combat([

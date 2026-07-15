@@ -33,7 +33,8 @@ class WorkbenchRuleEditor(QDialog):
     immutable Workbench constructors before the dialog can be accepted or exported.
     """
 
-    def __init__(self, parent, rule_set: WorkbenchRuleSet):
+    def __init__(
+            self, parent, rule_set: WorkbenchRuleSet, *, auto_enable: bool = False):
         super().__init__(parent)
         self.setObjectName("analysisWorkbenchRuleEditor")
         self.setProperty("consoleRole", "ruleEditorDialog")
@@ -42,6 +43,7 @@ class WorkbenchRuleEditor(QDialog):
         self.resize(900, 460)
         self._source_read_only = rule_set.read_only
         self.result_rule_set: WorkbenchRuleSet | None = None
+        self.result_auto_enable = bool(auto_enable)
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(16, 16, 16, 16)
@@ -54,7 +56,7 @@ class WorkbenchRuleEditor(QDialog):
         eyebrow = QLabel("ANALYSIS WORKBENCH // ORDERED RULE SET", cap)
         eyebrow.setProperty("consoleRole", "eyebrow")
         cap_layout.addWidget(eyebrow)
-        title = QLabel("GROUPING & SOURCE REVERSAL", cap)
+        title = QLabel("GROUPING, SOURCE REVERSAL & EXCLUSIONS", cap)
         title.setProperty("consoleRole", "sectionTitle")
         cap_layout.addWidget(title)
         outer.addWidget(cap)
@@ -112,11 +114,28 @@ class WorkbenchRuleEditor(QDialog):
         outer.addLayout(edit_row)
 
         help_label = QLabel(
-            "MATCHES: one or more entries separated by semicolons, for example "
-            "EVENT:Advanced Piezo*; EVENT:Technical Overload.  * is the only wildcard.")
+            "MATCHES: use EVENT:pattern or SOURCE:pattern; separate multiple matches with ; . "
+            "* is the only wildcard. GROUP merges effects, REVERSE places an indirect effect "
+            "above its sources, and EXCLUDE removes matching events from this local view.\n"
+            "Rule definitions and the selected set are saved. Fresh combats start with rules "
+            "OFF by default; the explicit option below can reuse the checked rules.")
         help_label.setWordWrap(True)
         help_label.setProperty("consoleRole", "muted")
         outer.addWidget(help_label)
+
+        self.auto_enable_toggle = QPushButton(self)
+        self.auto_enable_toggle.setObjectName("analysisWorkbenchRuleAutoEnable")
+        self.auto_enable_toggle.setProperty("consoleRole", "actionButton")
+        self.auto_enable_toggle.setProperty("toggleAction", True)
+        self.auto_enable_toggle.setProperty("accentIndex", "1")
+        self.auto_enable_toggle.setCheckable(True)
+        self.auto_enable_toggle.setChecked(auto_enable)
+        self.auto_enable_toggle.toggled.connect(self._sync_auto_enable_text)
+        self.auto_enable_toggle.setToolTip(
+            "Opt in to opening each fresh combat as a clearly labelled MODIFIED VIEW. "
+            "League uploads continue to use parser-truth data.")
+        self._sync_auto_enable_text(auto_enable)
+        outer.addWidget(self.auto_enable_toggle)
 
         self.buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel,
@@ -134,7 +153,13 @@ class WorkbenchRuleEditor(QDialog):
         except (TypeError, ValueError) as error:
             self._show_error(str(error))
             return
+        self.result_auto_enable = self.auto_enable_toggle.isChecked()
         super().accept()
+
+    def _sync_auto_enable_text(self, enabled: bool) -> None:
+        state = "ON" if enabled else "OFF"
+        self.auto_enable_toggle.setText(
+            f"AUTO-ENABLE CHECKED RULES ON FRESH COMBATS // {state}")
 
     def _populate(self, rules: tuple[WorkbenchRule, ...]) -> None:
         self.table.setRowCount(0)
@@ -158,7 +183,7 @@ class WorkbenchRuleEditor(QDialog):
 
         type_combo = QComboBox(self.table)
         type_combo.setProperty("consoleRole", "compactCombo")
-        type_combo.addItems(("GROUP", "REVERSE"))
+        type_combo.addItems(("GROUP", "REVERSE", "EXCLUDE"))
         type_combo.setCurrentText(rule.rule_type)
         type_combo.currentTextChanged.connect(
             lambda _value, combo=type_combo: self._sync_label_requirement(combo))
