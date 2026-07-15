@@ -93,6 +93,7 @@ class WorkbenchRuleEditor(QDialog):
         edit_row = QHBoxLayout()
         for text, callback, object_name in (
                 ("ADD", self._add_rule, "analysisWorkbenchRuleAdd"),
+                ("CLONE", self._clone_rule, "analysisWorkbenchRuleClone"),
                 ("DELETE", self._delete_rule, "analysisWorkbenchRuleDelete"),
                 ("MOVE UP", lambda: self._move_rule(-1), "analysisWorkbenchRuleUp"),
                 ("MOVE DOWN", lambda: self._move_rule(1), "analysisWorkbenchRuleDown")):
@@ -172,7 +173,9 @@ class WorkbenchRuleEditor(QDialog):
             self.table.selectRow(0)
 
     def _append_rule(self, rule: WorkbenchRule) -> None:
-        row = self.table.rowCount()
+        self._insert_rule(self.table.rowCount(), rule)
+
+    def _insert_rule(self, row: int, rule: WorkbenchRule) -> None:
         self.table.insertRow(row)
 
         enabled_item = QTableWidgetItem()
@@ -221,6 +224,18 @@ class WorkbenchRuleEditor(QDialog):
         self._append_rule(WorkbenchRule(
             "GROUP", (WorkbenchRuleMatch("EVENT", "*"),), "New Group"))
         self.table.selectRow(self.table.rowCount() - 1)
+
+    def _clone_rule(self) -> None:
+        row = self.table.currentRow()
+        if row < 0:
+            return
+        try:
+            rule = self._rule_from_row(row)
+        except (TypeError, ValueError) as error:
+            self._show_error(str(error))
+            return
+        self._insert_rule(row + 1, rule)
+        self.table.selectRow(row + 1)
 
     def _delete_rule(self) -> None:
         row = self.table.currentRow()

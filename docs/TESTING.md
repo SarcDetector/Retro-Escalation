@@ -108,8 +108,10 @@ Run every item once in OSCR-UI Legacy and once in Command Console.
   for detailed comparison and freeze or resume selection without changing parser-owned data.
   (Automated)
 - [x] Use Simple Analysis for Core telemetry and live plotting, then switch to Advanced to reveal
-  metric lenses, filters, time cuts, rule editing, and the detailed bar comparison. Active
-  modifier chips remain visible in both modes. (Automated)
+metric lenses, filters, time cuts, rule editing, and the detailed bar comparison. Active
+modifier chips remain visible in both modes. (Automated)
+- [x] Clone a selected Workbench rule; its enabled state, type, matches, and label are copied
+immediately below the original. (Automated)
 - [ ] Exercise every copy mode.
 - [ ] Sort and horizontally scroll tables.
 

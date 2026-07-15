@@ -347,6 +347,22 @@ class AnalysisWorkbenchControllerTests(unittest.TestCase):
         self.assertFalse(dialog.auto_enable_toggle.isChecked())
         self.assertIn("// OFF", dialog.auto_enable_toggle.text())
 
+    def test_rule_editor_clones_selected_rule_below_the_original(self):
+        dialog = WorkbenchRuleEditor(None, self.controller._working_rule_set)
+        self.addCleanup(dialog.close)
+        original_count = dialog.table.rowCount()
+        original = dialog._rule_from_row(1)
+        dialog.table.selectRow(1)
+
+        clone_button = dialog.findChild(
+            QPushButton, "analysisWorkbenchRuleClone")
+        self.assertIsNotNone(clone_button)
+        clone_button.click()
+
+        self.assertEqual(dialog.table.rowCount(), original_count + 1)
+        self.assertEqual(dialog.table.currentRow(), 2)
+        self.assertEqual(dialog._rule_from_row(2), original)
+
     def test_rule_editor_restores_a_saved_window_geometry(self):
         original = WorkbenchRuleEditor(None, self.controller._working_rule_set)
         self.addCleanup(original.close)
