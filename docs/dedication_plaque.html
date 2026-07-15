@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RE-OSCR — Dedication Plaque</title>
+<style>
+  :root {
+    --bg: #070B0F;
+    --panel: #0E161D;
+    --line: #293944;
+    --orange: #FF8A2A;
+    --gold: #D4AD3F;
+    --purple: #9A6BC4;
+    --teal: #4FC3CC;
+    --red: #D94B55;
+    --text: #F4EFE6;
+    --muted: #667B87;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    font-family: "Overpass", "Segoe UI", Arial, sans-serif;
+    color: var(--text);
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 48px auto;
+    padding: 0 24px;
+  }
+  .plaque {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .rail {
+    display: flex;
+    height: 10px;
+  }
+  .rail span { flex: 1; }
+  .rail .c1 { background: var(--orange); border-top-left-radius: 14px; }
+  .rail .c2 { background: var(--gold); }
+  .rail .c3 { background: var(--purple); }
+  .rail .c4 { background: var(--teal); }
+  .rail .c5 { background: var(--red); border-top-right-radius: 14px; }
+  .body {
+    padding: 36px 44px 40px;
+    text-align: center;
+  }
+  .kicker {
+    font-family: "Roboto Mono", Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 3px;
+    color: var(--orange);
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 10px 0 4px;
+    font-size: 42px;
+    font-weight: 700;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .registry {
+    font-family: "Roboto Mono", Consolas, monospace;
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: var(--muted);
+  }
+  .registry b { color: var(--orange); font-weight: 700; }
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 26px 0;
+  }
+  .divider::before, .divider::after {
+    content: "";
+    flex: 1;
+    height: 2px;
+    background: var(--line);
+    border-radius: 1px;
+  }
+  .divider i {
+    width: 34px;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--orange);
+  }
+  .role-lines {
+    font-family: "Roboto Mono", Consolas, monospace;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    line-height: 2.1;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .role-lines .who { color: var(--text); }
+  .role-lines .k1 { color: var(--gold); }
+  .role-lines .k2 { color: var(--purple); }
+  .role-lines .k3 { color: var(--teal); }
+  .role-lines .k4 { color: var(--red); }
+  .produced {
+    margin: 30px 0 6px;
+    font-size: 13px;
+    letter-spacing: 4px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .producer {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 8px;
+    text-transform: uppercase;
+    color: var(--orange);
+  }
+  .handle {
+    margin-top: 8px;
+    font-family: "Roboto Mono", Consolas, monospace;
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+  .handle a { color: var(--teal); text-decoration: none; }
+  .handle a:hover { text-decoration: underline; }
+  .lineage {
+    margin-top: 26px;
+    font-family: "Roboto Mono", Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .lineage b { color: var(--teal); font-weight: 700; }
+  .motto {
+    margin: 34px auto 0;
+    max-width: 480px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+  }
+  .motto p {
+    margin: 0;
+    font-size: 19px;
+    font-style: italic;
+    letter-spacing: 1px;
+    color: var(--text);
+  }
+  .motto span {
+    display: block;
+    margin-top: 10px;
+    font-family: "Roboto Mono", Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--orange);
+    text-transform: uppercase;
+  }
+  .foot {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-top: 1px solid var(--line);
+    font-family: "Roboto Mono", Consolas, monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .foot b { color: var(--orange); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="plaque">
+    <div class="rail">
+      <span class="c1"></span><span class="c2"></span><span class="c3"></span><span class="c4"></span><span class="c5"></span>
+    </div>
+    <div class="body">
+      <div class="kicker">Ship's Dedication Plaque // Command Console</div>
+      <h1>Retro Escalation</h1>
+      <div class="registry">RE-OSCR &nbsp;•&nbsp; REGISTRY <b>NX-2015</b> &nbsp;•&nbsp; RECOMMISSIONED 2026</div>
+
+      <div class="divider"><i></i></div>
+
+      <div class="role-lines">
+        <div><span class="k1">Parser</span> — <span class="who">STOCD / OSCR Project</span></div>
+        <div><span class="k2">Analysis Doctrine</span> — <span class="who">AnotherNathan / CLA</span></div>
+        <div><span class="k3">Legacy Appearance</span> — <span class="who">OSCR-UI, preserved intact</span></div>
+        <div><span class="k4">License</span> — <span class="who">GPL-3.0 · source travels with the ship</span></div>
+      </div>
+
+      <div class="produced">Produced and maintained by</div>
+      <div class="producer">Sarc</div>
+      <div class="handle"><a href="https://www.youtube.com/@sarcasmdetector">@SarcasmDetector</a></div>
+
+      <div class="lineage">Descended from <b>CLR</b> · <b>SCM</b> · <b>OSCR</b> · <b>CLA</b> — constructed at the DPS League fleet yards</div>
+
+      <div class="motto">
+        <p>&ldquo;We'll make it pretty later.&rdquo;</p>
+        <span>— Later, 2015&ndash;2026</span>
+      </div>
+    </div>
+    <div class="foot">
+      <div>Combat Telemetry // Star Trek Online</div>
+      <div><b>All combats analyzed</b></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -19,6 +19,7 @@ Current development features include:
 - Portable Windows and Linux tester builds.
 
 - [Project scope](docs/PROJECT_SCOPE.md)
+- [Credits](docs/CREDITS.md)
 - [Tester plan](docs/TESTING.md)
 - [Development guide](docs/DEVELOPMENT.md)
 
@@ -72,6 +73,10 @@ are stored beside the executable. See [`distribution/linux/README.md`](distribut
 for runtime requirements and compatibility notes.
 
 ## Origin and licensing
+
+RE-OSCR is produced and maintained by **Sarc**
+([SarcDetector](https://github.com/SarcDetector)). See [Credits](docs/CREDITS.md) for the
+project's parser, analysis, appearance, and licensing acknowledgements.
 
 RE-OSCR began as a downstream fork of
 [STOCD/OSCR-UI 11.1.0](https://github.com/STOCD/OSCR-UI). Its source history and GPLv3 licensing

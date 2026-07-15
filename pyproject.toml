@@ -12,8 +12,8 @@ dependencies = [
   "requests==2.34.2"
 ]
 requires-python = ">=3.13"
-authors = []
-maintainers = []
+authors = [{name = "Sarc"}]
+maintainers = [{name = "Sarc"}]
 description = "Retro Escalation frontend for the Open Source Combatlog Reader parser"
 readme = "README.md"
 license = {file = "LICENSE"}

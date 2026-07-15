@@ -165,6 +165,9 @@ class ConsoleTokenTests(unittest.TestCase):
             "QSplitter#commandConsoleAnalysisSplitter::handle:hover",
             "QTreeView[consoleRole='analysisTree'] QScrollBar::handle:horizontal:hover",
             "QTreeView[consoleRole='analysisTree'] QScrollBar::handle:vertical:hover",
+            "QDialog[consoleRole='dedicationPlaqueDialog']",
+            "QFrame[consoleRole='dedicationPlaqueRailSegment'][accentIndex='0']",
+            "QLabel[consoleRole='plaqueRole'][accentIndex='0']",
             "AnalysisTreeView",
         )
         for selector in required_selectors:

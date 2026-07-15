@@ -43,6 +43,7 @@ class OSCRLeftSidebar():
         - :param settings: OSCRSettings
         """
         self._app_version: str = app_version
+        self._main_window = main_window
         self._parser: ParserBridge = parser
         self._detection_info: DetectionInfoDialog = detection_info
         self._dialogs: DialogsWrapper = dialogs
@@ -354,6 +355,13 @@ class OSCRLeftSidebar():
         analysis_credit.setSizePolicy(SMINMAX)
         analysis_credit.setToolTip(self._config.link_cla)
         left_layout.addWidget(analysis_credit)
+        if parent_frame.objectName() == 'commandConsoleSidebarAbout':
+            from .console.components import action_button
+
+            plaque_button = action_button(
+                'DEDICATION PLAQUE', 'commandConsoleDedicationPlaqueButton', accent_index=0)
+            plaque_button.clicked.connect(self.show_dedication_plaque)
+            left_layout.addWidget(plaque_button, alignment=AHCENTER)
         link_button_style = {
             'default': {},
             tr('Website'): {
@@ -406,6 +414,14 @@ class OSCRLeftSidebar():
         logo_frame.setLayout(logo_layout)
         left_layout.addWidget(logo_frame, stretch=1, alignment=ABOTTOM)
         parent_frame.setLayout(left_layout)
+
+    def show_dedication_plaque(self) -> None:
+        """Open the Command Console dedication plaque without affecting Legacy UI."""
+        from .dedicationplaque import DedicationPlaqueDialog
+
+        dialog = DedicationPlaqueDialog(self._theme, self._main_window)
+        dialog.exec()
+        dialog.deleteLater()
 
     def show_detection_info(self):
         """

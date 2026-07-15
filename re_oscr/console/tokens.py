@@ -190,6 +190,66 @@ class ConsoleTokens:
                 f"border-radius:{radius_panel}px;}}"
             ),
             (
+                "QDialog[consoleRole='dedicationPlaqueDialog'] {"
+                f"background-color:{SURFACES['void']};}}"
+            ),
+            (
+                "QFrame[consoleRole='dedicationPlaquePanel'] {"
+                f"background-color:{SURFACES['raised']};border:none;"
+                f"border-radius:{radius_panel}px;}}"
+            ),
+            (
+                "QFrame[consoleRole='dedicationPlaqueRail'] {"
+                f"background-color:{SURFACES['base']};border:none;"
+                f"border-top-left-radius:{radius_panel}px;"
+                f"border-top-right-radius:{radius_panel}px;}}"
+            ),
+            (
+                "QLabel[consoleRole='plaqueTitle'] {"
+                f"color:{TEXT['primary']};background:transparent;border:none;"
+                f"font-family:'Overpass';font-size:{px(28, s)}px;font-weight:700;"
+                "letter-spacing:6px;}"
+            ),
+            (
+                "QLabel[consoleRole='plaqueRegistry'],"
+                "QLabel[consoleRole='plaqueAttribution'] {"
+                f"color:{TEXT['muted']};background:transparent;border:none;"
+                f"font-family:'Roboto Mono';font-size:{px(11, s)}px;font-weight:500;"
+                "letter-spacing:1px;}"
+            ),
+            (
+                "QLabel[consoleRole='plaqueProducer'] {"
+                f"color:{self.accents[0]};background:transparent;border:none;"
+                f"font-family:'Overpass';font-size:{px(24, s)}px;font-weight:700;"
+                "letter-spacing:8px;}"
+            ),
+            (
+                "QLabel[consoleRole='plaqueLink'] {"
+                f"color:{self.accents[3]};background:transparent;border:none;"
+                f"font-family:'Roboto Mono';font-size:{px(11, s)}px;font-weight:500;"
+                "letter-spacing:1px;}"
+            ),
+            (
+                "QLabel[consoleRole='plaqueQuote'] {"
+                f"color:{TEXT['primary']};background:transparent;border:none;"
+                f"font-family:'Overpass';font-size:{px(16, s)}px;font-style:italic;}}"
+            ),
+            (
+                "QLabel[consoleRole='plaqueMotto'] {"
+                f"color:{self.accents[0]};background:transparent;border:none;"
+                f"font-family:'Roboto Mono';font-size:{px(11, s)}px;font-weight:600;"
+                "letter-spacing:1px;}"
+            ),
+            (
+                "QFrame[consoleRole='dedicationPlaqueDivider'] {"
+                f"background-color:{BORDERS['hairline']};border:none;}}"
+            ),
+            (
+                "QFrame[consoleRole='dedicationPlaqueDividerMark'] {"
+                f"background-color:{self.accents[0]};border:none;"
+                f"border-radius:{radius_chip_large}px;}}"
+            ),
+            (
                 "QFrame#commandConsoleSidebarContent,"
                 "QFrame#commandConsoleSidebarLog,"
                 "QFrame#commandConsoleSidebarLeague,"
@@ -592,6 +652,10 @@ class ConsoleTokens:
                     f"background-color:{dim};}}"
                 ),
                 (
+                    f"QFrame[consoleRole='dedicationPlaqueRailSegment']{selector} {{"
+                    f"background-color:{accent};border:none;}}"
+                ),
+                (
                     f"QFrame[consoleRole='spineSegment']{selector}[active='true'] {{"
                     f"background-color:{accent};border-right:{drawer_cap}px solid {BORDERS['focus']};}}"
                 ),
@@ -643,6 +707,12 @@ class ConsoleTokens:
                 (
                     f"QLabel[consoleRole='chip']{selector}[status='modified'] {{"
                     f"color:{accent};border-color:{accent};}}"
+                ),
+                (
+                    f"QLabel[consoleRole='plaqueRole']{selector} {{"
+                    f"color:{accent};background:transparent;border:none;"
+                    f"font-family:'Roboto Mono';font-size:{px(11, s)}px;font-weight:600;"
+                    "letter-spacing:1px;}"
                 ),
             ))
 
