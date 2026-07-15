@@ -1,10 +1,10 @@
 """Functional Analysis presentation shared by both built-in themes."""
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import Qt, QTimer
 
 from PySide6.QtWidgets import (
     QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLayout, QLineEdit, QSplitter,
-    QTabWidget, QTreeView, QVBoxLayout)
+    QScrollArea, QSizePolicy, QTabWidget, QTreeView, QVBoxLayout)
 
 from OSCR import HEAL_TREE_HEADER, TREE_HEADER
 
@@ -290,10 +290,12 @@ class AnalysisView:
         filter_scope.setProperty('consoleRole', 'compactCombo')
         for label, key in (
                 ('ANY FIELD', 'ANY'), ('OWNER', 'OWNER'), ('SOURCE', 'SOURCE'),
-                ('TARGET', 'TARGET'), ('EVENT', 'EVENT')):
+                ('TARGET', 'TARGET'), ('EVENT', 'EVENT'), ('TYPE', 'TYPE'),
+                ('FLAG', 'FLAG'), ('MIN MAGNITUDE', 'MIN_MAGNITUDE'),
+                ('MAX MAGNITUDE', 'MAX_MAGNITUDE')):
             filter_scope.addItem(label, key)
         filter_scope.setToolTip(
-            'Choose which combat-event identity field the filter searches')
+            'Choose a quick-search field or a structured filter to add')
         filter_scope.setMinimumWidth(px(112, self.theme.scale))
         self.widgets.analysis_filter_scope = filter_scope
         filter_layout.addWidget(filter_scope)
@@ -306,6 +308,14 @@ class AnalysisView:
         filter_entry.setMinimumWidth(px(210, self.theme.scale))
         filter_layout.addWidget(filter_entry, 1)
         self.widgets.analysis_filter_entry = filter_entry
+
+        add_filter_button = action_button(
+            'ADD FILTER', 'analysisWorkbenchAddFilter', 1, primary=True)
+        add_filter_button.setToolTip(
+            'Add the selected field and value as an active Analysis filter')
+        add_filter_button.setMaximumWidth(px(104, self.theme.scale))
+        filter_layout.addWidget(add_filter_button)
+        self.widgets.analysis_filter_add_button = add_filter_button
 
         truth_chip = chip('PARSER TRUTH', 'analysisParserTruthChip')
         truth_chip.setProperty('status', 'truth')
@@ -329,6 +339,60 @@ class AnalysisView:
 
         filter_row.setLayout(filter_layout)
         modifier_layout.addWidget(filter_row)
+
+        # Structured clauses are intentionally a second, normally absent line.
+        # The controller owns clause creation/removal; the view only supplies a
+        # compact scrollable surface that can accept an arbitrary number of chip
+        # buttons without forcing the command deck wider than the 1280px target.
+        clause_row = QFrame()
+        clause_row.setObjectName('analysisWorkbenchClauseRow')
+        clause_row.setProperty('consoleRole', 'workbenchClauseRow')
+        clause_row_layout = QHBoxLayout()
+        clause_row_layout.setContentsMargins(
+            px(10, self.theme.scale), px(2, self.theme.scale),
+            px(10, self.theme.scale), px(2, self.theme.scale))
+        clause_row_layout.setSpacing(px(8, self.theme.scale))
+
+        clause_label = QLabel('ACTIVE FILTERS //')
+        clause_label.setObjectName('analysisWorkbenchClauseLabel')
+        clause_label.setProperty('consoleRole', 'eyebrow')
+        clause_row_layout.addWidget(clause_label)
+
+        clause_scroll = QScrollArea()
+        clause_scroll.setObjectName('analysisWorkbenchClauseScroll')
+        clause_scroll.setProperty('consoleRole', 'workbenchClauseScroll')
+        clause_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        clause_scroll.setWidgetResizable(True)
+        clause_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        clause_scroll.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        clause_scroll.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        clause_scroll.setFixedHeight(px(34, self.theme.scale))
+
+        clause_container = QFrame()
+        clause_container.setObjectName('analysisWorkbenchClauseContainer')
+        clause_container.setProperty('consoleRole', 'workbenchClauseContainer')
+        clause_container.setSizePolicy(
+            QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Fixed)
+        clause_layout = QHBoxLayout()
+        clause_layout.setContentsMargins(0, 0, 0, 0)
+        clause_layout.setSpacing(px(6, self.theme.scale))
+        clause_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        clause_layout.setSizeConstraint(QLayout.SizeConstraint.SetMinAndMaxSize)
+        clause_container.setLayout(clause_layout)
+        clause_scroll.setWidget(clause_container)
+        clause_row_layout.addWidget(clause_scroll, 1)
+        clause_row.setLayout(clause_row_layout)
+        clause_row.hide()
+
+        self.widgets.analysis_filter_clause_row = clause_row
+        self.widgets.analysis_filter_clause_scroll = clause_scroll
+        self.widgets.analysis_filter_clause_container = clause_container
+        self.widgets.analysis_filter_clause_layout = clause_layout
+        self.widgets.analysis_filter_clause_buttons = []
+        modifier_layout.addWidget(clause_row)
 
         time_row = QFrame()
         time_row.setProperty('consoleRole', 'workbenchTimeRow')

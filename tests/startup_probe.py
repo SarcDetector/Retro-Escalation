@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtWidgets import QWidget  # noqa: E402
 
 from re_oscr.app import REOSCRApplication  # noqa: E402
@@ -177,6 +178,14 @@ def main() -> int:
             ui.widgets.analysis_filter_entry)
         assert ui.window.findChild(QWidget, "analysisWorkbenchScope") is (
             ui.widgets.analysis_filter_scope)
+        assert ui.window.findChild(QWidget, "analysisWorkbenchAddFilter") is (
+            ui.widgets.analysis_filter_add_button)
+        assert ui.window.findChild(QWidget, "analysisWorkbenchClauseRow") is (
+            ui.widgets.analysis_filter_clause_row)
+        assert ui.window.findChild(QWidget, "analysisWorkbenchClauseScroll") is (
+            ui.widgets.analysis_filter_clause_scroll)
+        assert ui.window.findChild(QWidget, "analysisWorkbenchClauseContainer") is (
+            ui.widgets.analysis_filter_clause_container)
         assert ui.window.findChild(QWidget, "analysisWorkbenchStart") is (
             ui.widgets.analysis_start_entry)
         assert ui.window.findChild(QWidget, "analysisWorkbenchEnd") is (
@@ -190,7 +199,24 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "analysisWorkbenchReset") is (
             ui.widgets.analysis_reset_button)
         assert ui.widgets.analysis_filter_scope.currentData() == "ANY"
+        assert tuple(
+            ui.widgets.analysis_filter_scope.itemData(index)
+            for index in range(ui.widgets.analysis_filter_scope.count())
+        ) == (
+            "ANY", "OWNER", "SOURCE", "TARGET", "EVENT", "TYPE", "FLAG",
+            "MIN_MAGNITUDE", "MAX_MAGNITUDE",
+        )
         assert ui.widgets.analysis_filter_entry.placeholderText() == "SEARCH COMBAT EVENTS"
+        assert ui.widgets.analysis_filter_add_button.text() == "ADD FILTER"
+        assert ui.widgets.analysis_filter_clause_row.isHidden()
+        assert ui.widgets.analysis_filter_clause_layout.count() == 0
+        assert ui.widgets.analysis_filter_clause_buttons == []
+        assert (
+            ui.widgets.analysis_filter_clause_scroll.horizontalScrollBarPolicy()
+            == Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        assert (
+            ui.widgets.analysis_filter_clause_scroll.verticalScrollBarPolicy()
+            == Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         assert ui.widgets.analysis_start_entry.placeholderText() == "START"
         assert ui.widgets.analysis_end_entry.placeholderText() == "END"
         assert ui.widgets.analysis_truth_chip.isHidden()
@@ -342,6 +368,10 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "defaultAnalysisTelemetry") is not None
         assert ui.window.findChild(QWidget, "commandConsoleAnalysisHeading") is None
         assert ui.window.findChild(QWidget, "analysisWorkbenchFilter") is None
+        assert ui.window.findChild(QWidget, "analysisWorkbenchAddFilter") is None
+        assert ui.window.findChild(QWidget, "analysisWorkbenchClauseRow") is None
+        assert ui.window.findChild(QWidget, "analysisWorkbenchClauseScroll") is None
+        assert ui.window.findChild(QWidget, "analysisWorkbenchClauseContainer") is None
         assert ui.window.findChild(QWidget, "analysisParserTruthChip") is None
         assert ui.window.findChild(QWidget, "analysisModifiedViewChip") is None
         assert ui.window.findChild(QWidget, "analysisWorkbenchEventCount") is None

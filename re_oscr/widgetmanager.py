@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
-    QComboBox, QFrame, QLabel, QLineEdit, QListView, QListWidget, QPushButton, QSplitter,
-    QTableView, QTabWidget)
+    QComboBox, QFrame, QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget, QPushButton,
+    QScrollArea, QSplitter, QTableView, QTabWidget)
 
 from .widgets import FlipButton
 from .config import OSCRSettings
@@ -71,6 +71,12 @@ class WidgetManager():
         self.analysis_plots: list = list()
         self.analysis_filter_scope: QComboBox | None = None
         self.analysis_filter_entry: QLineEdit | None = None
+        self.analysis_filter_add_button: QPushButton | None = None
+        self.analysis_filter_clause_row: QFrame | None = None
+        self.analysis_filter_clause_scroll: QScrollArea | None = None
+        self.analysis_filter_clause_container: QFrame | None = None
+        self.analysis_filter_clause_layout: QHBoxLayout | None = None
+        self.analysis_filter_clause_buttons: list[QPushButton] = list()
         self.analysis_start_entry: QLineEdit | None = None
         self.analysis_end_entry: QLineEdit | None = None
         self.analysis_truth_chip: QLabel | None = None

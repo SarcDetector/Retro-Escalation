@@ -296,6 +296,53 @@ class ConsoleTokens:
                 "background:transparent;border:none;}"
             ),
             (
+                "QFrame[consoleRole='workbenchClauseRow'] {"
+                "background:transparent;border:none;"
+                f"border-top:1px solid {BORDERS['hairline']};}}"
+            ),
+            (
+                "QScrollArea[consoleRole='workbenchClauseScroll'],"
+                "QScrollArea[consoleRole='workbenchClauseScroll'] "
+                "QWidget#qt_scrollarea_viewport,"
+                "QFrame[consoleRole='workbenchClauseContainer'] {"
+                "background:transparent;border:none;}"
+            ),
+            (
+                "QScrollArea[consoleRole='workbenchClauseScroll'] QScrollBar:horizontal {"
+                f"background-color:{SURFACES['overlay']};height:{px(6, s)}px;"
+                "border:none;}"
+            ),
+            (
+                "QScrollArea[consoleRole='workbenchClauseScroll'] "
+                "QScrollBar::handle:horizontal {"
+                f"background-color:{BORDERS['control']};min-width:{px(28, s)}px;"
+                f"border-radius:{px(3, s)}px;}}"
+            ),
+            (
+                "QScrollArea[consoleRole='workbenchClauseScroll'] "
+                "QScrollBar::handle:horizontal:hover {"
+                f"background-color:{self.accents[1]};}}"
+            ),
+            (
+                "QScrollArea[consoleRole='workbenchClauseScroll'] QScrollBar::add-line,"
+                "QScrollArea[consoleRole='workbenchClauseScroll'] QScrollBar::sub-line {"
+                "width:0;height:0;background:transparent;border:none;}"
+            ),
+            (
+                "QPushButton[consoleRole='filterClauseChip'] {"
+                f"background-color:{SURFACES['overlay']};color:{self.accents[1]};"
+                f"border:1px solid {self.accents[1]};"
+                f"border-radius:{radius_chip_large}px;"
+                f"padding:{px(3, s)}px {px(9, s)}px;"
+                f"font-family:'Roboto Mono';font-size:{px(11, s)}px;font-weight:600;}}"
+            ),
+            (
+                "QPushButton[consoleRole='filterClauseChip']:hover:enabled,"
+                "QPushButton[consoleRole='filterClauseChip']:focus:enabled {"
+                f"background-color:{self.accent_tint(1)};color:{TEXT['primary']};"
+                f"border-color:{TEXT['primary']};}}"
+            ),
+            (
                 "QFrame[consoleRole='workbenchTimeRow'] {"
                 "background:transparent;border:none;"
                 f"border-top:1px solid {BORDERS['hairline']};}}"

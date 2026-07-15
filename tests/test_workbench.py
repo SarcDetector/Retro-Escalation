@@ -13,6 +13,7 @@ from re_oscr.workbench import (
     CombatEventIndex,
     derive_workbench_combat,
     WorkbenchDataError,
+    WorkbenchFilterClause,
     WorkbenchIndexCache,
     WorkbenchState,
 )
@@ -79,6 +80,52 @@ class WorkbenchStateTests(unittest.TestCase):
             WorkbenchState(start_seconds=float("inf"))
         with self.assertRaises(ValueError):
             WorkbenchState(end_seconds=-0.01)
+
+    def test_structured_clauses_are_immutable_normalized_and_mark_state_modified(self):
+        clause = WorkbenchFilterClause(" min_magnitude ", "1000")
+        state = WorkbenchState(clauses=[clause])
+
+        self.assertEqual(clause.field, "MAGNITUDE")
+        self.assertEqual(clause.operator, "GTE")
+        self.assertEqual(clause.value, 1000.0)
+        self.assertEqual(clause.display_label, "|MAG| ≥ 1000")
+        self.assertEqual(clause.summary, clause.display_label)
+        self.assertEqual(state.clauses, (clause,))
+        self.assertTrue(state.is_modified)
+        self.assertFalse(WorkbenchState.parser_truth().is_modified)
+
+        with self.assertRaisesRegex(TypeError, "WorkbenchFilterClause"):
+            WorkbenchState(clauses=("not a clause",))
+
+    def test_structured_clause_validation_rejects_ambiguous_or_unsafe_values(self):
+        invalid = (
+            lambda: WorkbenchFilterClause("OWNER", ""),
+            lambda: WorkbenchFilterClause("UNKNOWN", "value"),
+            lambda: WorkbenchFilterClause("OWNER", "Alice", "EXACT"),
+            lambda: WorkbenchFilterClause("TYPE", "HitPoints", "GTE"),
+            lambda: WorkbenchFilterClause("FLAG", "Flank"),
+            lambda: WorkbenchFilterClause("MIN", -1),
+            lambda: WorkbenchFilterClause("MAX", float("nan")),
+            lambda: WorkbenchFilterClause("MIN", True),
+            lambda: WorkbenchFilterClause("MAGNITUDE", 5),
+        )
+        for construct in invalid:
+            with self.subTest(construct=construct):
+                with self.assertRaises((TypeError, ValueError)):
+                    construct()
+
+    def test_type_and_flag_clauses_expose_normalized_operator_semantics(self):
+        exact_type = WorkbenchFilterClause("type", " HitPoints ")
+        contains_type = WorkbenchFilterClause("TYPE", "point", "contains")
+        flag = WorkbenchFilterClause("flag", "cRiTiCaL")
+        maximum = WorkbenchFilterClause("MAX", 42)
+
+        self.assertEqual((exact_type.field, exact_type.operator, exact_type.value), (
+            "TYPE", "EXACT", "HitPoints"))
+        self.assertEqual(contains_type.operator, "CONTAINS")
+        self.assertEqual((flag.operator, flag.value), ("HAS", "Critical"))
+        self.assertEqual((maximum.field, maximum.operator, maximum.value), (
+            "MAGNITUDE", "LTE", 42.0))
 
 
 class CombatEventIndexTests(unittest.TestCase):
@@ -178,6 +225,73 @@ class CombatEventIndexTests(unittest.TestCase):
         self.assertEqual(index.query(WorkbenchState(target_query="borg_target")).count, 1)
         self.assertEqual(index.query(WorkbenchState(event_query="power_focused")).count, 1)
         self.assertEqual(index.query(WorkbenchState(text_query="@nova#1234")).count, 1)
+
+    def test_structured_identity_clauses_compose_with_quick_filters_and_search_ids(self):
+        index = CombatEventIndex(make_combat([
+            make_line(
+                1, owner_name="Captain Nova", owner_id="P[7@nova#1234]",
+                source_name="Hangar Pet", source_id="C[44 Pet_Entity]",
+                target_name="Nanite Sphere", target_id="C[88 Borg_Target]",
+                event_name="Focused Burst", event_id="Power_Focused_Burst"),
+            make_line(
+                2, owner_name="Captain Nova", owner_id="P[7@nova#1234]",
+                source_name="Hangar Pet", source_id="C[44 Pet_Entity]",
+                target_name="Gateway", target_id="C[99 Gateway]",
+                event_name="Focused Burst", event_id="Power_Focused_Burst"),
+            make_line(3, owner_name="Someone Else", event_name="Focused Burst"),
+        ]))
+        state = WorkbenchState(
+            owner_query="nova",
+            clauses=(
+                WorkbenchFilterClause("ANY", "pet_entity"),
+                WorkbenchFilterClause("OWNER", "@NOVA#1234"),
+                WorkbenchFilterClause("SOURCE", "hangar"),
+                WorkbenchFilterClause("TARGET", "borg_target"),
+                WorkbenchFilterClause("EVENT", "power_focused"),
+            ),
+        )
+
+        result = index.query(state)
+
+        self.assertEqual(result.count, 1)
+        self.assertEqual(result.lines[0].target_name, "Nanite Sphere")
+
+    def test_structured_type_flag_and_absolute_magnitude_clauses_are_inclusive(self):
+        index = CombatEventIndex(make_combat([
+            make_line(
+                1, event_type="HitPoints", flags=" Critical | Kill ", magnitude=100),
+            make_line(
+                2, event_type="HitPoints", flags="CriticalFailure", magnitude=-150),
+            make_line(
+                3, event_type="Shield", flags="critical", magnitude=-200),
+            make_line(
+                4, event_type="HitPoints", flags="Miss", magnitude=250),
+        ]))
+        state = WorkbenchState(clauses=(
+            WorkbenchFilterClause("TYPE", "hitpoints"),
+            WorkbenchFilterClause("FLAG", "critical"),
+            WorkbenchFilterClause("MIN", 100),
+            WorkbenchFilterClause("MAX_MAGNITUDE", "100"),
+        ))
+
+        result = index.query(state)
+
+        self.assertEqual(result.count, 1)
+        self.assertEqual(result.lines[0].magnitude, 100.0)
+        self.assertEqual(index.query(WorkbenchState(clauses=(
+            WorkbenchFilterClause("TYPE", "point", "CONTAINS"),
+        ))).count, 3)
+
+    def test_new_structured_arrays_are_read_only(self):
+        index = CombatEventIndex(make_combat([
+            make_line(1, flags="Critical", magnitude=-10),
+        ]))
+
+        with self.assertRaises(ValueError):
+            index.absolute_magnitudes[0] = 20
+        for _flag, matches in index._flag_matches:
+            with self.assertRaises(ValueError):
+                matches[0] = False
 
     def test_hive_snapshot_stops_at_terminal_queen_kill_ordinal(self):
         queen_kill = make_line(

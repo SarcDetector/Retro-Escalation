@@ -107,6 +107,11 @@ def _widgets():
     return SimpleNamespace(
         analysis_filter_scope=None,
         analysis_filter_entry=None,
+        analysis_filter_add_button=None,
+        analysis_filter_clause_row=None,
+        analysis_filter_clause_container=None,
+        analysis_filter_clause_layout=None,
+        analysis_filter_clause_buttons=[],
         analysis_start_entry=None,
         analysis_end_entry=None,
         analysis_truth_chip=None,

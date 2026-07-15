@@ -31,6 +31,108 @@ class WorkbenchDataError(ValueError):
 
 
 @dataclass(frozen=True, slots=True)
+class WorkbenchFilterClause:
+    """One validated, read-only structured Workbench predicate.
+
+    ``field`` and ``operator`` are normalized to upper-case tokens.  Text identity fields use
+    case-insensitive matching over both their visible names and parser IDs.  ``TYPE`` defaults
+    to exact matching (``CONTAINS`` remains available explicitly), ``FLAG`` is an exact token
+    predicate restricted to Critical/Miss/Kill, and magnitude comparisons are inclusive over
+    ``abs(LogLine.magnitude)``.
+
+    ``MIN``/``MAX`` and the UI-facing ``MIN_MAGNITUDE``/``MAX_MAGNITUDE`` names are accepted as
+    constructor aliases.  They normalize to ``field='MAGNITUDE'`` with ``operator='GTE'`` or
+    ``operator='LTE'`` respectively.
+    """
+
+    field: str
+    value: str | int | float
+    operator: str | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.field, str):
+            raise TypeError("field must be a string")
+        field = self.field.strip().upper()
+        operator = self.operator
+        if operator is not None:
+            if not isinstance(operator, str):
+                raise TypeError("operator must be a string or None")
+            operator = operator.strip().upper()
+            if not operator:
+                operator = None
+
+        magnitude_aliases = {
+            "MIN": "GTE",
+            "MIN_MAGNITUDE": "GTE",
+            "MAX": "LTE",
+            "MAX_MAGNITUDE": "LTE",
+        }
+        if field in magnitude_aliases:
+            alias_operator = magnitude_aliases[field]
+            if operator is not None and operator != alias_operator:
+                raise ValueError(f"{field} only supports {alias_operator}")
+            field = "MAGNITUDE"
+            operator = alias_operator
+
+        identity_fields = {"ANY", "OWNER", "SOURCE", "TARGET", "EVENT"}
+        if field in identity_fields:
+            operator = operator or "CONTAINS"
+            if operator != "CONTAINS":
+                raise ValueError(f"{field} only supports CONTAINS")
+            value = _validated_clause_text(self.value, field)
+        elif field == "TYPE":
+            operator = operator or "EXACT"
+            if operator not in {"EXACT", "CONTAINS"}:
+                raise ValueError("TYPE only supports EXACT or CONTAINS")
+            value = _validated_clause_text(self.value, field)
+        elif field == "FLAG":
+            operator = operator or "HAS"
+            if operator != "HAS":
+                raise ValueError("FLAG only supports HAS")
+            flag = _validated_clause_text(self.value, field).casefold()
+            flag_names = {"critical": "Critical", "miss": "Miss", "kill": "Kill"}
+            try:
+                value = flag_names[flag]
+            except KeyError as error:
+                raise ValueError("FLAG must be Critical, Miss, or Kill") from error
+        elif field == "MAGNITUDE":
+            if operator not in {"GTE", "LTE"}:
+                raise ValueError("MAGNITUDE requires GTE or LTE")
+            if isinstance(self.value, bool):
+                raise TypeError("magnitude threshold must be numeric")
+            try:
+                value = float(self.value)
+            except (TypeError, ValueError) as error:
+                raise TypeError("magnitude threshold must be numeric") from error
+            if not isfinite(value) or value < 0:
+                raise ValueError("magnitude threshold must be finite and non-negative")
+        else:
+            raise ValueError(
+                "field must be ANY, OWNER, SOURCE, TARGET, EVENT, TYPE, FLAG, MIN, or MAX")
+
+        object.__setattr__(self, "field", field)
+        object.__setattr__(self, "operator", operator)
+        object.__setattr__(self, "value", value)
+
+    @property
+    def display_label(self) -> str:
+        """Return a compact human-readable label suitable for an active-filter chip."""
+        if self.field == "MAGNITUDE":
+            comparison = "≥" if self.operator == "GTE" else "≤"
+            return f"|MAG| {comparison} {self.value:g}"
+        if self.field == "FLAG":
+            return f"FLAG: {self.value}"
+        if self.field == "TYPE" and self.operator == "EXACT":
+            return f"TYPE = {self.value}"
+        return f"{self.field}: {self.value}"
+
+    @property
+    def summary(self) -> str:
+        """Alias retained for consumers that call the chip text a summary."""
+        return self.display_label
+
+
+@dataclass(frozen=True, slots=True)
 class WorkbenchState:
     """The complete, default-off modifier state shared by all four Analysis modes."""
 
@@ -39,10 +141,20 @@ class WorkbenchState:
     target_query: str = ""
     event_query: str = ""
     text_query: str = ""
+    clauses: tuple[WorkbenchFilterClause, ...] = ()
     start_seconds: float | None = None
     end_seconds: float | None = None
 
     def __post_init__(self) -> None:
+        try:
+            clauses = tuple(self.clauses)
+        except TypeError as error:
+            raise TypeError(
+                "clauses must be an iterable of WorkbenchFilterClause values") from error
+        if not all(isinstance(clause, WorkbenchFilterClause) for clause in clauses):
+            raise TypeError("clauses must contain only WorkbenchFilterClause values")
+        object.__setattr__(self, "clauses", clauses)
+
         for field_name in ("start_seconds", "end_seconds"):
             value = getattr(self, field_name)
             if value is not None and (not isfinite(value) or value < 0):
@@ -60,6 +172,7 @@ class WorkbenchState:
             self.target_query.strip(),
             self.event_query.strip(),
             self.text_query.strip(),
+            bool(self.clauses),
             self.start_seconds is not None,
             self.end_seconds is not None,
         ))
@@ -164,6 +277,8 @@ class CombatEventIndex:
         self.flags = _readonly_text(line.flags for line in self.lines)
         self.magnitudes = _readonly_array(
             (line.magnitude for line in self.lines), np.float64)
+        self.absolute_magnitudes = _readonly_array(
+            (abs(line.magnitude) for line in self.lines), np.float64)
         self.magnitudes2 = _readonly_array(
             (line.magnitude2 for line in self.lines), np.float64)
 
@@ -174,6 +289,22 @@ class CombatEventIndex:
         self._source_search = _readonly_identity_text(self.source_names, self.source_ids)
         self._target_search = _readonly_identity_text(self.target_names, self.target_ids)
         self._event_search = _readonly_identity_text(self.event_names, self.event_ids)
+        self._type_search = _readonly_text(value.casefold() for value in self.event_types)
+        flag_tokens = tuple(
+            frozenset(
+                token.strip().casefold()
+                for token in value.split("|")
+                if token.strip()
+            )
+            for value in self.flags
+        )
+        self._flag_matches = tuple(
+            (
+                flag,
+                _readonly_array((flag in tokens for tokens in flag_tokens), np.bool_),
+            )
+            for flag in ("critical", "miss", "kill")
+        )
 
     def __len__(self) -> int:
         return len(self.lines)
@@ -206,6 +337,9 @@ class CombatEventIndex:
                 name_match |= np.char.find(column, free_text) >= 0
             mask &= name_match
 
+        for clause in state.clauses:
+            mask &= self._clause_mask(clause)
+
         if state.start_seconds is not None:
             mask &= self.elapsed_seconds >= state.start_seconds
         if state.end_seconds is not None:
@@ -213,6 +347,34 @@ class CombatEventIndex:
 
         mask.setflags(write=False)
         return WorkbenchQueryResult(self, state, mask)
+
+    def _clause_mask(self, clause: WorkbenchFilterClause) -> NDArray[np.bool_]:
+        identity_columns = {
+            "OWNER": self._owner_search,
+            "SOURCE": self._source_search,
+            "TARGET": self._target_search,
+            "EVENT": self._event_search,
+        }
+        if clause.field == "ANY":
+            matches = np.zeros(len(self), dtype=np.bool_)
+            needle = str(clause.value).casefold()
+            for column in identity_columns.values():
+                matches |= np.char.find(column, needle) >= 0
+            return matches
+        if clause.field in identity_columns:
+            needle = str(clause.value).casefold()
+            return np.char.find(identity_columns[clause.field], needle) >= 0
+        if clause.field == "TYPE":
+            needle = str(clause.value).casefold()
+            if clause.operator == "EXACT":
+                return self._type_search == needle
+            return np.char.find(self._type_search, needle) >= 0
+        if clause.field == "FLAG":
+            needle = str(clause.value).casefold()
+            return next(matches for flag, matches in self._flag_matches if flag == needle)
+        if clause.operator == "GTE":
+            return self.absolute_magnitudes >= float(clause.value)
+        return self.absolute_magnitudes <= float(clause.value)
 
 
 class WorkbenchIndexCache:
@@ -433,6 +595,15 @@ def _is_heal_line(line: LogLine) -> bool:
     )
 
 
+def _validated_clause_text(value, field: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"{field} value must be a string")
+    value = value.strip()
+    if not value:
+        raise ValueError(f"{field} value must not be empty")
+    return value
+
+
 def _readonly_text(values) -> NDArray[np.str_]:
     array = np.asarray(tuple(values), dtype=np.str_)
     array.setflags(write=False)
@@ -459,6 +630,7 @@ __all__ = (
     "derive_workbench_combat",
     "WorkbenchCombatView",
     "WorkbenchDataError",
+    "WorkbenchFilterClause",
     "WorkbenchIndexCache",
     "WorkbenchQueryResult",
     "WorkbenchState",

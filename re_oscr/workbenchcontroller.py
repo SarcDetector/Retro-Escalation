@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from math import isfinite
 
-from PySide6.QtCore import QObject, QSignalBlocker, Signal, Slot
+from PySide6.QtCore import QObject, QSignalBlocker, Qt, Signal, Slot
+from PySide6.QtWidgets import QPushButton
 
 from OSCR.combat import Combat
 
 from .workbench import (
     WorkbenchCombatView,
     WorkbenchDataError,
+    WorkbenchFilterClause,
     WorkbenchIndexCache,
     WorkbenchQueryResult,
     WorkbenchState,
@@ -25,6 +27,16 @@ class AnalysisWorkbenchController(QObject):
     state_changed = Signal(object, int, int)
     view_failed = Signal(str)
 
+    QUICK_FILTER_SCOPES = frozenset(("ANY", "OWNER", "SOURCE", "TARGET", "EVENT"))
+    BUILDER_FILTER_SCOPES = frozenset((
+        "TYPE", "FLAG", "MIN_MAGNITUDE", "MAX_MAGNITUDE"))
+    FILTER_PLACEHOLDERS = {
+        "TYPE": "TYPE, E.G. HITPOINTS",
+        "FLAG": "CRITICAL, MISS, OR KILL",
+        "MIN_MAGNITUDE": "MINIMUM ABSOLUTE MAGNITUDE",
+        "MAX_MAGNITUDE": "MAXIMUM ABSOLUTE MAGNITUDE",
+    }
+
     def __init__(self, parser, tables, widgets):
         super().__init__()
         self.parser = parser
@@ -36,6 +48,8 @@ class AnalysisWorkbenchController(QObject):
         self.current_result: WorkbenchQueryResult | None = None
         self.current_view: WorkbenchCombatView | None = None
         self._controls_attached = False
+        self._last_filter_scope = "ANY"
+        self._rendered_clauses: tuple[WorkbenchFilterClause, ...] = ()
         self.parser.combat_displayed.connect(self.bind_combat)
 
     def attach_controls(self) -> None:
@@ -44,9 +58,13 @@ class AnalysisWorkbenchController(QObject):
             return
         if self.widgets.analysis_filter_scope is not None:
             self.widgets.analysis_filter_scope.currentIndexChanged.connect(
-                self._apply_controls)
+                self._filter_scope_changed)
         if self.widgets.analysis_filter_entry is not None:
-            self.widgets.analysis_filter_entry.textChanged.connect(self._apply_controls)
+            self.widgets.analysis_filter_entry.textChanged.connect(
+                self._filter_text_changed)
+        if self.widgets.analysis_filter_add_button is not None:
+            self.widgets.analysis_filter_add_button.clicked.connect(
+                self.add_filter_clause)
         if self.widgets.analysis_start_entry is not None:
             self.widgets.analysis_start_entry.editingFinished.connect(self._apply_controls)
             self.widgets.analysis_start_entry.textChanged.connect(
@@ -58,6 +76,8 @@ class AnalysisWorkbenchController(QObject):
         if self.widgets.analysis_reset_button is not None:
             self.widgets.analysis_reset_button.clicked.connect(self.reset)
         self._controls_attached = True
+        self._last_filter_scope = self._selected_filter_scope()
+        self._update_filter_placeholder()
         self._update_controls(0, 0)
 
     @Slot(Combat)
@@ -85,6 +105,33 @@ class AnalysisWorkbenchController(QObject):
             del blocker
         self._apply_controls()
 
+    @Slot(int)
+    def _filter_scope_changed(self, _index: int) -> None:
+        """Move quick queries directly; isolate structured builder drafts."""
+        scope = self._selected_filter_scope()
+        crosses_builder = (
+            scope in self.BUILDER_FILTER_SCOPES
+            or self._last_filter_scope in self.BUILDER_FILTER_SCOPES
+        )
+        self._last_filter_scope = scope
+        if crosses_builder:
+            entry = self.widgets.analysis_filter_entry
+            if entry is not None and entry.text():
+                blocker = QSignalBlocker(entry)
+                entry.clear()
+                del blocker
+        self._update_filter_placeholder()
+        self._update_add_filter_button()
+        if crosses_builder or scope in self.QUICK_FILTER_SCOPES:
+            self._apply_controls()
+
+    @Slot(str)
+    def _filter_text_changed(self, _text: str) -> None:
+        """Apply quick search immediately; structured values wait for ADD FILTER."""
+        self._update_add_filter_button()
+        if self._selected_filter_scope() in self.QUICK_FILTER_SCOPES:
+            self._apply_controls()
+
     @Slot()
     @Slot(str)
     @Slot(int)
@@ -105,34 +152,40 @@ class AnalysisWorkbenchController(QObject):
 
     def _state_from_controls(self) -> WorkbenchState:
         """Read the entire modifier strip without mutating the active state."""
-        scope_widget = self.widgets.analysis_filter_scope
-        if scope_widget is None:
-            scope = "ANY"
-        else:
-            scope_data = scope_widget.currentData()
-            scope = str(scope_data if scope_data is not None else scope_widget.currentText())
-            scope = scope.strip().upper()
+        scope = self._selected_filter_scope()
 
-        if scope not in {"ANY", "OWNER", "SOURCE", "TARGET", "EVENT"}:
+        valid_scopes = self.QUICK_FILTER_SCOPES | self.BUILDER_FILTER_SCOPES
+        if scope not in valid_scopes:
             raise ValueError(f"unknown Analysis filter scope: {scope or 'empty'}")
 
-        entry = self.widgets.analysis_filter_entry
-        query = entry.text() if entry is not None else ""
-        query_fields = {
-            "owner_query": "",
-            "source_query": "",
-            "target_query": "",
-            "event_query": "",
-            "text_query": "",
-        }
-        field_for_scope = {
-            "ANY": "text_query",
-            "OWNER": "owner_query",
-            "SOURCE": "source_query",
-            "TARGET": "target_query",
-            "EVENT": "event_query",
-        }
-        query_fields[field_for_scope[scope]] = query
+        if scope in self.QUICK_FILTER_SCOPES:
+            entry = self.widgets.analysis_filter_entry
+            query = entry.text() if entry is not None else ""
+            query_fields = {
+                "owner_query": "",
+                "source_query": "",
+                "target_query": "",
+                "event_query": "",
+                "text_query": "",
+            }
+            field_for_scope = {
+                "ANY": "text_query",
+                "OWNER": "owner_query",
+                "SOURCE": "source_query",
+                "TARGET": "target_query",
+                "EVENT": "event_query",
+            }
+            query_fields[field_for_scope[scope]] = query
+        else:
+            # TYPE/FLAG/magnitude values are only drafts until ADD FILTER.  They
+            # must not hide a formerly-live quick query behind builder controls.
+            query_fields = {
+                "owner_query": "",
+                "source_query": "",
+                "target_query": "",
+                "event_query": "",
+                "text_query": "",
+            }
 
         start_seconds = self._optional_seconds(
             self.widgets.analysis_start_entry, "START")
@@ -144,9 +197,72 @@ class AnalysisWorkbenchController(QObject):
 
         return WorkbenchState(
             **query_fields,
+            clauses=self.state.clauses,
             start_seconds=start_seconds,
             end_seconds=end_seconds,
         )
+
+    def _selected_filter_scope(self) -> str:
+        scope_widget = self.widgets.analysis_filter_scope
+        if scope_widget is None:
+            return "ANY"
+        scope_data = scope_widget.currentData()
+        scope = scope_data if scope_data is not None else scope_widget.currentText()
+        return str(scope).strip().upper()
+
+    @Slot()
+    def add_filter_clause(self) -> None:
+        """Validate and commit the current builder value as a persistent predicate."""
+        entry = self.widgets.analysis_filter_entry
+        if self.source_combat is None or entry is None or not entry.text().strip():
+            self._update_add_filter_button()
+            return
+
+        scope = self._selected_filter_scope()
+        raw_value = entry.text()
+        try:
+            clause = WorkbenchFilterClause(scope, raw_value)
+            start_seconds = self._optional_seconds(
+                self.widgets.analysis_start_entry, "START")
+            end_seconds = self._optional_seconds(
+                self.widgets.analysis_end_entry, "END")
+            if (start_seconds is not None and end_seconds is not None
+                    and start_seconds > end_seconds):
+                raise ValueError("START must not be greater than END")
+            candidate = WorkbenchState(
+                clauses=(*self.state.clauses, clause),
+                start_seconds=start_seconds,
+                end_seconds=end_seconds,
+            )
+        except (TypeError, ValueError) as error:
+            # Keep the accepted display and the complete draft intact so the user
+            # can correct it in place.
+            self.view_failed.emit(str(error))
+            return
+
+        if not self.apply_state(candidate):
+            return
+
+        # The candidate view is already accepted.  Clearing the builder only now
+        # prevents its signals from creating a partial intermediate state.
+        controls = tuple(control for control in (
+            self.widgets.analysis_filter_scope,
+            self.widgets.analysis_filter_entry,
+        ) if control is not None)
+        blockers = [QSignalBlocker(control) for control in controls]
+        self._set_filter_scope_to_any()
+        entry.clear()
+        del blockers
+        self._update_add_filter_button()
+
+    @Slot(int)
+    def remove_filter_clause(self, index: int) -> None:
+        """Remove one accepted clause while preserving quick search and time cuts."""
+        if index < 0 or index >= len(self.state.clauses):
+            return
+        clauses = list(self.state.clauses)
+        del clauses[index]
+        self.apply_state(self.state.with_changes(clauses=tuple(clauses)))
 
     @staticmethod
     def _optional_seconds(entry, label: str) -> float | None:
@@ -212,15 +328,7 @@ class AnalysisWorkbenchController(QObject):
         ) if control is not None)
         blockers = [QSignalBlocker(control) for control in controls]
 
-        scope = self.widgets.analysis_filter_scope
-        if scope is not None:
-            any_index = scope.findData("ANY")
-            if any_index < 0:
-                any_index = scope.findText("ANY")
-            if any_index < 0 and scope.count():
-                any_index = 0
-            if any_index >= 0:
-                scope.setCurrentIndex(any_index)
+        self._set_filter_scope_to_any()
         for entry in (
                 self.widgets.analysis_filter_entry,
                 self.widgets.analysis_start_entry,
@@ -230,6 +338,28 @@ class AnalysisWorkbenchController(QObject):
 
         # Keep every blocker alive until all related controls hold a coherent reset state.
         del blockers
+        self._update_add_filter_button()
+
+    def _set_filter_scope_to_any(self) -> None:
+        scope = self.widgets.analysis_filter_scope
+        if scope is None:
+            return
+        any_index = scope.findData("ANY")
+        if any_index < 0:
+            any_index = scope.findText("ANY")
+        if any_index < 0 and scope.count():
+            any_index = 0
+        if any_index >= 0:
+            scope.setCurrentIndex(any_index)
+        self._last_filter_scope = "ANY"
+        self._update_filter_placeholder()
+
+    def _update_filter_placeholder(self) -> None:
+        entry = self.widgets.analysis_filter_entry
+        if entry is None:
+            return
+        entry.setPlaceholderText(self.FILTER_PLACEHOLDERS.get(
+            self._selected_filter_scope(), "SEARCH COMBAT EVENTS"))
 
     def _clear_plots(self) -> None:
         for plot in self.widgets.analysis_plots:
@@ -271,6 +401,56 @@ class AnalysisWorkbenchController(QObject):
             self.widgets.analysis_event_count_chip.setText(text)
         if self.widgets.analysis_reset_button is not None:
             self.widgets.analysis_reset_button.setEnabled(modified)
+        self._sync_clause_chips()
+        self._update_add_filter_button()
+
+    def _update_add_filter_button(self) -> None:
+        button = self.widgets.analysis_filter_add_button
+        if button is None:
+            return
+        entry = self.widgets.analysis_filter_entry
+        has_value = entry is not None and bool(entry.text().strip())
+        button.setEnabled(self.source_combat is not None and has_value)
+
+    def _sync_clause_chips(self) -> None:
+        """Rebuild removable chips from the single accepted state."""
+        layout = self.widgets.analysis_filter_clause_layout
+        row = self.widgets.analysis_filter_clause_row
+        if layout is None:
+            if row is not None:
+                row.setVisible(False)
+            self.widgets.analysis_filter_clause_buttons = []
+            return
+
+        clauses = tuple(self.state.clauses)
+        if clauses == self._rendered_clauses:
+            if row is not None:
+                row.setVisible(bool(clauses))
+            return
+
+        for button in self.widgets.analysis_filter_clause_buttons:
+            layout.removeWidget(button)
+            button.setParent(None)
+            button.deleteLater()
+
+        buttons = []
+        parent = self.widgets.analysis_filter_clause_container
+        for index, clause in enumerate(clauses):
+            button = QPushButton(f"{clause.display_label}  X", parent)
+            button.setObjectName(f"analysisWorkbenchClause{index}")
+            button.setProperty("consoleRole", "filterClauseChip")
+            button.setToolTip(f"Remove filter: {clause.display_label}")
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            button.clicked.connect(
+                lambda _checked=False, clause_index=index:
+                self.remove_filter_clause(clause_index))
+            layout.addWidget(button)
+            buttons.append(button)
+
+        self.widgets.analysis_filter_clause_buttons = buttons
+        self._rendered_clauses = clauses
+        if row is not None:
+            row.setVisible(bool(buttons))
 
 
 __all__ = ("AnalysisWorkbenchController",)
