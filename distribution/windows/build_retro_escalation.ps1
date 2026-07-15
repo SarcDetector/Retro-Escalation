@@ -10,7 +10,7 @@ $python = Join-Path $repoRoot '.venv\Scripts\python.exe'
 $workRoot = Join-Path $repoRoot '.artifacts\pyinstaller'
 $appName = 'RE-OSCR'
 $appOutput = Join-Path $OutputRoot $appName
-$version = '11.1.0.dev9+re.oscr'
+$version = '11.1.0.dev10+re.oscr'
 $assetsData = "$(Join-Path $repoRoot 'assets');assets"
 $localesData = "$(Join-Path $repoRoot 'locales');locales"
 $themeAssetsData = "$(Join-Path $repoRoot 'theme_assets');theme_assets"
@@ -65,10 +65,17 @@ Copy-Item `
     -Force
 
 $commit = (& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot rev-parse HEAD).Trim()
+$workingTree = if (& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot diff --quiet) {
+    'clean'
+}
+else {
+    'uncommitted changes included'
+}
 $buildInfo = @"
 RE-OSCR - Retro Escalation $version
 OSCR-UI baseline: 11.1.0
 Commit: $commit
+Working tree: $workingTree
 Built: $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))
 
 Experimental, unofficial community development build.

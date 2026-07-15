@@ -902,9 +902,12 @@ class OverviewTableView(QTableView):
     def setModel(self, model) -> None:
         self._disconnect_model()
         super().setModel(model)
-        self._frozen_view.setModel(model)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is None:
+            return
+        frozen.setModel(model)
         if self.selectionModel() is not None:
-            self._frozen_view.setSelectionModel(self.selectionModel())
+            frozen.setSelectionModel(self.selectionModel())
         self._connect_model(model)
         self._apply_column_visibility()
         self._configure_frozen_columns()
@@ -1149,6 +1152,17 @@ class AnalysisTreeDelegate(QStyledItemDelegate):
             display_option.palette.setBrush(role, brush)
         display_option.palette.setColor(
             QPalette.ColorRole.HighlightedText, QColor(TEXT["primary"]))
+        actor_group_label = (
+            self._actor_group_label(index)
+            if index.column() == AnalysisTreeView.IDENTITY_COLUMN else None
+        )
+        if actor_group_label is not None:
+            display_option.text = actor_group_label
+            display_option.font.setBold(True)
+            display_option.palette.setColor(
+                QPalette.ColorRole.Text, self._owner.analysis_accent_color)
+            display_option.palette.setColor(
+                QPalette.ColorRole.WindowText, self._owner.analysis_accent_color)
 
         style = (
             display_option.widget.style()
@@ -1173,10 +1187,30 @@ class AnalysisTreeDelegate(QStyledItemDelegate):
                 self._owner.analysis_spine_width, option.rect.height()))
             painter.restore()
 
+    @staticmethod
+    def _actor_group_label(index: QModelIndex) -> str | None:
+        """Present parser actor buckets as useful group headers without editing them."""
+        if index.parent().isValid():
+            return None
+        source = str(index.data(Qt.ItemDataRole.DisplayRole) or '').strip().lower()
+        model = index.model()
+        if model is None or model.rowCount(index) == 0:
+            return None
+        if source == 'player':
+            label = 'PLAYER' if model.rowCount(index) == 1 else 'PLAYERS'
+        elif source == 'npc':
+            label = 'NPC'
+        else:
+            return None
+        count = model.rowCount(index)
+        return f'{label} // {count} SOURCE' + ('' if count == 1 else 'S')
+
     def _row_background(self, index: QModelIndex, selected: bool) -> QColor:
         depth = self._depth(index)
         surface = SURFACES["raised"] if depth == 0 else SURFACES["base"]
         ratio = max(0.035, 0.10 - depth * 0.025)
+        if self._actor_group_label(index) is not None:
+            ratio = max(ratio, 0.15)
         if self._is_expanded_parent(index):
             ratio += 0.09
         if selected:
@@ -1571,11 +1605,340 @@ class AnalysisTreeView(QTreeView):
         self._queue_geometry_update()
 
 
+class LeagueStandingsDelegate(QStyledItemDelegate):
+    """Token-driven ranked ladder presentation over the existing League sorter."""
+
+    def __init__(self, tokens: ConsoleTokens, owner: "LeagueStandingsTableView"):
+        super().__init__(owner)
+        self._tokens = tokens
+        self._owner = owner
+        self._meter_enabled = True
+
+    def set_tokens(self, tokens: ConsoleTokens) -> None:
+        self._tokens = tokens
+
+    def set_meter_enabled(self, enabled: bool) -> None:
+        self._meter_enabled = bool(enabled)
+
+    def sizeHint(self, option: QStyleOptionViewItem, index: QModelIndex) -> QSize:
+        hint = super().sizeHint(option, index)
+        target = px(34 if self._meter_enabled else 28, self._tokens.scale)
+        return QSize(hint.width(), max(hint.height(), target))
+
+    def paint(
+            self, painter: QPainter, option: QStyleOptionViewItem,
+            index: QModelIndex) -> None:
+        display_option = QStyleOptionViewItem(option)
+        self.initStyleOption(display_option, index)
+        selected = bool(display_option.state & QStyle.StateFlag.State_Selected)
+        base = SURFACES["raised"] if index.row() % 2 == 0 else SURFACES["base"]
+        if selected:
+            base = blend(self._tokens.accents[2], base, 0.20)
+        display_option.backgroundBrush = QBrush(QColor(base))
+        for role in (
+                QPalette.ColorRole.Base,
+                QPalette.ColorRole.AlternateBase,
+                QPalette.ColorRole.Highlight):
+            display_option.palette.setBrush(role, display_option.backgroundBrush)
+
+        if self._meter_enabled and index.column() == LeagueStandingsTableView.DPS_COLUMN:
+            fraction = self._dps_fraction(index)
+            meter = QColor(blend(
+                self._tokens.accents[2], base, 0.12 + (0.20 * fraction)))
+            painter.save()
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(meter)
+            painter.drawRect(QRect(
+                option.rect.left(), option.rect.top(),
+                round(option.rect.width() * fraction), option.rect.height()))
+            painter.restore()
+
+        if index.column() == LeagueStandingsTableView.NAME_COLUMN:
+            display_option.font.setFamily("Overpass")
+            display_option.font.setWeight(QFont.Weight.DemiBold)
+            display_option.palette.setColor(QPalette.ColorRole.Text, QColor(TEXT["primary"]))
+        elif index.column() == LeagueStandingsTableView.HANDLE_COLUMN:
+            display_option.font.setFamily("Roboto Mono")
+            display_option.palette.setColor(QPalette.ColorRole.Text, QColor(TEXT["muted"]))
+
+        style = (
+            display_option.widget.style()
+            if display_option.widget is not None else QApplication.style())
+        style.drawControl(
+            QStyle.ControlElement.CE_ItemViewItem,
+            display_option, painter, display_option.widget)
+
+        if index.column() == LeagueStandingsTableView.NAME_COLUMN:
+            painter.save()
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(self._tokens.accents[2]))
+            painter.drawRect(QRect(
+                option.rect.left(), option.rect.top(), px(3, self._tokens.scale),
+                option.rect.height()))
+            painter.restore()
+
+    def _dps_fraction(self, index: QModelIndex) -> float:
+        maximum = 0.0
+        model = index.model()
+        if model is None:
+            return 0.0
+        for row in range(model.rowCount()):
+            maximum = max(maximum, self._raw_dps(model.index(row, index.column())))
+        if maximum <= 0:
+            return 0.0
+        return min(1.0, self._raw_dps(index) / maximum)
+
+    @staticmethod
+    def _raw_dps(index: QModelIndex) -> float:
+        model = index.model()
+        if model is None:
+            return 0.0
+        try:
+            source_index = model.mapToSource(index)
+            source_model = model.sourceModel()
+            return float(source_model._data[source_index.row()][index.column()])
+        except (AttributeError, IndexError, TypeError, ValueError):
+            return 0.0
+
+
+class LeagueStandingsTableView(QTableView):
+    """League grid with rank header and synchronized frozen Name/Handle identity."""
+
+    NAME_COLUMN = 0
+    HANDLE_COLUMN = 1
+    DPS_COLUMN = 2
+    IDENTITY_COLUMNS = (NAME_COLUMN, HANDLE_COLUMN)
+
+    def __init__(self, tokens: ConsoleTokens, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._tokens = tokens
+        self._model_connections: list[tuple[object, object]] = []
+        self._syncing_rows = False
+        self._delegate = LeagueStandingsDelegate(tokens, self)
+        self.setObjectName("leagueStandingsTable")
+        self.setProperty("consoleRole", "leagueTable")
+        self.setShowGrid(False)
+        self.setAlternatingRowColors(False)
+        self.setWordWrap(False)
+        self.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.horizontalHeader().setSectionsClickable(True)
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.horizontalHeader().setStretchLastSection(False)
+        self.horizontalHeader().setSortIndicatorShown(True)
+        self.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        self.verticalHeader().setDefaultSectionSize(px(34, tokens.scale))
+        self.setSortingEnabled(True)
+        self.setItemDelegate(self._delegate)
+
+        frozen = QTableView(self)
+        frozen.setObjectName("leagueFrozenIdentityTable")
+        frozen.setProperty("consoleRole", "leagueTable")
+        frozen.setProperty("frozenIdentity", True)
+        frozen.setFrameShape(QFrame.Shape.NoFrame)
+        frozen.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        frozen.setShowGrid(False)
+        frozen.setAlternatingRowColors(False)
+        frozen.setWordWrap(False)
+        frozen.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        frozen.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        frozen.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        frozen.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        frozen.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        frozen.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        frozen.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        frozen.horizontalHeader().setSectionsClickable(True)
+        frozen.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        frozen.horizontalHeader().setStretchLastSection(False)
+        frozen.horizontalHeader().setSortIndicatorShown(True)
+        frozen.verticalHeader().hide()
+        frozen.setItemDelegate(self._delegate)
+        self._frozen_view = frozen
+        self.viewport().stackUnder(frozen)
+
+        self.horizontalHeader().sectionResized.connect(self._main_section_resized)
+        self.horizontalHeader().geometriesChanged.connect(self._queue_geometry_update)
+        self.verticalHeader().geometriesChanged.connect(self._queue_geometry_update)
+        self.verticalHeader().sectionResized.connect(self._main_row_resized)
+        frozen.verticalHeader().sectionResized.connect(self._frozen_row_resized)
+        self.horizontalHeader().sortIndicatorChanged.connect(
+            frozen.horizontalHeader().setSortIndicator)
+        frozen.horizontalHeader().sectionClicked.connect(self._frozen_section_clicked)
+        self.verticalScrollBar().valueChanged.connect(frozen.verticalScrollBar().setValue)
+        frozen.verticalScrollBar().valueChanged.connect(self.verticalScrollBar().setValue)
+        frozen.show()
+
+    @property
+    def frozen_view(self) -> QTableView:
+        return self._frozen_view
+
+    def setModel(self, model) -> None:
+        self._disconnect_model()
+        super().setModel(model)
+        self._frozen_view.setModel(model)
+        if self.selectionModel() is not None:
+            self._frozen_view.setSelectionModel(self.selectionModel())
+        self._connect_model(model)
+        self._configure_frozen_columns()
+        self.resizeRowsToContents()
+        self._queue_geometry_update()
+
+    def setSelectionModel(self, selection_model) -> None:
+        super().setSelectionModel(selection_model)
+        frozen = getattr(self, "_frozen_view", None)
+        if frozen is not None and selection_model is not None:
+            frozen.setSelectionModel(selection_model)
+
+    def set_tokens(self, tokens: ConsoleTokens) -> None:
+        self._tokens = tokens
+        self._delegate.set_tokens(tokens)
+        self.verticalHeader().setDefaultSectionSize(px(34, tokens.scale))
+        self.resizeRowsToContents()
+        self.viewport().update()
+        self._frozen_view.viewport().update()
+
+    def set_meter_mode(self, enabled: bool) -> None:
+        self._delegate.set_meter_enabled(enabled)
+        self.resizeRowsToContents()
+        self.viewport().update()
+        self._frozen_view.viewport().update()
+
+    def meter_mode(self) -> bool:
+        return self._delegate._meter_enabled
+
+    def resizeColumnsToContents(self) -> None:
+        super().resizeColumnsToContents()
+        self._sync_identity_widths()
+        self._queue_geometry_update()
+
+    def resizeRowsToContents(self) -> None:
+        super().resizeRowsToContents()
+        model = self.model()
+        if model is not None:
+            for row in range(model.rowCount()):
+                self._sync_row_height(row, self.rowHeight(row), self._frozen_view)
+        self._queue_geometry_update()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self.update_frozen_geometry()
+
+    def update_frozen_geometry(self) -> None:
+        model = self.model()
+        if model is None or model.columnCount() == 0:
+            self._frozen_view.hide()
+            return
+        self._sync_identity_widths()
+        header_height = self.horizontalHeader().height()
+        frozen_header = self._frozen_view.horizontalHeader()
+        if frozen_header.height() != header_height:
+            frozen_header.setFixedHeight(header_height)
+            self._frozen_view.updateGeometries()
+        self._frozen_view.setGeometry(
+            self.verticalHeader().width() + self.frameWidth(),
+            self.frameWidth(),
+            self._identity_width(),
+            self.viewport().height() + header_height,
+        )
+        self._frozen_view.show()
+
+    setTokens = set_tokens
+    setMeterMode = set_meter_mode
+    updateFrozenGeometry = update_frozen_geometry
+
+    def _connect_model(self, model) -> None:
+        if model is None:
+            return
+        for signal in (model.modelReset, model.columnsInserted, model.columnsRemoved):
+            signal.connect(self._model_structure_changed)
+            self._model_connections.append((signal, self._model_structure_changed))
+        model.layoutChanged.connect(self._model_layout_changed)
+        self._model_connections.append((model.layoutChanged, self._model_layout_changed))
+
+    def _disconnect_model(self) -> None:
+        for signal, slot in self._model_connections:
+            try:
+                signal.disconnect(slot)
+            except (RuntimeError, TypeError):
+                pass
+        self._model_connections.clear()
+
+    def _model_structure_changed(self, *_args) -> None:
+        self._configure_frozen_columns()
+        self.resizeRowsToContents()
+        self._queue_geometry_update()
+
+    def _model_layout_changed(self, *_args) -> None:
+        self._configure_frozen_columns()
+        self._queue_geometry_update()
+
+    def _configure_frozen_columns(self) -> None:
+        model = self.model()
+        if model is None:
+            return
+        for column in range(model.columnCount()):
+            self._frozen_view.setColumnHidden(column, column not in self.IDENTITY_COLUMNS)
+        self._sync_identity_widths()
+
+    def _main_section_resized(self, logical: int, _old: int, new: int) -> None:
+        if logical not in self.IDENTITY_COLUMNS:
+            return
+        if self._frozen_view.columnWidth(logical) != new:
+            self._frozen_view.setColumnWidth(logical, new)
+        self.update_frozen_geometry()
+
+    def _sync_identity_widths(self) -> None:
+        model = self.model()
+        if model is None:
+            return
+        for column in self.IDENTITY_COLUMNS:
+            if column < model.columnCount() and (
+                    self._frozen_view.columnWidth(column) != self.columnWidth(column)):
+                self._frozen_view.setColumnWidth(column, self.columnWidth(column))
+
+    def _identity_width(self) -> int:
+        return sum(self.columnWidth(column) for column in self.IDENTITY_COLUMNS)
+
+    def _main_row_resized(self, row: int, _old: int, new: int) -> None:
+        self._sync_row_height(row, new, self._frozen_view)
+
+    def _frozen_row_resized(self, row: int, _old: int, new: int) -> None:
+        self._sync_row_height(row, new, self)
+
+    def _sync_row_height(self, row: int, height: int, target: QTableView) -> None:
+        if self._syncing_rows or target.rowHeight(row) == height:
+            return
+        self._syncing_rows = True
+        try:
+            target.setRowHeight(row, height)
+        finally:
+            self._syncing_rows = False
+
+    def _frozen_section_clicked(self, logical: int) -> None:
+        current = self.horizontalHeader().sortIndicatorSection()
+        order = self.horizontalHeader().sortIndicatorOrder()
+        if logical == current:
+            order = (
+                Qt.SortOrder.DescendingOrder
+                if order == Qt.SortOrder.AscendingOrder else Qt.SortOrder.AscendingOrder)
+        else:
+            order = Qt.SortOrder.AscendingOrder
+        self.sortByColumn(logical, order)
+
+    def _queue_geometry_update(self) -> None:
+        QTimer.singleShot(0, self.update_frozen_geometry)
+
+
 __all__ = (
     "BarFractionRole",
     "FormattedMagnitudeRole",
     "IdentityRole",
     "AnalysisTreeView",
+    "LeagueStandingsDelegate",
+    "LeagueStandingsTableView",
     "OverviewDisplayProxy",
     "OverviewMeterDelegate",
     "OverviewTableView",

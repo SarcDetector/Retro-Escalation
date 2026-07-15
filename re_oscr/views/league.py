@@ -2,12 +2,12 @@
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QFrame, QGridLayout, QHBoxLayout, QLabel, QSizePolicy, QTableView, QVBoxLayout)
+    QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+    QSizePolicy, QTableView, QVBoxLayout,
+)
 
-from ..themes.command_console import command_console_accents
 from ..translation import tr
-from ..widgetbuilder import (
-    AVCENTER, create_button_series, create_entry, create_frame)
+from ..widgetbuilder import AVCENTER, create_button_series, create_entry
 
 
 class LeagueView:
@@ -23,74 +23,58 @@ class LeagueView:
         self.sidebar = sidebar
         self.clear_filter_callback = clear_filter_callback
         self.command_console = command_console
-        self.accents = command_console_accents(theme)
+        self._command_status: QLabel | None = None
 
     def build(self, parent_frame: QFrame) -> None:
         layout = QVBoxLayout()
         if self.command_console:
-            margin = round(12 * self.theme.scale)
-            layout.setContentsMargins(margin, margin, margin, margin)
-            layout.setSpacing(round(10 * self.theme.scale))
-            layout.addWidget(self._build_heading())
+            from ..console.tokens import px
+
+            layout.setContentsMargins(*([px(12, self.theme.scale)] * 4))
+            layout.setSpacing(px(10, self.theme.scale))
+            layout.addWidget(self._build_command_heading())
+            layout.addWidget(self._build_command_controls())
+            ladder_table = self._build_table()
+            layout.addWidget(self._build_table_panel(ladder_table), 1)
         else:
             spacing = self.theme['defaults']['csp']
             layout.setContentsMargins(0, spacing, 0, spacing)
             layout.setSpacing(spacing)
-
-        ladder_table = self._build_table()
-        if self.command_console:
-            layout.addWidget(self._build_table_panel(ladder_table), 1)
-            layout.addWidget(self._build_command_controls())
-        else:
+            ladder_table = self._build_table()
             layout.addWidget(ladder_table, stretch=1)
             layout.addLayout(self._build_default_controls())
         parent_frame.setLayout(layout)
 
-    def _build_heading(self) -> QFrame:
-        frame = QFrame()
-        frame.setObjectName('commandConsoleLeagueHeading')
-        frame.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        frame.setFixedHeight(round(76 * self.theme.scale))
-        frame.setStyleSheet(
-            'QFrame#commandConsoleLeagueHeading {'
-            f'background-color: transparent; border: none; border-left: 5px solid {self.accents[2]};}}')
-        layout = QHBoxLayout()
-        layout.setContentsMargins(round(15 * self.theme.scale), 0, 0, 0)
-        layout.setSpacing(round(12 * self.theme.scale))
+    def _build_command_heading(self) -> QFrame:
+        from ..console.components import cap_line, chip
 
-        title_layout = QVBoxLayout()
-        title_layout.setContentsMargins(0, 0, 0, 0)
-        title_layout.setSpacing(round(3 * self.theme.scale))
-        eyebrow = QLabel('PUBLIC LEAGUE // VERIFIED COMBAT RECORDS')
-        eyebrow.setObjectName('commandConsoleLeagueEyebrow')
-        eyebrow.setStyleSheet(
-            'color: #77dbe2; background: transparent; border: none;'
-            f'font-family: Roboto Mono; font-size: {round(9 * self.theme.scale)}px;')
-        title_layout.addWidget(eyebrow)
-        title = QLabel('LEAGUE STANDINGS')
-        title.setObjectName('commandConsoleLeagueTitle')
-        title.setStyleSheet(
-            'color: #f4efe6; background: transparent; border: none;'
-            f'font-family: Overpass; font-size: {round(25 * self.theme.scale)}px; font-weight: 700;')
-        title_layout.addWidget(title)
-        layout.addLayout(title_layout, 1)
-
-        readout = QLabel('NETWORK  LEAGUE API\nSOURCE   COMMUNITY RECORDS')
-        readout.setObjectName('commandConsoleLeagueReadout')
-        readout.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        readout.setStyleSheet(
-            'color: #85d997; background: transparent; border: none;'
-            f'font-family: Roboto Mono; font-size: {round(9 * self.theme.scale)}px; font-weight: 600;')
-        layout.addWidget(readout)
-        frame.setLayout(layout)
-        return frame
+        heading = cap_line(
+            self.theme.scale, 'commandConsoleLeagueHeading',
+            'PUBLIC LEAGUE // COMMUNITY COMBAT RECORDS', 'LEAGUE STANDINGS', 2)
+        heading.eyebrow.setObjectName('commandConsoleLeagueEyebrow')
+        heading.title.setObjectName('commandConsoleLeagueTitle')
+        status = chip('AWAITING SEASON', 'commandConsoleLeagueStatus')
+        status.setProperty('consoleRole', 'leagueStatus')
+        status.setToolTip('Select a season to retrieve its available ladders')
+        heading.body_layout.addWidget(status)
+        self._command_status = status
+        self.widgets.league_status = status
+        return heading.frame
 
     def _build_table(self) -> QTableView:
-        ladder_table = QTableView()
-        ladder_table.setObjectName('leagueStandingsTable')
-        table_style = {'border-style': 'solid', 'border-width': '@bw', 'border-color': '@bc'}
-        self.tables.style_table(ladder_table, table_style, single_row_selection=True)
+        if self.command_console:
+            from ..console.tables import LeagueStandingsTableView
+            from ..console.tokens import ConsoleTokens
+
+            ladder_table = LeagueStandingsTableView(ConsoleTokens.from_theme(self.theme))
+        else:
+            ladder_table = QTableView()
+            ladder_table.setObjectName('leagueStandingsTable')
+            table_style = {
+                'border-style': 'solid', 'border-width': '@bw', 'border-color': '@bc'}
+            self.tables.style_table(ladder_table, table_style, single_row_selection=True)
+        if self.command_console:
+            ladder_table.setMeterMode(True)
         ladder_table.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.league.ladder_table_model.init_fonts(
@@ -101,19 +85,130 @@ class LeagueView:
         return ladder_table
 
     def _build_table_panel(self, ladder_table: QTableView) -> QFrame:
-        panel = create_frame(self.theme)
-        panel.setObjectName('commandConsoleLeagueTablePanel')
-        panel.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        panel.setStyleSheet(
-            'QFrame#commandConsoleLeagueTablePanel {'
-            'background-color: #0e161d; border: 1px solid #293944; border-radius: 12px;}')
-        layout = QVBoxLayout()
-        margin = round(7 * self.theme.scale)
-        layout.setContentsMargins(margin, margin, margin, margin)
-        layout.addWidget(ladder_table)
-        panel.setLayout(layout)
-        return panel
+        if not self.command_console:
+            return ladder_table
+        from ..console.components import action_button, embedded_panel
+
+        panel = embedded_panel(
+            self.theme.scale, 'commandConsoleLeagueTablePanel',
+            'RANKED RECORDS // NAME, HANDLE, DPS', 'LADDER STANDINGS', 2)
+        meters = action_button('METERS', 'leagueMetersButton', 2)
+        meters.setCheckable(True)
+        meters.setChecked(True)
+        meters.setProperty('toggleAction', True)
+        meters.setProperty('visualActive', True)
+        meters.clicked.connect(
+            lambda checked: self._set_league_meters(ladder_table, meters, checked))
+        open_selected = action_button('OPEN SELECTED', 'leagueOpenSelectedButton', 2, primary=True)
+        open_selected.clicked.connect(self.league.download_and_view_combat)
+        save_selected = action_button('SAVE SELECTED', 'leagueSaveSelectedButton', 2)
+        save_selected.clicked.connect(self.league.download_and_save_combat)
+        load_more = action_button('LOAD MORE', 'leagueLoadMoreButton', 2)
+        load_more.clicked.connect(self.league.extend_ladder)
+        for action in (meters, open_selected, save_selected, load_more):
+            panel.cap.layout().addWidget(action)
+        self.widgets.league_open_parse_button = open_selected
+        self.widgets.league_save_parse_button = save_selected
+        self.widgets.league_more_button = load_more
+        panel.body_layout.addWidget(ladder_table)
+        return panel.frame
+
+    def _build_command_controls(self) -> QFrame:
+        from ..console.components import action_button, capped_panel
+        from ..console.tokens import px
+
+        panel = capped_panel(
+            self.theme.scale, 'commandConsoleLeagueControlDeck',
+            'LADDER COMMAND // SEASON, MAP, FILTER', 'SELECT PUBLIC RECORDS', 2)
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(px(10, self.theme.scale))
+        grid.setVerticalSpacing(px(5, self.theme.scale))
+        grid.setColumnStretch(1, 1)
+        grid.setColumnStretch(3, 1)
+
+        grid.addWidget(self._command_label('SEASON'), 0, 0)
+        season = QComboBox()
+        season.setObjectName('commandConsoleLeagueSeason')
+        season.setProperty('consoleRole', 'compactCombo')
+        season.setProperty('accentIndex', '2')
+        season.setMinimumWidth(px(160, self.theme.scale))
+        season.currentTextChanged.connect(self.league.update_seasonal_records)
+        season.currentTextChanged.connect(self._season_selected)
+        grid.addWidget(season, 1, 0)
+        self.widgets.variant_combo = season
+
+        grid.addWidget(self._command_label('FILTER HANDLE'), 0, 1)
+        search = QLineEdit()
+        search.setObjectName('leagueSearchEntry')
+        search.setProperty('consoleRole', 'leagueSearch')
+        search.setPlaceholderText(tr('name@handle'))
+        search.setClearButtonEnabled(True)
+        search.textChanged.connect(
+            lambda text: setattr(self.league, 'current_filter_term', text))
+        grid.addWidget(search, 1, 1)
+        self.widgets.ladder_search = search
+
+        search_actions = QHBoxLayout()
+        search_actions.setContentsMargins(0, 0, 0, 0)
+        search_actions.setSpacing(px(6, self.theme.scale))
+        search_button = action_button('SEARCH', 'leagueSearchButton', 2, primary=True)
+        search_button.clicked.connect(self.league.search_league_table)
+        clear_button = action_button('RESET', 'leagueClearButton', 2)
+        clear_button.clicked.connect(self.clear_filter_callback)
+        open_local = action_button('OPEN LOCAL', 'leagueOpenLocalButton', 2)
+        open_local.clicked.connect(self.sidebar.browse_and_analyze_log)
+        search_actions.addWidget(search_button)
+        search_actions.addWidget(clear_button)
+        search_actions.addWidget(open_local)
+        grid.addLayout(search_actions, 1, 2)
+        self.widgets.league_search_button = search_button
+        self.widgets.league_clear_button = clear_button
+        self.widgets.league_open_local_button = open_local
+
+        grid.addWidget(self._command_label('AVAILABLE LADDERS'), 2, 0, 1, 3)
+        ladders = QListWidget()
+        ladders.setObjectName('commandConsoleLeagueLadders')
+        ladders.setProperty('consoleRole', 'leagueSelector')
+        ladders.setCursor(Qt.CursorShape.PointingHandCursor)
+        ladders.setMinimumHeight(px(70, self.theme.scale))
+        ladders.setMaximumHeight(px(100, self.theme.scale))
+        ladders.itemClicked.connect(self.league.show_ladder)
+        ladders.itemClicked.connect(self._ladder_selected)
+        grid.addWidget(ladders, 3, 0, 1, 3)
+        self.widgets.ladder_selector = ladders
+
+        panel.body_layout.addLayout(grid)
+        return panel.frame
+
+    def _command_label(self, text: str) -> QLabel:
+        label = QLabel(text)
+        label.setProperty('consoleRole', 'eyebrow')
+        return label
+
+    def _season_selected(self, season: str) -> None:
+        if not season:
+            self._set_command_status('AWAITING SEASON')
+            return
+        self._set_command_status(f'SEASON // {season.upper()}')
+
+    def _ladder_selected(self, ladder) -> None:
+        difficulty = getattr(ladder, 'difficulty', None)
+        suffix = f' // {difficulty.upper()}' if difficulty else ''
+        self._set_command_status(f'LADDER // {ladder.text().upper()}{suffix}')
+
+    def _set_command_status(self, text: str) -> None:
+        if self._command_status is None:
+            return
+        self._command_status.setText(text)
+        self._command_status.setToolTip(text.replace(' // ', ': '))
+
+    @staticmethod
+    def _set_league_meters(table, button, enabled: bool) -> None:
+        table.setMeterMode(enabled)
+        button.setProperty('visualActive', bool(enabled))
+        from ..console.tokens import refresh_style
+        refresh_style(button, descendants=False)
 
     def _create_search_bar(self):
         search_bar = create_entry(
@@ -167,78 +262,3 @@ class LeagueView:
         action_layout, _ = self._create_action_buttons()
         controls.addLayout(action_layout, 0, 3, alignment=AVCENTER)
         return controls
-
-    def _build_command_controls(self) -> QFrame:
-        deck = QFrame()
-        deck.setObjectName('commandConsoleLeagueControlDeck')
-        deck.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        deck.setMinimumHeight(round(120 * self.theme.scale))
-        deck.setStyleSheet(
-            'QFrame#commandConsoleLeagueControlDeck {'
-            'background-color: #0b1116; border: 1px solid #293944; border-radius: 12px;}')
-        layout = QGridLayout()
-        margin = round(9 * self.theme.scale)
-        layout.setContentsMargins(margin, margin, margin, margin)
-        layout.setHorizontalSpacing(round(9 * self.theme.scale))
-        layout.setVerticalSpacing(round(7 * self.theme.scale))
-        layout.setColumnStretch(1, 1)
-
-        filter_label = self._build_control_label('FILTER RECORDS', self.accents[0])
-        layout.addWidget(filter_label, 0, 0)
-        search_bar = self._create_search_bar()
-        search_bar.setMinimumWidth(round(250 * self.theme.scale))
-        layout.addWidget(search_bar, 0, 1)
-        search_layout, search_buttons = self._create_search_buttons(separator='')
-        search_layout.setSpacing(round(7 * self.theme.scale))
-        search_buttons[0].setText('SEARCH')
-        search_buttons[1].setText('RESET')
-        for button, accent in zip(search_buttons, self.accents[:2]):
-            button.setMinimumHeight(round(34 * self.theme.scale))
-            button.setSizePolicy(
-                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            button.setStyleSheet(self._command_button_style(accent))
-        layout.addLayout(search_layout, 0, 2)
-
-        action_label = self._build_control_label('PARSE OPERATIONS', self.accents[2])
-        layout.addWidget(action_label, 1, 0)
-        action_layout, action_buttons = self._create_action_buttons(separator='')
-        action_layout.setSpacing(round(7 * self.theme.scale))
-        labels = ('OPEN LOCAL', 'OPEN SELECTED', 'SAVE SELECTED', 'LOAD MORE')
-        accents = (
-            self.accents[3], self.accents[0], self.accents[2], self.accents[4])
-        for button, label, accent in zip(action_buttons, labels, accents):
-            button.setText(label)
-            button.setMinimumHeight(round(34 * self.theme.scale))
-            button.setSizePolicy(
-                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            button.setStyleSheet(self._command_button_style(accent))
-        layout.addLayout(action_layout, 1, 1, 1, 2)
-
-        deck.setLayout(layout)
-        return deck
-
-    def _build_control_label(self, text: str, accent: str) -> QLabel:
-        label = QLabel(text)
-        label.setStyleSheet(
-            f'color: {accent}; background: transparent; border: none;'
-            f'font-family: Roboto Mono; font-size: {round(10 * self.theme.scale)}px;'
-            'font-weight: 600;')
-        return label
-
-    def _command_button_style(self, accent: str) -> str:
-        large = round(14 * self.theme.scale)
-        small = round(3 * self.theme.scale)
-        font_size = round(10 * self.theme.scale)
-        return (
-            'QPushButton {'
-            'background-color: #111b22; color: #dce6ea;'
-            f'border: 1px solid {accent}; border-bottom: 4px solid #141b20;'
-            f'border-top-left-radius: {large}px; border-top-right-radius: {small}px;'
-            f'border-bottom-right-radius: {large}px; border-bottom-left-radius: {small}px;'
-            'padding: 6px 12px;'
-            f'font-family: Overpass; font-size: {font_size}px; font-weight: 700;}}'
-            f'QPushButton:hover {{background-color: {accent}; color: #11171b;'
-            'border-bottom-color: #273039;}'
-            f'QPushButton:pressed {{background-color: {accent}; color: #ffffff;}}'
-            'QPushButton:disabled {color: #60727c; border-color: #35444d;}')

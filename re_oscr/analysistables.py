@@ -11,6 +11,23 @@ from .translation import tr
 from .widgetbuilder import RCONTENT, RFIXED, SMINMIN, SMPIXEL
 
 
+ANALYSIS_DISPLAY_LENSES = ('CORE', 'EVENTS', 'DETAIL', 'ALL')
+
+# Parser-owned metric column numbers.  These lenses only control which existing
+# view columns are visible; the underlying ``TreeModel`` and copied data remain
+# unchanged.  ALL deliberately defers to the user's existing Settings choices.
+_DAMAGE_LENS_COLUMNS = {
+    'CORE': frozenset((1, 2, 3, 4, 5, 6, 8, 19)),
+    'EVENTS': frozenset((1, 6, 7, 8, 9, 10, 11, 12, 19)),
+    'DETAIL': frozenset((1, 2, 13, 14, 15, 16, 17, 18, 19, 20, 21)),
+}
+_HEAL_LENS_COLUMNS = {
+    'CORE': frozenset((1, 2, 3, 5, 7, 8, 11)),
+    'EVENTS': frozenset((1, 8, 9, 10, 11, 12, 13)),
+    'DETAIL': frozenset((1, 2, 3, 4, 5, 6, 7, 11)),
+}
+
+
 class AnalysisTables():
     """
     Manages Overview and Analysis tab tables.
@@ -26,6 +43,9 @@ class AnalysisTables():
         self.heal_out_table: QTreeView
         self.heal_in_table: QTreeView
         self._analysis_modified: bool = False
+        # Legacy retains its inherited all-columns presentation.  Command
+        # Console explicitly selects CORE after it creates its trees.
+        self._analysis_display_lens = 'ALL'
 
     def set_analysis_modified(self, modified: bool) -> None:
         """Control explicit copy labelling for the display-only Workbench context."""
@@ -100,25 +120,43 @@ class AnalysisTables():
         """
         Hides / shows columns of the dmg analysis tables according to the current settings.
         """
-        for i, state in enumerate(self._settings.dmg_columns):
-            if state:
-                self.damage_out_table.showColumn(i + 1)
-                self.damage_in_table.showColumn(i + 1)
-            else:
-                self.damage_out_table.hideColumn(i + 1)
-                self.damage_in_table.hideColumn(i + 1)
+        self._apply_lens_columns(
+            (self.damage_out_table, self.damage_in_table),
+            self._settings.dmg_columns, _DAMAGE_LENS_COLUMNS)
 
     def update_shown_heal_columns(self):
         """
         Hides / shows columns of the heal analysis tables according to the current settings.
         """
-        for i, state in enumerate(self._settings.heal_columns):
-            if state:
-                self.heal_out_table.showColumn(i + 1)
-                self.heal_in_table.showColumn(i + 1)
-            else:
-                self.heal_out_table.hideColumn(i + 1)
-                self.heal_in_table.hideColumn(i + 1)
+        self._apply_lens_columns(
+            (self.heal_out_table, self.heal_in_table),
+            self._settings.heal_columns, _HEAL_LENS_COLUMNS)
+
+    @property
+    def analysis_display_lens(self) -> str:
+        """The active Command Console presentation lens, never parser state."""
+        return self._analysis_display_lens
+
+    def set_analysis_display_lens(self, lens: str) -> None:
+        """Apply a display-only metric lens without changing saved column settings."""
+        resolved = str(lens).upper()
+        if resolved not in ANALYSIS_DISPLAY_LENSES:
+            raise ValueError(f'Unknown Analysis display lens: {lens!r}')
+        self._analysis_display_lens = resolved
+        if hasattr(self, 'damage_out_table'):
+            self.update_shown_damage_columns()
+            self.update_shown_heal_columns()
+
+    def _apply_lens_columns(self, tables, configured_columns, lens_columns) -> None:
+        """Intersect a temporary lens with persistent user column choices."""
+        visible = lens_columns.get(self._analysis_display_lens)
+        for index, configured in enumerate(configured_columns, start=1):
+            show = configured and (visible is None or index in visible)
+            for table in tables:
+                if show:
+                    table.showColumn(index)
+                else:
+                    table.hideColumn(index)
 
     def expand_overview_table(self):
         """

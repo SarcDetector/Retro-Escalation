@@ -129,6 +129,26 @@ class AnalysisTreeViewTests(unittest.TestCase):
             delegate._row_background(child, False),
         )
 
+    def test_actor_buckets_present_as_counted_group_headers_without_model_edits(self):
+        model, _selection, view = self.make_view(rows=0)
+        group = row_items("Player")
+        group[0].appendRow(row_items("Operator 01"))
+        group[0].appendRow(row_items("Operator 02"))
+        model.appendRow(group)
+        player = model.index(0, 0, QModelIndex())
+        delegate = view.itemDelegate()
+
+        self.assertEqual(delegate._actor_group_label(player), "PLAYERS // 2 SOURCES")
+        self.assertEqual(player.data(Qt.ItemDataRole.DisplayRole), "Player")
+
+        npc = row_items("NPC")
+        npc[0].appendRow(row_items("Borg Cube"))
+        model.appendRow(npc)
+        self.assertEqual(
+            delegate._actor_group_label(model.index(1, 0, QModelIndex())),
+            "NPC // 1 SOURCE",
+        )
+
     def test_analysis_accent_updates_the_shared_delegate_palette(self):
         _model, _selection, view = self.make_view()
         colour = QColor("#A65FD4")

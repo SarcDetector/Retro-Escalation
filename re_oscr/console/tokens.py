@@ -416,6 +416,14 @@ class ConsoleTokens:
                 f"font-family:'Roboto Mono';font-size:{px(11, s)}px;}}"
             ),
             (
+                "QLineEdit[consoleRole='leagueSearch'] {"
+                f"background-color:{SURFACES['overlay']};color:{TEXT['primary']};"
+                f"border:1px solid {BORDERS['control']};"
+                f"border-radius:{radius_chip_small}px;"
+                f"padding:{px(5, s)}px {px(9, s)}px;"
+                f"font-family:'Roboto Mono';font-size:{px(11, s)}px;}}"
+            ),
+            (
                 "QLineEdit[consoleRole='workbenchFilter']:hover,"
                 "QLineEdit[consoleRole='workbenchFilter']:focus {"
                 f"border-color:{self.accents[1]};}}"
@@ -423,6 +431,52 @@ class ConsoleTokens:
             (
                 "QLabel[consoleRole='chip'][status='truth'] {"
                 f"color:{STATES['success']};border-color:{STATES['success']};}}"
+            ),
+            (
+                "QLabel[consoleRole='leagueStatus'] {"
+                f"color:{self.accents[2]};border-color:{self.accent_edge(2)};}}"
+            ),
+            (
+                "QListWidget[consoleRole='leagueSelector'] {"
+                f"background-color:{SURFACES['overlay']};color:{TEXT['secondary']};"
+                f"border:1px solid {BORDERS['control']};border-radius:{radius_chip_small}px;"
+                f"padding:{px(3, s)}px;font-family:'Overpass';font-size:{px(12, s)}px;}}"
+            ),
+            (
+                "QListWidget[consoleRole='leagueSelector']::item {"
+                f"padding:{px(4, s)}px {px(7, s)}px;border:none;}}"
+            ),
+            (
+                "QListWidget[consoleRole='leagueSelector']::item:selected {"
+                f"background-color:{self.accent_tint(2)};color:{TEXT['primary']};"
+                f"border-left:{drawer_cap}px solid {self.accents[2]};}}"
+            ),
+            (
+                "QTableView[consoleRole='leagueTable'] {"
+                f"background-color:{SURFACES['raised']};color:{TEXT['secondary']};"
+                "border:none;gridline-color:transparent;"
+                "selection-background-color:transparent;"
+                f"selection-color:{TEXT['primary']};}}"
+            ),
+            (
+                "QTableView[consoleRole='leagueTable'] QHeaderView::section {"
+                f"background-color:{SURFACES['base']};color:{TEXT['eyebrow']};border:none;"
+                f"border-bottom:1px solid {BORDERS['hairline']};"
+                f"padding:{px(7, s)}px {px(8, s)}px;"
+                f"font-family:'Roboto Mono';font-size:{px(11, s)}px;font-weight:600;}}"
+            ),
+            (
+                "QTableView[consoleRole='leagueTable'] QHeaderView::section:vertical {"
+                f"color:{self.accents[2]};font-weight:700;"
+                f"border-right:1px solid {self.accent_edge(2)};}}"
+            ),
+            (
+                "QTableView[consoleRole='leagueTable']::item {"
+                f"padding:{px(4, s)}px {px(7, s)}px;border:none;}}"
+            ),
+            (
+                "QTableView[consoleRole='leagueTable']::item:selected {"
+                f"background-color:{self.accent_tint(2)};color:{TEXT['primary']};}}"
             ),
             (
                 "QTabWidget[consoleRole='surfaceTabs']::pane {"

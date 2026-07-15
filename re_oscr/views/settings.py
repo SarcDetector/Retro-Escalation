@@ -43,6 +43,8 @@ class CommandSettingsView:
         self._appearance_colour_pickers: list[QPushButton] = []
         self._appearance_palette_selector: QComboBox | None = None
         self._appearance_background_selector: QComboBox | None = None
+        self._appearance_palette_panel: QFrame | None = None
+        self._appearance_background_options: QFrame | None = None
 
     def build(self, parent_frame: QFrame) -> None:
         layout = QVBoxLayout()
@@ -60,10 +62,9 @@ class CommandSettingsView:
             'QTabWidget#commandConsoleSettingsTabber::pane {'
             'background-color: transparent; border: none;}')
         tabber.addTab(self._build_appearance_page(), 'Appearance')
-        tabber.addTab(self._build_core_page(), 'Core Systems')
+        tabber.addTab(self._build_core_page(), 'Core & Results')
         tabber.addTab(self._build_live_page(), 'Live Parser')
-        tabber.addTab(self._build_damage_page(), 'Damage Columns')
-        tabber.addTab(self._build_heal_live_page(), 'Heal and Live Columns')
+        tabber.addTab(self._build_columns_page(), 'Table Columns')
         self.widgets.settings_tabber = tabber
 
         layout.addWidget(self._build_navigation(tabber))
@@ -116,11 +117,10 @@ class CommandSettingsView:
         layout.setContentsMargins(spacing, spacing, spacing, spacing)
         layout.setSpacing(spacing)
         labels = (
-            'C1  APPEARANCE', 'C2  CORE SYSTEMS', 'C3  LIVE PARSER',
-            'C4  DAMAGE TABLE', 'C5  HEAL + LIVE')
+            'C1  APPEARANCE', 'C2  CORE + RESULTS', 'C3  LIVE PARSER',
+            'C4  TABLE COLUMNS')
         accents = (
-            self.accents[3], self.accents[0], self.accents[1],
-            self.accents[2], self.accents[4])
+            self.accents[3], self.accents[0], self.accents[1], self.accents[2])
         buttons = []
         for index, (label, accent) in enumerate(zip(labels, accents)):
             button = QPushButton(label)
@@ -141,13 +141,9 @@ class CommandSettingsView:
 
     def _build_appearance_page(self) -> QScrollArea:
         content = self._page_content('commandConsoleSettingsAppearancePage')
-        layout = QGridLayout()
-        gap = round(10 * self.theme.scale)
+        layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setHorizontalSpacing(gap)
-        layout.setVerticalSpacing(gap)
-        layout.setColumnStretch(0, 1)
-        layout.setColumnStretch(1, 1)
+        layout.setSpacing(round(10 * self.theme.scale))
 
         profile_panel, profile = self._panel(
             'VISUAL PROFILE', self.accents[3], 'commandConsoleAppearanceProfilePanel')
@@ -190,11 +186,20 @@ class CommandSettingsView:
         self.widgets.appearance_background_selector = background_selector
         row += 1
 
-        profile.addWidget(self._field_label('Background Intensity:'), row, 0)
-        profile.addLayout(create_annotated_slider(
+        background_options = QFrame()
+        background_options.setObjectName('commandConsoleBackgroundCustomControls')
+        background_options.setStyleSheet(
+            'QFrame#commandConsoleBackgroundCustomControls '
+            '{background: transparent; border: none;}')
+        background_layout = QGridLayout()
+        background_layout.setContentsMargins(0, 0, 0, 0)
+        background_layout.setHorizontalSpacing(round(10 * self.theme.scale))
+        background_layout.setVerticalSpacing(round(8 * self.theme.scale))
+        background_options.setLayout(background_layout)
+        background_layout.addWidget(self._field_label('Background Intensity:'), 0, 0)
+        background_layout.addLayout(create_annotated_slider(
             self.theme, round(self.settings.command_console_background_opacity * 100), 0, 50,
-            callback=self._set_background_opacity), row, 1)
-        row += 1
+            callback=self._set_background_opacity), 0, 1)
 
         path_layout = QHBoxLayout()
         path_layout.setContentsMargins(0, 0, 0, 0)
@@ -215,12 +220,14 @@ class CommandSettingsView:
         browse_button.setStyleSheet(self._compact_button_style(self.accents[3]))
         browse_button.clicked.connect(lambda: self._browse_background(path_entry))
         path_layout.addWidget(browse_button)
-        profile.addWidget(self._field_label('Custom Image:'), row, 0)
-        profile.addLayout(path_layout, row, 1)
+        background_layout.addWidget(self._field_label('Custom Image:'), 1, 0)
+        background_layout.addLayout(path_layout, 1, 1)
         self.widgets.appearance_background_path_entry = path_entry
+        profile.addWidget(background_options, row, 0, 1, 2)
+        self._appearance_background_options = background_options
         row += 1
 
-        restart = QLabel('SHELL + OVERVIEW APPLY LIVE // THEME SWITCH RELAUNCHES')
+        restart = QLabel('THEME + UI SCALE APPLY ON NEXT LAUNCH')
         restart.setObjectName('commandConsoleThemeRestartLabel')
         restart.setWordWrap(True)
         restart.setStyleSheet(self._small_status_style(self.accents[4]))
@@ -235,19 +242,6 @@ class CommandSettingsView:
             rail_controls = QHBoxLayout()
             rail_controls.setContentsMargins(0, 0, 0, 0)
             rail_controls.setSpacing(round(5 * self.theme.scale))
-            for preset_id, colours in COMMAND_CONSOLE_PALETTES.items():
-                swatch = QPushButton()
-                swatch.setObjectName(
-                    f'commandConsoleColourSwatch{index + 1}{preset_id.title()}')
-                swatch.setToolTip(COMMAND_CONSOLE_PALETTE_NAMES[preset_id])
-                swatch.setCursor(Qt.CursorShape.PointingHandCursor)
-                swatch.setFixedSize(
-                    round(24 * self.theme.scale), round(24 * self.theme.scale))
-                swatch.setStyleSheet(self._swatch_style(colours[index]))
-                swatch.clicked.connect(
-                    lambda _checked=False, role_index=index, colour=colours[index]:
-                        self._set_custom_colour(role_index, colour))
-                rail_controls.addWidget(swatch)
             picker = QPushButton('PICK')
             picker.setObjectName(f'commandConsoleColourPicker{index + 1}')
             picker.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -272,9 +266,12 @@ class CommandSettingsView:
             self._appearance_colour_pickers.append(picker)
 
         self.widgets.appearance_color_entries = self._appearance_colour_entries
+        self._appearance_palette_panel = palette_panel
         self._refresh_colour_controls()
-        layout.addWidget(profile_panel, 0, 0)
-        layout.addWidget(palette_panel, 0, 1)
+        self._sync_appearance_options()
+        layout.addWidget(profile_panel)
+        layout.addWidget(palette_panel)
+        layout.addStretch(1)
         content.setLayout(layout)
         return self._scroll_page(content, 'commandConsoleSettingsAppearanceScroll')
 
@@ -352,17 +349,24 @@ class CommandSettingsView:
                                    self.settings.first_overview_tab)
         overview_tab.currentIndexChanged.connect(
             lambda index: self.settings.set('first_overview_tab', index))
-        self._add_field(interface, row, 'Default Overview Tab:', overview_tab)
+        self._add_field(interface, row, 'Default Graph View:', overview_tab)
+        row += 1
+        copy_format = self._combo(('Compact', 'Verbose', 'CSV'))
+        copy_format.setCurrentText(self.settings.copy_format)
+        copy_format.setObjectName('settingsClipboardFormat')
+        copy_format.currentTextChanged.connect(
+            lambda text: self.settings.set('copy_format', text))
+        self._add_field(interface, row, 'Clipboard Format:', copy_format)
         row += 1
         interface.addWidget(self._field_label('UI Scale:'), row, 0)
         interface.addLayout(create_annotated_slider(
             self.theme, round(self.settings.ui_scale * 50, 0), 25, 75,
             callback=self.settings.set_ui_scale), row, 1)
         row += 1
-        language = self._combo(('English',))
-        language.setCurrentIndex(0)
-        language.currentIndexChanged.connect(lambda _index: self.settings.set('language', 'en'))
-        self._add_field(interface, row, 'Language:', language)
+        scale_note = QLabel('UI SCALE APPLIES ON NEXT LAUNCH')
+        scale_note.setObjectName('settingsUiScaleRestartNote')
+        scale_note.setStyleSheet(self._small_status_style(self.accents[3]))
+        interface.addWidget(scale_note, row, 0, 1, 2)
         row += 1
         self._add_field(interface, row, 'League rows to fetch:', self._int_entry(
             self.settings.league_table_rows, 1,
@@ -393,16 +397,21 @@ class CommandSettingsView:
             callback=self.settings.set_liveparser_opacity,
             style_override_slider={'::sub-page:horizontal': {'background-color': '@bc'}}), row, 1)
         row += 1
-        self._add_field(display, row, 'Graph:', self._toggle(
+        graph_toggle = self._toggle(
             self.settings.liveparser__graph_active,
             lambda: self.settings.set('liveparser__graph_active', True),
             lambda: self.settings.set('liveparser__graph_active', False),
-            self.accents[1], 'settingsLiveGraph'))
+            self.accents[1], 'settingsLiveGraph')
+        self._add_field(display, row, 'Graph:', graph_toggle)
         row += 1
         graph_field = self._combo(
             self.config.live_graph_fields, self.settings.liveparser__graph_field)
+        graph_field.setObjectName('settingsLiveGraphField')
+        graph_field.setEnabled(self.settings.liveparser__graph_active)
         graph_field.currentIndexChanged.connect(
             lambda index: self.settings.set('liveparser__graph_field', index))
+        graph_toggle.clicked.connect(
+            lambda: graph_field.setEnabled(self.settings.liveparser__graph_active))
         self._add_field(display, row, 'Graph Field:', graph_field)
         row += 1
         player_display = self._combo(('Name', 'Handle'))
@@ -417,7 +426,7 @@ class CommandSettingsView:
             callback=self.settings.set_liveparser_scale), row, 1)
 
         behavior_panel, behavior = self._panel(
-            'STARTUP & COPY', self.accents[4],
+            'LIVE PARSER STARTUP', self.accents[4],
             'commandConsoleLiveBehaviorSettingsPanel')
         row = 1
         self._add_field(behavior, row, 'Default state:', self._toggle(
@@ -425,12 +434,6 @@ class CommandSettingsView:
             lambda: self.settings.set('liveparser__auto_enabled', True),
             lambda: self.settings.set('liveparser__auto_enabled', False),
             self.accents[4], 'settingsLiveDefault'))
-        row += 1
-        copy_format = self._combo(('Compact', 'Verbose', 'CSV'))
-        copy_format.setCurrentText(self.settings.copy_format)
-        copy_format.currentTextChanged.connect(
-            lambda text: self.settings.set('copy_format', text))
-        self._add_field(behavior, row, 'Clipboard Format:', copy_format)
         row += 1
         self._add_field(behavior, row, 'Include kills in copy:', self._toggle(
             self.settings.liveparser__copy_kills,
@@ -452,10 +455,15 @@ class CommandSettingsView:
         content.setLayout(layout)
         return self._scroll_page(content, 'commandConsoleSettingsLiveScroll')
 
-    def _build_damage_page(self) -> QScrollArea:
-        content = self._page_content('commandConsoleSettingsDamagePage')
-        layout = QVBoxLayout()
+    def _build_columns_page(self) -> QScrollArea:
+        content = self._page_content('commandConsoleSettingsColumnsPage')
+        layout = QGridLayout()
+        gap = round(10 * self.theme.scale)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setHorizontalSpacing(gap)
+        layout.setVerticalSpacing(gap)
+        layout.setColumnStretch(0, 1)
+        layout.setColumnStretch(1, 1)
         panel, buttons = self._column_panel(
             'DAMAGE TABLE COLUMNS', self.accents[2], tr(TREE_HEADER)[1:],
             self.settings.dmg_columns,
@@ -464,19 +472,7 @@ class CommandSettingsView:
             'commandConsoleDamageColumnsPanel', 'commandConsoleDamageColumnToggle',
             'APPLY DAMAGE COLUMNS')
         self.widgets.settings_damage_column_buttons = buttons
-        layout.addWidget(panel)
-        layout.addStretch(1)
-        content.setLayout(layout)
-        return self._scroll_page(content, 'commandConsoleSettingsDamageScroll')
-
-    def _build_heal_live_page(self) -> QScrollArea:
-        content = self._page_content('commandConsoleSettingsHealLivePage')
-        layout = QGridLayout()
-        gap = round(10 * self.theme.scale)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setHorizontalSpacing(gap)
-        layout.setColumnStretch(0, 1)
-        layout.setColumnStretch(1, 1)
+        layout.addWidget(panel, 0, 0, 1, 2)
         heal_panel, heal_buttons = self._column_panel(
             'HEAL TABLE COLUMNS', self.accents[3], tr(HEAL_TREE_HEADER)[1:],
             self.settings.heal_columns,
@@ -493,10 +489,10 @@ class CommandSettingsView:
             'APPLY LIVE COLUMNS', columns=2)
         self.widgets.settings_heal_column_buttons = heal_buttons
         self.widgets.settings_live_column_buttons = live_buttons
-        layout.addWidget(heal_panel, 0, 0)
-        layout.addWidget(live_panel, 0, 1)
+        layout.addWidget(heal_panel, 1, 0)
+        layout.addWidget(live_panel, 1, 1)
         content.setLayout(layout)
-        return self._scroll_page(content, 'commandConsoleSettingsHealLiveScroll')
+        return self._scroll_page(content, 'commandConsoleSettingsColumnsScroll')
 
     def _apply_palette_preset(self, preset_id: str) -> None:
         if preset_id not in COMMAND_CONSOLE_PALETTE_NAMES:
@@ -505,6 +501,7 @@ class CommandSettingsView:
         if preset_id in COMMAND_CONSOLE_PALETTES:
             self.settings.command_console_accents = list(COMMAND_CONSOLE_PALETTES[preset_id])
         self._refresh_colour_controls()
+        self._sync_appearance_options()
         self._notify_appearance_changed('palette')
 
     def _set_custom_colour(self, role_index: int, colour: str) -> None:
@@ -518,6 +515,7 @@ class CommandSettingsView:
                 self._appearance_palette_selector.findData('custom'))
             del blocker
         self._refresh_colour_controls()
+        self._sync_appearance_options()
         self._notify_appearance_changed('palette')
 
     def _pick_custom_colour(self, role_index: int) -> None:
@@ -542,16 +540,12 @@ class CommandSettingsView:
             return
         entry.setText(str(selected))
         self.settings.command_console_background_path = str(selected)
-        self.settings.command_console_background_mode = 'custom'
-        if self._appearance_background_selector is not None:
-            blocker = QSignalBlocker(self._appearance_background_selector)
-            self._appearance_background_selector.setCurrentIndex(
-                self._appearance_background_selector.findData('custom'))
-            del blocker
+        self._activate_custom_background()
         self._notify_appearance_changed('background')
 
     def _set_background_mode(self, mode: str) -> None:
         self.settings.command_console_background_mode = mode
+        self._sync_appearance_options()
         self._notify_appearance_changed('background')
 
     def _set_background_opacity(self, value: int) -> str:
@@ -561,7 +555,25 @@ class CommandSettingsView:
 
     def _set_background_path(self, path: str) -> None:
         self.settings.command_console_background_path = path
+        self._activate_custom_background()
         self._notify_appearance_changed('background')
+
+    def _activate_custom_background(self) -> None:
+        self.settings.command_console_background_mode = 'custom'
+        if self._appearance_background_selector is not None:
+            blocker = QSignalBlocker(self._appearance_background_selector)
+            self._appearance_background_selector.setCurrentIndex(
+                self._appearance_background_selector.findData('custom'))
+            del blocker
+        self._sync_appearance_options()
+
+    def _sync_appearance_options(self) -> None:
+        if self._appearance_palette_panel is not None:
+            self._appearance_palette_panel.setVisible(
+                self.settings.command_console_palette_preset == 'custom')
+        if self._appearance_background_options is not None:
+            self._appearance_background_options.setVisible(
+                self.settings.command_console_background_mode == 'custom')
 
     def _notify_appearance_changed(self, change: str) -> None:
         if self.appearance_changed is not None:
@@ -762,14 +774,6 @@ class CommandSettingsView:
             f'font-family: Overpass; font-size: {round(9 * self.theme.scale)}px;'
             'font-weight: 700;}'
             f'QPushButton:hover {{background-color: {accent}; color: #11171b;}}')
-
-    def _swatch_style(self, colour: str) -> str:
-        return (
-            'QPushButton {'
-            f'background-color: {colour}; border: 1px solid #d8e1e5;'
-            'border-top-left-radius: 8px; border-top-right-radius: 2px;'
-            'border-bottom-right-radius: 8px; border-bottom-left-radius: 2px;}'
-            'QPushButton:hover {border: 2px solid #ffffff;}')
 
     def _colour_picker_style(self, colour: str) -> str:
         text = '#0c1115' if QColor(colour).lightness() > 145 else '#f4efe6'

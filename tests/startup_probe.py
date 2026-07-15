@@ -240,21 +240,42 @@ def main() -> int:
         assert analysis_graph_panel.property("consoleRole") == "surfaceTabs"
         assert analysis_telemetry_panel.property("consoleRole") == "embeddedSurface"
         assert ui.window.findChild(
+            QWidget, "commandConsoleAnalysisTelemetryPanelCap") is not None
+        assert ui.window.findChild(
             QWidget, "commandConsoleAnalysisTelemetryTabs") is ui.widgets.analysis_tree_tabber
         assert ui.window.findChild(QWidget, "commandConsoleLeagueHeading") is not None
         assert ui.window.findChild(QWidget, "commandConsoleLeagueTitle").text() == (
             "LEAGUE STANDINGS")
         assert ui.window.findChild(QWidget, "commandConsoleLeagueTablePanel") is not None
-        assert ui.window.findChild(QWidget, "commandConsoleLeagueControlDeck") is not None
+        league_control_deck = ui.window.findChild(
+            QWidget, "commandConsoleLeagueControlDeck")
+        assert league_control_deck is not None
+        assert league_control_deck.minimumSizeHint().width() <= league_control_deck.width()
+        assert ui.widgets.variant_combo.objectName() == "commandConsoleLeagueSeason"
+        assert ui.widgets.ladder_selector.objectName() == "commandConsoleLeagueLadders"
+        assert ui.widgets.ladder_search.property("consoleRole") == "leagueSearch"
+        assert ui.widgets.league_status.text() == "AWAITING SEASON"
+        assert ui.widgets.ladder_table.property("consoleRole") == "leagueTable"
+        assert ui.widgets.ladder_table.frozen_view.model() is ui.widgets.ladder_table.model()
+        assert ui.widgets.ladder_table.frozen_view.selectionModel() is (
+            ui.widgets.ladder_table.selectionModel())
         assert ui.window.findChild(QWidget, "commandConsoleSettingsHeading") is not None
         assert ui.window.findChild(QWidget, "commandConsoleSettingsTitle").text() == "SETTINGS"
         assert ui.window.findChild(QWidget, "commandConsoleSettingsNavigation") is not None
-        assert ui.widgets.settings_tabber.count() == 5
+        assert ui.widgets.settings_tabber.count() == 4
         assert [button.text() for button in ui.widgets.settings_menu_buttons] == [
-            "C1  APPEARANCE", "C2  CORE SYSTEMS", "C3  LIVE PARSER",
-            "C4  DAMAGE TABLE", "C5  HEAL + LIVE"]
+            "C1  APPEARANCE", "C2  CORE + RESULTS", "C3  LIVE PARSER",
+            "C4  TABLE COLUMNS"]
         assert ui.window.findChild(QWidget, "commandConsoleAppearanceProfilePanel") is not None
-        assert ui.window.findChild(QWidget, "commandConsoleAppearancePalettePanel") is not None
+        appearance_palette = ui.window.findChild(
+            QWidget, "commandConsoleAppearancePalettePanel")
+        assert appearance_palette is not None
+        assert appearance_palette.isHidden()
+        assert ui.window.findChild(QWidget, "commandConsoleColourSwatch1Command") is None
+        background_options = ui.window.findChild(
+            QWidget, "commandConsoleBackgroundCustomControls")
+        assert background_options is not None
+        assert background_options.isHidden()
         assert ui.widgets.appearance_palette_selector.count() == 5
         assert ui.widgets.appearance_background_selector.count() == 2
         assert len(ui.widgets.appearance_color_entries) == 5
@@ -269,12 +290,37 @@ def main() -> int:
         assert ui.widgets.overview_table is original_overview_table
         assert ui.widgets.context_accents[0] == "#4D8FD8"
         assert "#4D8FD8" in ui.app.styleSheet()
+        custom_index = ui.widgets.appearance_palette_selector.findData("custom")
+        ui.widgets.appearance_palette_selector.setCurrentIndex(custom_index)
+        ui.app.processEvents()
+        assert not appearance_palette.isHidden()
         command_index = ui.widgets.appearance_palette_selector.findData("command")
         ui.widgets.appearance_palette_selector.setCurrentIndex(command_index)
         ui.app.processEvents()
         assert ui.widgets.context_accents[0] == "#FF8A2A"
+        assert appearance_palette.isHidden()
+        custom_background_index = ui.widgets.appearance_background_selector.findData("custom")
+        ui.widgets.appearance_background_selector.setCurrentIndex(custom_background_index)
+        ui.app.processEvents()
+        assert not background_options.isHidden()
+        no_background_index = ui.widgets.appearance_background_selector.findData("none")
+        ui.widgets.appearance_background_selector.setCurrentIndex(no_background_index)
+        ui.app.processEvents()
+        assert background_options.isHidden()
         assert ui.window.findChild(QWidget, "commandConsoleThemeRestartLabel").text() == (
-            "SHELL + OVERVIEW APPLY LIVE // THEME SWITCH RELAUNCHES")
+            "THEME + UI SCALE APPLY ON NEXT LAUNCH")
+        assert ui.window.findChild(QWidget, "settingsUiScaleRestartNote").text() == (
+            "UI SCALE APPLIES ON NEXT LAUNCH")
+        assert ui.window.findChild(QWidget, "settingsClipboardFormat") is not None
+        live_graph = ui.window.findChild(QWidget, "settingsLiveGraph")
+        live_graph_field = ui.window.findChild(QWidget, "settingsLiveGraphField")
+        assert not live_graph_field.isEnabled()
+        live_graph.click()
+        ui.app.processEvents()
+        assert live_graph_field.isEnabled()
+        live_graph.click()
+        ui.app.processEvents()
+        assert not live_graph_field.isEnabled()
         assert len(ui.widgets.settings_damage_column_buttons) == len(ui.settings.dmg_columns)
         assert len(ui.widgets.settings_heal_column_buttons) == len(ui.settings.heal_columns)
         assert len(ui.widgets.settings_live_column_buttons) == len(
@@ -285,6 +331,20 @@ def main() -> int:
         assert ui.widgets.league_open_parse_button.text() == "OPEN SELECTED"
         assert ui.widgets.league_save_parse_button.text() == "SAVE SELECTED"
         assert ui.widgets.league_more_button.text() == "LOAD MORE"
+        assert all(button.property("consoleRole") == "actionButton" for button in (
+            ui.widgets.league_search_button, ui.widgets.league_clear_button,
+            ui.widgets.league_open_local_button, ui.widgets.league_open_parse_button,
+            ui.widgets.league_save_parse_button, ui.widgets.league_more_button))
+        league_meters = ui.window.findChild(QWidget, "leagueMetersButton")
+        assert league_meters is not None
+        assert league_meters.isChecked()
+        assert ui.widgets.ladder_table.meter_mode()
+        league_meters.click()
+        ui.app.processEvents()
+        assert not ui.widgets.ladder_table.meter_mode()
+        league_meters.click()
+        ui.app.processEvents()
+        assert ui.widgets.ladder_table.meter_mode()
         assert len(ui.widgets.main_menu_buttons) == 4
         assert all(button.isCheckable() for button in ui.widgets.main_menu_buttons)
         assert ui.widgets.main_menu_buttons[0].isChecked()
@@ -305,6 +365,10 @@ def main() -> int:
         assert ui.window.findChild(
             QWidget, "analysisCopyButton").property("consoleRole") == "actionButton"
         assert ui.widgets.analysis_copy_combobox.property("consoleRole") == "compactCombo"
+        assert [button.text() for button in ui.widgets.analysis_lens_buttons] == [
+            "T1  CORE", "T2  EVENTS", "T3  DETAIL", "T4  ALL"]
+        assert ui.tables.analysis_display_lens == "CORE"
+        assert ui.widgets.analysis_lens_buttons[0].isChecked()
         assert all(table.property("consoleRole") == "analysisTree" for table in (
             ui.tables.damage_out_table, ui.tables.damage_in_table,
             ui.tables.heal_out_table, ui.tables.heal_in_table))
@@ -323,6 +387,13 @@ def main() -> int:
             assert ui.widgets.analysis_tree_tabber.currentIndex() == index
             assert button.isChecked()
         ui.widgets.switch_analysis_tab(0)
+        ui.widgets.analysis_lens_buttons[3].click()
+        ui.app.processEvents()
+        assert ui.tables.analysis_display_lens == "ALL"
+        assert ui.widgets.analysis_lens_buttons[3].isChecked()
+        ui.widgets.analysis_lens_buttons[0].click()
+        ui.app.processEvents()
+        assert ui.tables.analysis_display_lens == "CORE"
         ui.widgets.collapse_analysis_graph()
         assert ui.widgets.analysis_graph_tabber.isHidden()
         assert not ui.settings.analysis_graph

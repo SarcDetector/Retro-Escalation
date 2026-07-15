@@ -168,6 +168,10 @@ class ConsoleTokenTests(unittest.TestCase):
             "QDialog[consoleRole='dedicationPlaqueDialog']",
             "QFrame[consoleRole='dedicationPlaqueRailSegment'][accentIndex='0']",
             "QLabel[consoleRole='plaqueRole'][accentIndex='0']",
+            "QLineEdit[consoleRole='leagueSearch']",
+            "QListWidget[consoleRole='leagueSelector']::item:selected",
+            "QTableView[consoleRole='leagueTable']",
+            "QTableView[consoleRole='leagueTable'] QHeaderView::section:vertical",
             "AnalysisTreeView",
         )
         for selector in required_selectors:

@@ -91,7 +91,8 @@ class AnalysisView:
         tree_frames = [self._create_command_page() for _ in range(4)]
         telemetry_surface = embedded_panel(
             self.theme.scale, 'commandConsoleAnalysisTelemetryPanel',
-            'DATA TREE // EXPAND ROWS FOR SOURCE DETAIL', 'TELEMETRY MATRIX', 1)
+            'ACTORS → ABILITIES → EVENTS // EXPAND FOR DETAIL', 'COMBAT BREAKDOWN', 1)
+        self._add_telemetry_lens_controls(telemetry_surface.cap.layout())
         self._add_copy_controls(telemetry_surface.cap.layout(), command_console=True)
         tree_tabber = self._build_command_tabber(
             telemetry_surface.body, tree_frames, 'commandConsoleAnalysisTelemetryTabs')
@@ -115,6 +116,7 @@ class AnalysisView:
             analysis_tables.append(tree)
             plots.append(plot)
         self._store_analysis_tables(analysis_tables)
+        self._select_telemetry_lens('CORE')
         self.widgets.analysis_plots = plots
         if self.workbench_controller is not None:
             self.workbench_controller.attach_controls()
@@ -533,6 +535,37 @@ class AnalysisView:
             copy_button.setObjectName('analysisCopyButton')
         copy_button.clicked.connect(self.copy_callback)
         layout.addWidget(copy_button)
+
+    def _add_telemetry_lens_controls(self, layout) -> None:
+        """Add Command Console metric lenses without creating another data model."""
+        from ..console.components import mode_button
+
+        lenses = (
+            ('CORE', 'CORE', 'Headline combat metrics'),
+            ('EVENTS', 'EVENTS', 'Attacks, misses, criticals, flanks, and ticks'),
+            ('DETAIL', 'DETAIL', 'Hull, shield, base, and channel detail'),
+            ('ALL', 'ALL', 'Every metric enabled in Settings'),
+        )
+        buttons = []
+        for index, (lens, label, tooltip) in enumerate(lenses, start=1):
+            button = mode_button(
+                self.theme.scale, f'T{index}', label, 1,
+                f'commandConsoleAnalysisLens{index}')
+            button.setToolTip(tooltip)
+            button.clicked.connect(
+                lambda _checked=False, selected=lens: self._select_telemetry_lens(selected))
+            buttons.append(button)
+            layout.addWidget(button)
+        self.widgets.analysis_lens_buttons = buttons
+
+    def _select_telemetry_lens(self, lens: str) -> None:
+        """Synchronise the metric control with display-only table visibility."""
+        self.tables.set_analysis_display_lens(lens)
+        for button in self.widgets.analysis_lens_buttons:
+            active = button.text().split(maxsplit=1)[-1] == lens
+            button.setChecked(active)
+            button.setProperty('visualActive', active)
+            self._sync_toggle_visual(button, active)
 
     def _build_command_tabber(
             self, parent_frame: QFrame, frames: list[QFrame], object_name: str) -> QTabWidget:

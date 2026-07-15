@@ -342,6 +342,9 @@ class REOSCRApplication():
             if (self.widgets.overview_table is not None
                     and hasattr(self.widgets.overview_table, 'set_tokens')):
                 self.widgets.overview_table.set_tokens(ConsoleTokens.from_theme(self.theme))
+            if (self.widgets.ladder_table is not None
+                    and hasattr(self.widgets.ladder_table, 'set_tokens')):
+                self.widgets.ladder_table.set_tokens(ConsoleTokens.from_theme(self.theme))
             self.widgets.apply_context_accent(self.widgets.active_main_tab)
         if change in ('all', 'background') and self.widgets.command_console_workspace is not None:
             self.widgets.command_console_workspace.apply_appearance(self.settings)

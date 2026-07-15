@@ -99,12 +99,21 @@ Run every item once in OSCR-UI Legacy and once in Command Console.
   timestamps. (Automated)
 - [x] Keep frozen SOURCE rows aligned with metric rows when their fonts or content request
   different heights. (Automated; tester screenshot regression)
+- [x] Use Core, Events, Detail, and All metric lenses without changing parser-owned tree data or
+  saved column choices. (Automated)
+- [x] Present Player and NPC top-level buckets as counted group headers while retaining their
+  source/ability/event drill-down tree. (Automated)
 - [x] Label modified copies and keep League upload coordinates parser-owned. (Automated)
 - [ ] Exercise every copy mode.
 - [ ] Sort and horizontally scroll tables.
 
 ### League
 
+- [x] Select a season and ladder from the Command Console League command bar; verify that its
+  live status reflects the selection while OSCR-UI Legacy keeps sidebar selection controls.
+  (Automated startup and command-state checks)
+- [x] Keep the League rank, Name, and Handle visible while the remaining ladder metrics scroll;
+  use the DPS meter toggle without changing the League model or sorter. (Automated)
 - [x] Load the map list. (Live offscreen probe and manual source-app visual check)
 - [x] Fetch a ladder. (Live offscreen probe and manual source-app visual check)
 - [x] Search by handle. (Manual source-app visual check)
@@ -124,14 +133,15 @@ python -m tests.league_live_probe --local "C:\path\to\CombatLog.log"
 
 ### Settings
 
-- [x] Open Core Systems, Live Parser, Damage Table, and Heal + Live categories. (Automated and
-  manual source-app visual check)
+- [x] Open Core + Results, Live Parser, and Table Columns categories. (Automated and manual
+  source-app visual check)
 - [x] Retain every configured damage, heal, and Live Parser column toggle. (Automated)
+- [x] Show custom palette and background-image controls only when their Custom options are
+  selected; keep the Live Parser graph field disabled while its graph is off. (Automated)
 - [ ] Change a numeric setting and confirm persistence.
 - [ ] Exercise switches, sliders, and combo boxes.
 - [ ] Change Overview, Analysis, and Live Parser columns and apply them.
 - [ ] Change UI scale and restart.
-- [ ] Change language and restart.
 - [ ] Change theme and verify the restart-required guidance.
 
 ### Live Parser

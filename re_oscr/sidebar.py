@@ -2,7 +2,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QFrame, QGridLayout, QHBoxLayout, QLineEdit, QListView, QListWidget, QListWidgetItem,
+    QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget, QListWidgetItem,
     QTabWidget, QVBoxLayout, QWidget)
 
 from .config import OSCRConfig, OSCRSettings
@@ -247,6 +247,23 @@ class OSCRLeftSidebar():
         Parameters:
         - :param parent_frame: frame that contains league table sidebar
         """
+        if parent_frame.objectName() == 'commandConsoleSidebarLeague':
+            layout = QVBoxLayout()
+            layout.setContentsMargins(
+                round(12 * self._theme.scale), round(12 * self._theme.scale),
+                round(12 * self._theme.scale), round(12 * self._theme.scale))
+            layout.setSpacing(round(8 * self._theme.scale))
+            label = QLabel('LEAGUE ACCESS // COMMAND BAR')
+            label.setProperty('consoleRole', 'eyebrow')
+            layout.addWidget(label)
+            message = QLabel('Season, ladder, and filter controls are in League Standings.')
+            message.setProperty('consoleRole', 'muted')
+            message.setWordWrap(True)
+            layout.addWidget(message)
+            layout.addStretch(1)
+            parent_frame.setLayout(layout)
+            return
+
         m = self._theme['defaults']['margin']
         left_layout = QVBoxLayout()
         left_layout.setContentsMargins(m, m, m, m)

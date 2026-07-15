@@ -68,6 +68,7 @@ class WidgetManager():
         self.analysis_graph_tabber: QTabWidget
         self.analysis_tree_tabber: QTabWidget
         self.analysis_graph_button: FlipButton
+        self.analysis_lens_buttons: list[QPushButton] = list()
         self.analysis_plots: list = list()
         self.analysis_filter_scope: QComboBox | None = None
         self.analysis_filter_entry: QLineEdit | None = None
@@ -98,6 +99,7 @@ class WidgetManager():
         self.league_open_parse_button: QPushButton
         self.league_save_parse_button: QPushButton
         self.league_more_button: QPushButton
+        self.league_status: QLabel | None = None
 
         self.live_parser_button: QPushButton
         self.sto_log_path_entry: QLineEdit
