@@ -19,6 +19,9 @@ Current development features include:
 - Portable Windows and Linux tester builds.
 
 - [Project scope](docs/PROJECT_SCOPE.md)
+- [Feature set](docs/FEATURES.md)
+- [Feature poster (2560x1440 SVG)](docs/re-oscr-feature-poster.svg) ·
+  [PNG](docs/re-oscr-feature-poster-2560x1440.png)
 - [Credits](docs/CREDITS.md)
 - [Tester plan](docs/TESTING.md)
 - [Development guide](docs/DEVELOPMENT.md)
