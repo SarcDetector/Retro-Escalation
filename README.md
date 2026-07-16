@@ -69,6 +69,9 @@ directory.  The portable Windows and Linux packages continue to keep settings be
 The generated `RE-OSCR.exe` stores settings beside the executable and does not use the official
 application's settings directory.
 
+Windows packages are also built natively by the `Windows portable build` GitHub Actions workflow.
+Download its ZIP and SHA-256 artifact from the relevant workflow run.
+
 ## Linux portable build
 
 Linux packages are built natively on Ubuntu 22.04 by the `Linux portable build` GitHub Actions

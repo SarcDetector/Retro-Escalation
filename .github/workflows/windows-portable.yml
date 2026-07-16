@@ -1,0 +1,78 @@
+name: Windows portable build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - retro-escalation
+    paths:
+      - ".github/workflows/windows-portable.yml"
+      - "assets/**"
+      - "distribution/windows/**"
+      - "docs/TESTING.md"
+      - "locales/**"
+      - "main.py"
+      - "pyproject.toml"
+      - "re_oscr/**"
+      - "retro_escalation.py"
+      - "tests/**"
+      - "theme_assets/**"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x86-64:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install application and packager
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python.exe -m pip install --upgrade pip
+          .\.venv\Scripts\python.exe -m pip install -e ".[pyinst]"
+
+      - name: Run regression tests
+        shell: pwsh
+        run: .\.venv\Scripts\python.exe -m unittest discover -s tests -v
+
+      - name: Build portable archive
+        shell: pwsh
+        run: |
+          .\distribution\windows\build_retro_escalation.ps1 `
+            -OutputRoot ".artifacts\windows-package" `
+            -Package
+
+      - name: Verify packaged startup
+        shell: pwsh
+        run: |
+          $configDir = Join-Path $env:RUNNER_TEMP 're-oscr-package-settings'
+          $process = Start-Process `
+            -FilePath .\.artifacts\windows-package\RE-OSCR\RE-OSCR.exe `
+            -ArgumentList @('--config_dir', $configDir, '--startup-check') `
+            -Wait `
+            -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Packaged startup failed with exit code $($process.ExitCode)."
+          }
+
+      - name: Upload Windows tester package
+        uses: actions/upload-artifact@v4
+        with:
+          name: RE-OSCR-${{ github.sha }}-windows-x64
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            .artifacts/windows-package/*.zip
+            .artifacts/windows-package/*.sha256

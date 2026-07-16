@@ -10,7 +10,11 @@ $python = Join-Path $repoRoot '.venv\Scripts\python.exe'
 $workRoot = Join-Path $repoRoot '.artifacts\pyinstaller'
 $appName = 'RE-OSCR'
 $appOutput = Join-Path $OutputRoot $appName
-$version = '11.1.0.dev10+re.oscr'
+$versionSource = Get-Content -LiteralPath (Join-Path $repoRoot 'retro_escalation.py') -Raw
+if ($versionSource -notmatch "__version__\s*=\s*'([^']+)'") {
+    throw 'Could not determine the RE-OSCR version from retro_escalation.py.'
+}
+$version = $Matches[1]
 $assetsData = "$(Join-Path $repoRoot 'assets');assets"
 $localesData = "$(Join-Path $repoRoot 'locales');locales"
 $themeAssetsData = "$(Join-Path $repoRoot 'theme_assets');theme_assets"
@@ -50,9 +54,9 @@ finally {
 Copy-Item -LiteralPath (Join-Path $repoRoot 'LICENSE') -Destination $appOutput -Force
 Copy-Item -LiteralPath (Join-Path $repoRoot 'README.md') -Destination $appOutput -Force
 $docsOutput = Join-Path $appOutput 'docs'
-$linuxGuideOutput = Join-Path $appOutput 'distribution\linux'
+$windowsGuideOutput = Join-Path $appOutput 'distribution\windows'
 New-Item -ItemType Directory -Force -Path $docsOutput | Out-Null
-New-Item -ItemType Directory -Force -Path $linuxGuideOutput | Out-Null
+New-Item -ItemType Directory -Force -Path $windowsGuideOutput | Out-Null
 foreach ($document in @('PROJECT_SCOPE.md', 'TESTING.md', 'DEVELOPMENT.md')) {
     Copy-Item `
         -LiteralPath (Join-Path $repoRoot "docs\$document") `
@@ -60,8 +64,8 @@ foreach ($document in @('PROJECT_SCOPE.md', 'TESTING.md', 'DEVELOPMENT.md')) {
         -Force
 }
 Copy-Item `
-    -LiteralPath (Join-Path $repoRoot 'distribution\linux\README.md') `
-    -Destination $linuxGuideOutput `
+    -LiteralPath (Join-Path $repoRoot 'distribution\windows\README.md') `
+    -Destination $windowsGuideOutput `
     -Force
 
 $commit = (& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot rev-parse HEAD).Trim()
