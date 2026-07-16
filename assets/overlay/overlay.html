@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; connect-src ws: wss:; style-src 'self'; script-src 'self'">
+  <title>RE-OSCR Live Overlay</title>
+  <link rel="stylesheet" href="overlay.css">
+  <link rel="stylesheet" href="overlay-custom.css">
+</head>
+<body>
+  <main id="overlay" class="overlay" aria-live="polite" aria-atomic="false">
+    <header class="overlay__header">
+      <div>
+        <p class="overlay__eyebrow">RE-OSCR // LIVE TELEMETRY</p>
+        <h1 class="overlay__title">COMBAT METER</h1>
+      </div>
+      <div class="overlay__readout">
+        <span id="duration" class="overlay__duration">0.0S</span>
+        <span id="status" class="overlay__status" data-state="connecting">CONNECTING</span>
+      </div>
+    </header>
+
+    <section class="meter" aria-label="Live combat telemetry">
+      <table class="meter__table">
+        <thead>
+          <tr id="headers"></tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <p id="empty" class="meter__empty">WAITING FOR LIVE TELEMETRY</p>
+    </section>
+
+    <footer class="overlay__footer">
+      <span class="overlay__pulse" aria-hidden="true"></span>
+      <span id="connection">INITIALIZING FEED</span>
+    </footer>
+  </main>
+
+  <!-- Generated beside this file by RE-OSCR. It defines
+       window.RE_OSCR_OVERLAY_CONFIG = { endpoint: "ws://..." }. -->
+  <script src="overlay-config.js"></script>
+  <script src="overlay.js"></script>
+</body>
+</html>

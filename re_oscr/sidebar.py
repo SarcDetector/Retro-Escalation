@@ -68,10 +68,12 @@ class OSCRLeftSidebar():
             log_frame = QFrame()
             league_frame = QFrame()
             about_frame = QFrame()
+            live_frame = QFrame()
             log_frame.setObjectName('commandConsoleSidebarLog')
             league_frame.setObjectName('commandConsoleSidebarLeague')
             about_frame.setObjectName('commandConsoleSidebarAbout')
-            for frame in (log_frame, league_frame, about_frame):
+            live_frame.setObjectName('commandConsoleSidebarLive')
+            for frame in (log_frame, league_frame, about_frame, live_frame):
                 frame.setSizePolicy(SMINMIN)
         else:
             log_frame = create_frame(self._theme, style='medium_frame', size_policy=SMINMIN)
@@ -87,10 +89,14 @@ class OSCRLeftSidebar():
         sidebar_tabber.addTab(log_frame, tr('Log'))
         sidebar_tabber.addTab(league_frame, tr('League'))
         sidebar_tabber.addTab(about_frame, tr('About'))
+        if command_console:
+            sidebar_tabber.addTab(live_frame, tr('Live Parser'))
         self._widgets.sidebar_tabber = sidebar_tabber
         self._widgets.sidebar_tab_frames.append(log_frame)
         self._widgets.sidebar_tab_frames.append(league_frame)
         self._widgets.sidebar_tab_frames.append(about_frame)
+        if command_console:
+            self._widgets.sidebar_tab_frames.append(live_frame)
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -100,6 +106,26 @@ class OSCRLeftSidebar():
         self.setup_left_sidebar_log(log_frame)
         self.setup_left_sidebar_league(league_frame)
         self.setup_left_sidebar_about(about_frame)
+        if command_console:
+            self.setup_left_sidebar_live(live_frame)
+
+    def setup_left_sidebar_live(self, parent_frame: QFrame):
+        """Explain the independent Live page states in the Command Console drawer."""
+        layout = QVBoxLayout()
+        margin = round(12 * self._theme.scale)
+        layout.setContentsMargins(margin, margin, margin, margin)
+        layout.setSpacing(round(8 * self._theme.scale))
+        label = QLabel('LIVE TELEMETRY // LOCAL SESSION')
+        label.setProperty('consoleRole', 'eyebrow')
+        layout.addWidget(label)
+        message = QLabel(
+            'Parser activity and popout visibility are independent. Use page 05 to start or '
+            'stop parsing, show the local meter, inspect the preview, and adjust live settings.')
+        message.setProperty('consoleRole', 'muted')
+        message.setWordWrap(True)
+        layout.addWidget(message)
+        layout.addStretch(1)
+        parent_frame.setLayout(layout)
 
     def browse_log(self, analyze: bool | None = None) -> Path | None:
         """

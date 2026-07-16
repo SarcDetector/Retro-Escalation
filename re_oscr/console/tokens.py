@@ -157,6 +157,10 @@ class ConsoleTokens:
                 f"border-bottom-left-radius:{radius_control_large}px;}}"
             ),
             (
+                "QPushButton#commandNavLiveParser[popoutVisible='true']:enabled {"
+                f"border-top:{px(3, s)}px solid {STATES['success']};}}"
+            ),
+            (
                 "QPushButton[consoleRole='primaryNav']:pressed {"
                 f"padding-top:{px(9, s)}px;padding-bottom:{px(5, s)}px;}}"
             ),
@@ -331,6 +335,11 @@ class ConsoleTokens:
                 f"background-color:{SURFACES['raised']};border:none;}}"
             ),
             (
+                "QScrollArea[consoleRole='surfaceScroll'],"
+                "QScrollArea[consoleRole='surfaceScroll'] > QWidget > QWidget {"
+                "background:transparent;border:none;}"
+            ),
+            (
                 "QFrame[consoleRole='analysisCommandDeck'] {"
                 f"background-color:{SURFACES['base']};border:none;"
                 f"border-radius:{radius_panel}px;}}"
@@ -422,6 +431,35 @@ class ConsoleTokens:
                 f"border-radius:{radius_chip_small}px;"
                 f"padding:{px(5, s)}px {px(9, s)}px;"
                 f"font-family:'Roboto Mono';font-size:{px(11, s)}px;}}"
+            ),
+            (
+                "QLineEdit[consoleRole='compactEntry'],"
+                "QSpinBox[consoleRole='compactEntry'],"
+                "QKeySequenceEdit[consoleRole='compactEntry'] QLineEdit {"
+                f"background-color:{SURFACES['overlay']};color:{TEXT['primary']};"
+                f"border:1px solid {BORDERS['control']};"
+                f"border-radius:{radius_chip_small}px;"
+                f"padding:{px(5, s)}px {px(8, s)}px;"
+                f"font-family:'Roboto Mono';font-size:{px(11, s)}px;}}"
+            ),
+            (
+                "QLineEdit[consoleRole='compactEntry'][readOnly='true'] {"
+                f"color:{TEXT['secondary']};}}"
+            ),
+            (
+                "QLineEdit[consoleRole='compactEntry']:hover:enabled,"
+                "QLineEdit[consoleRole='compactEntry']:focus:enabled,"
+                "QSpinBox[consoleRole='compactEntry']:hover:enabled,"
+                "QSpinBox[consoleRole='compactEntry']:focus:enabled,"
+                "QKeySequenceEdit[consoleRole='compactEntry'] QLineEdit:focus {"
+                f"border-color:{self.accents[4]};}}"
+            ),
+            (
+                "QSpinBox[consoleRole='compactEntry']::up-button,"
+                "QSpinBox[consoleRole='compactEntry']::down-button {"
+                f"background-color:{SURFACES['raised']};"
+                f"border-left:1px solid {BORDERS['control']};"
+                f"width:{px(16, s)}px;}}"
             ),
             (
                 "QLineEdit[consoleRole='workbenchFilter']:hover,"

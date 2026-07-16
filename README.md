@@ -13,6 +13,9 @@ Current development features include:
 - Dedicated Command Console Overview, Analysis, League Standings, and categorized Settings layouts
   that retain the inherited parser, charts, tables, tree drill-down, copy, upload, search, column,
   and collapse behavior.
+- A fifth-tab Live Control Center with one inherited parser session, an embedded preview, the
+  existing local popout, an optional Windows global visibility hotkey, and a read-only
+  browser/OBS meter.
 - Isolated RE-OSCR settings that do not modify an installed OSCR application.
 - League Standings browsing with season/map selection, handle search, local-log loading, and
   selected-parse open/save actions.
@@ -57,9 +60,12 @@ pipx install re-oscr
 re-oscr
 ```
 
-Early development releases require `pipx install --pre re-oscr`.  `pipx upgrade re-oscr` updates
-the application without touching its settings, which live in the normal per-user application-data
-directory.  The portable Windows and Linux packages continue to keep settings beside the executable.
+Because the current PyPI release is a development release and no stable release exists yet,
+`pipx install re-oscr` selects it normally. Once stable releases exist, plain installs stay on the
+stable channel; opt in to a later development release with
+`pipx install re-oscr --pip-args="--pre"`. `pipx upgrade re-oscr` updates the application without
+touching its settings, which live in the normal per-user application-data directory. The portable
+Windows and Linux packages continue to keep settings beside the executable.
 
 ## Windows portable build
 

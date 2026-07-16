@@ -32,7 +32,8 @@ def main() -> int:
 
     assert ui.window.windowTitle() == "RE-OSCR — Retro Escalation"
     assert ui.window.isVisible()
-    assert ui.widgets.main_tabber.count() == 4
+    assert ui.widgets.main_tabber.count() == (
+        5 if expected_theme_id == COMMAND_CONSOLE_THEME_ID else 4)
     assert ui.active_theme_id == expected_theme_id
     assert ui.settings.theme_id == expected_theme_id
     assert ui.widgets.theme_selector.currentData() == expected_theme_id
@@ -314,6 +315,34 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "settingsClipboardFormat") is not None
         live_graph = ui.window.findChild(QWidget, "settingsLiveGraph")
         live_graph_field = ui.window.findChild(QWidget, "settingsLiveGraphField")
+        live_page = ui.window.findChild(QWidget, "commandConsoleMainPage5")
+        assert live_page is not None
+        assert ui.live_overlay is not None
+        assert "re_oscr.liveoverlay" in sys.modules
+        assert "re_oscr.globalhotkeys" in sys.modules
+        assert "PySide6.QtWebSockets" in sys.modules
+        assert not ui.live_overlay.feed.active
+        assert not ui.settings.overlay__feed_enabled
+        assert ui.window.findChild(QWidget, "commandConsoleLiveFeedToggle") is (
+            ui.widgets.live_overlay_feed_button)
+        assert ui.window.findChild(QWidget, "settingsLiveOverlayBind") is (
+            ui.widgets.live_overlay_bind)
+        assert ui.window.findChild(QWidget, "settingsLiveOverlayPort") is (
+            ui.widgets.live_overlay_port)
+        assert ui.window.findChild(QWidget, "settingsLiveOverlayHotkey") is (
+            ui.widgets.live_overlay_hotkey)
+        assert ui.window.findChild(QWidget, "settingsLiveOverlayHideMode") is (
+            ui.widgets.live_overlay_hotkey_mode)
+        assert live_page.isAncestorOf(live_graph)
+        assert len(ui.window.findChildren(QWidget, "settingsLiveGraph")) == 1
+        assert ui.window.findChild(
+            QWidget, "commandConsoleLiveSettingsPointerPanel") is not None
+        open_live = ui.window.findChild(QWidget, "settingsOpenLiveControlCenter")
+        assert open_live is not None
+        open_live.click()
+        ui.app.processEvents()
+        assert ui.widgets.main_tabber.currentIndex() == 4
+        ui.widgets.switch_main_tab(0)
         assert not live_graph_field.isEnabled()
         live_graph.click()
         ui.app.processEvents()
@@ -345,9 +374,10 @@ def main() -> int:
         league_meters.click()
         ui.app.processEvents()
         assert ui.widgets.ladder_table.meter_mode()
-        assert len(ui.widgets.main_menu_buttons) == 4
+        assert len(ui.widgets.main_menu_buttons) == 5
         assert all(button.isCheckable() for button in ui.widgets.main_menu_buttons)
         assert ui.widgets.main_menu_buttons[0].isChecked()
+        assert ui.widgets.live_parser_button is ui.widgets.main_menu_buttons[4]
         assert ui.widgets.overview_menu_buttons[0].text() == "A1  DPS BAR"
         assert [button.text() for button in ui.widgets.analysis_menu_buttons] == [
             "B1  DAMAGE OUT", "B2  DAMAGE TAKEN", "B3  HEALS OUT", "B4  HEALS IN"]
@@ -456,13 +486,35 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "commandConsoleDrawerSection").text() == "LG"
         assert ui.window.findChild(QWidget, "commandConsoleDrawerTitle").text() == "LEAGUE ACCESS"
         ui.widgets.set_live_parser_active(True)
+        assert ui.widgets.context_rail_segments[2].property("active") is True
+        assert ui.widgets.navigation_buttons[2].property("visualActive") is True
+        assert ui.widgets.navigation_buttons[4].property("popoutVisible") is True
+        ui.widgets.set_live_parser_active(False)
+        assert ui.widgets.context_rail_segments[2].property("active") is True
+        assert ui.widgets.navigation_buttons[2].property("visualActive") is True
+        ui.widgets.main_menu_buttons[4].click()
+        ui.app.processEvents()
+        assert ui.widgets.main_tabber.currentIndex() == 4
+        assert ui.widgets.sidebar_tabber.currentIndex() == 3
+        assert ui.window.findChild(QWidget, "commandConsoleSidebarLive").isVisible()
         assert ui.widgets.context_rail_segments[4].property("active") is True
         assert all(segment.property("active") is False
                    for segment in ui.widgets.context_rail_segments[:4])
         assert ui.widgets.navigation_buttons[4].property("visualActive") is True
-        ui.widgets.set_live_parser_active(False)
-        assert ui.widgets.context_rail_segments[2].property("active") is True
-        assert ui.widgets.navigation_buttons[2].property("visualActive") is True
+        assert context_rail.property("activeAccent") == "#D94B55"
+        assert ui.window.findChild(QWidget, "commandConsoleDrawerSection").text() == "LV"
+        assert ui.window.findChild(QWidget, "commandConsoleDrawerTitle").text() == (
+            "LIVE TELEMETRY")
+        assert not ui.live_parser.popout_visible
+        assert not ui.live_parser.isVisible()
+        assert ui.window.findChild(QWidget, "commandConsoleLivePreviewPanel") is not None
+        assert ui.widgets.live_parser_preview_status.text() == "NO TELEMETRY"
+        log_settings = ui.window.findChild(QWidget, "commandConsoleLiveLogSettings")
+        assert log_settings is not None
+        log_settings.click()
+        ui.app.processEvents()
+        assert ui.widgets.main_tabber.currentIndex() == 3
+        assert ui.widgets.settings_tabber.currentIndex() == 1
         ui.widgets.ladder_search.setText("tester")
         assert ui.league.current_filter_term == "tester"
         ui.widgets.ladder_search.clear()
@@ -482,7 +534,11 @@ def main() -> int:
             assert button.isChecked()
     else:
         assert ui.workbench is None
+        assert ui.live_overlay is None
         assert "re_oscr.console" not in sys.modules
+        assert "re_oscr.liveoverlay" not in sys.modules
+        assert "re_oscr.globalhotkeys" not in sys.modules
+        assert "PySide6.QtWebSockets" not in sys.modules
         assert default_shell is not None
         assert command_shell is None
         original_scale = ui.config.ui_scale
@@ -491,6 +547,7 @@ def main() -> int:
             ui.theme.opt.sidebar_item_width * ui.window.width() * ui.config.ui_scale)
         ui.config.ui_scale = original_scale
         assert not any(button.isCheckable() for button in ui.widgets.main_menu_buttons)
+        assert ui.widgets.live_parser_button not in ui.widgets.main_menu_buttons
         assert ui.widgets.overview_menu_buttons[0].text() == "DPS Bar"
         assert ui.window.findChild(QWidget, "defaultAnalysisGraph") is not None
         assert ui.window.findChild(QWidget, "defaultAnalysisTelemetry") is not None
@@ -519,6 +576,8 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "commandConsoleLeagueControlDeck") is None
         assert ui.window.findChild(QWidget, "commandConsoleSettingsHeading") is None
         assert ui.window.findChild(QWidget, "commandConsoleSettingsNavigation") is None
+        assert ui.window.findChild(QWidget, "commandConsoleLiveFeedToggle") is None
+        assert ui.window.findChild(QWidget, "settingsLiveOverlayHotkey") is None
         assert [button.text() for button in ui.widgets.analysis_menu_buttons] == [
             "Damage Out", "Damage Taken", "Heals Out", "Heals In"]
         assert ui.widgets.league_search_button.text() == "Search"

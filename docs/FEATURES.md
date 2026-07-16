@@ -25,7 +25,28 @@ leaving parser truth, parser models, and League upload inputs intact.
 | **02 Analysis** | Investigate outgoing/incoming damage and healing through synchronized graphs and expandable telemetry trees. |
 | **03 League** | Browse standings, filter handles, load local logs, and open or save selected parses while retaining League's existing workflow. |
 | **04 Settings** | Organize core behavior, Live Parser behavior, palettes, and inherited table-column choices without hiding expert controls. |
-| **05 Live Parser** | Use the existing live telemetry workflow from the Command Console. The dedicated overlay work is a later phase. |
+| **05 Live Parser** | Run one inherited live-parser session through an embedded preview, the local popout, and an optional read-only browser/OBS meter. |
+
+## Live Parser: one session, three presentations
+
+The fifth workspace turns the inherited live workflow into a control centre without creating a
+second parser:
+
+- Start and stop parsing independently from page navigation and presentation visibility.
+- Inspect the same normalized snapshot in the embedded preview or existing always-on-top popout.
+- Start a transparent browser/OBS meter on localhost, with generated local files and automatic
+  reconnect behavior.
+- Opt into one explicit private LAN address when a second streaming machine needs the feed. LAN
+  mode is unencrypted, never silently widens to every interface, and requires confirmation once
+  per app session.
+- Assign an optional Windows global hotkey to hide the popout alone or the popout and browser
+  meter together. Hiding either presentation never stops the parser.
+- Select visible metrics, Name or Handle display, graph behavior, window opacity and scale, and an
+  optional local CSS override from the same page.
+
+The feed is presentation-only and accepts no commands. A private capability URL, strict bind
+validation, bounded clients, and empty hidden frames keep the browser output deliberately narrow.
+OSCR-UI Legacy retains its inherited direct popout behavior and does not load these services.
 
 ## Analysis: quick when it needs to be, deep when it matters
 
@@ -77,7 +98,7 @@ RE-OSCR is designed as a combat meter rather than a generic spreadsheet:
 |---|---|
 | **Windows** | Download the portable Windows ZIP from the relevant GitHub release or workflow artifact, extract it somewhere writable, and run `RE-OSCR.exe`. |
 | **Linux x86-64** | Download the portable archive from the Linux workflow, extract it, and run `./RE-OSCR`. |
-| **Linux / macOS with Python** | Install published releases with `pipx install re-oscr`; development releases use `pipx install re-oscr --pip-args="--pre"`. Update with `pipx upgrade re-oscr`. |
+| **Linux / macOS with Python** | Install with `pipx install re-oscr`. While no stable release exists, this selects the current development release; after stable releases exist, opt in to later development builds with `pipx install re-oscr --pip-args="--pre"`. Update with `pipx upgrade re-oscr`. |
 
 Portable packages keep their settings beside the executable. `pipx` installs keep settings in the
 normal per-user application-data location, so upgrades do not discard them.

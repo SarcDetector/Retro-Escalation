@@ -14,7 +14,7 @@ from main import Launcher
 
 
 class RetroEscalationLauncher:
-    __version__ = '11.1.0.dev11'
+    __version__ = '11.1.0.dev12'
 
     @staticmethod
     def installed_config_dir() -> Path:

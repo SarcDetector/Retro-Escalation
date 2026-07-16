@@ -1,0 +1,126 @@
+name: Publish GitHub prerelease
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify tag and launcher versions
+        id: version
+        env:
+          TAG_VERSION: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          tag = os.environ["TAG_VERSION"]
+          if not tag.startswith("v"):
+              raise SystemExit(f"Release tags must start with v: {tag}")
+          expected = tag[1:]
+          if not expected or "+" in expected:
+              raise SystemExit(f"Invalid public release version: {expected}")
+
+          versions = {}
+          for filename in ("retro_escalation.py", "main.py"):
+              source = Path(filename).read_text(encoding="utf-8")
+              match = re.search(r"__version__ = '([^']+)'", source)
+              if match is None:
+                  raise SystemExit(f"Could not find the application version in {filename}")
+              versions[filename] = match.group(1)
+          if set(versions.values()) != {expected}:
+              raise SystemExit(
+                  f"Tag {tag} does not match both launcher versions: {versions}")
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              output.write(f"version={expected}\n")
+          PY
+
+  windows:
+    needs: verify
+    uses: ./.github/workflows/windows-portable.yml
+
+  linux:
+    needs: verify
+    uses: ./.github/workflows/linux-portable.yml
+
+  github-release:
+    needs:
+      - verify
+      - windows
+      - linux
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.ref_name }}
+      RELEASE_VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows package
+        uses: actions/download-artifact@v4
+        with:
+          name: RE-OSCR-${{ github.sha }}-windows-x64
+          path: release-assets/windows
+
+      - name: Download Linux package
+        uses: actions/download-artifact@v4
+        with:
+          name: RE-OSCR-${{ github.sha }}-linux-x86_64
+          path: release-assets/linux
+
+      - name: Verify release assets
+        run: |
+          assets=(
+            "release-assets/windows/RE-OSCR-${RELEASE_VERSION}-windows-x64.zip"
+            "release-assets/windows/RE-OSCR-${RELEASE_VERSION}-windows-x64.zip.sha256"
+            "release-assets/linux/RE-OSCR-${RELEASE_VERSION}-linux-x86_64.tar.gz"
+            "release-assets/linux/RE-OSCR-${RELEASE_VERSION}-linux-x86_64.tar.gz.sha256"
+          )
+          for asset in "${assets[@]}"; do
+            test -s "$asset"
+          done
+          (cd release-assets/windows && sha256sum --check *.sha256)
+          (cd release-assets/linux && sha256sum --check *.sha256)
+
+      - name: Create or update GitHub prerelease
+        run: |
+          assets=(
+            "release-assets/windows/RE-OSCR-${RELEASE_VERSION}-windows-x64.zip"
+            "release-assets/windows/RE-OSCR-${RELEASE_VERSION}-windows-x64.zip.sha256"
+            "release-assets/linux/RE-OSCR-${RELEASE_VERSION}-linux-x86_64.tar.gz"
+            "release-assets/linux/RE-OSCR-${RELEASE_VERSION}-linux-x86_64.tar.gz.sha256"
+          )
+          title="RE-OSCR ${RELEASE_VERSION} - Retro Escalation"
+          notes_file="docs/releases/${RELEASE_TAG}.md"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            edit_args=(--title "$title" --prerelease)
+            if test -f "$notes_file"; then
+              edit_args+=(--notes-file "$notes_file")
+            fi
+            gh release edit "$RELEASE_TAG" "${edit_args[@]}"
+            gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+          else
+            create_args=(--verify-tag --title "$title" --prerelease)
+            if test -f "$notes_file"; then
+              create_args+=(--notes-file "$notes_file")
+            else
+              create_args+=(--generate-notes)
+            fi
+            gh release create "$RELEASE_TAG" "${assets[@]}" "${create_args[@]}"
+          fi

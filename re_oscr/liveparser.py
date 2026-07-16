@@ -1,6 +1,6 @@
 from pyqtgraph import mkPen, PlotDataItem, PlotWidget
-from PySide6.QtCore import QPoint, Qt, Signal, Slot
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtCore import QPoint, Qt, QTimer, Signal, Slot
+from PySide6.QtGui import QCloseEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication, QGridLayout, QFrame, QHBoxLayout, QLabel, QSplitter, QTableView, QVBoxLayout)
 
@@ -18,14 +18,21 @@ from .widgetmanager import WidgetManager
 from .widgets import CustomPlotAxis, FlipButton, SizeGrip
 
 
+LIVE_GRAPH_FIELD_TO_COLUMN = {0: 0, 1: 2, 2: 3, 3: 4}
+
+
 class LiveParserWindow(QFrame):
     """Manages LiveParser and its window"""
-    update_table = Signal(tuple)
-    update_graph = Signal(list)
+    update_table = Signal(object)
+    update_graph = Signal(object)
+    snapshot_updated = Signal(object, float)
+    duration_updated = Signal(float)
+    parser_active_changed = Signal(bool)
+    popout_visible_changed = Signal(bool)
 
     def __init__(
             self, global_settings: OSCRSettings, theme: AppTheme, dialogs: DialogsWrapper,
-            widgets: WidgetManager):
+            widgets: WidgetManager, command_console: bool = False):
         """
         Parameters:
         - :param global_settings: OSCRSettings
@@ -38,6 +45,7 @@ class LiveParserWindow(QFrame):
         self._theme: AppTheme = theme
         self._dialogs: DialogsWrapper = dialogs
         self._widgets: WidgetManager = widgets
+        self._command_console = bool(command_console)
         self._liveparser: LiveParser = LiveParser(
             update_callback=self.update_live_display, settings=self.live_parser_settings)
         self._move_start_pos: QPoint
@@ -51,7 +59,34 @@ class LiveParserWindow(QFrame):
         self._graph_active: bool = False
         self._graph_data_buffer: list[list[int | float]] = list()
         self._graph_column: int = 0
+        self._parser_active: bool = False
+        self._popout_visible: bool = False
+        self._activate_button_transition: bool = False
+        self._shutting_down: bool = False
+        self._last_snapshot: list[list] = list()
+        self._last_combat_time: float = 0.0
         self.build_window()
+        self.update_table.connect(self.update_live_table)
+        self.update_graph.connect(self.update_live_graph)
+        self.duration_updated.connect(self._update_duration_label)
+        self.parser_active_changed.connect(self._sync_activate_button)
+        if self._command_console:
+            self.popout_visible_changed.connect(self._widgets.set_live_parser_active)
+
+    @property
+    def parser_active(self) -> bool:
+        """Whether RE-OSCR has asked the inherited live parser to run."""
+        return self._parser_active
+
+    @property
+    def popout_visible(self) -> bool:
+        """Whether the local always-on-top meter is visible."""
+        return self._popout_visible
+
+    @property
+    def last_snapshot(self) -> tuple[list[list], float]:
+        """Return a presentation-only copy of the latest normalized live rows."""
+        return [list(row) for row in self._last_snapshot], self._last_combat_time
 
     @property
     def live_parser_settings(self) -> dict:
@@ -140,8 +175,8 @@ class LiveParserWindow(QFrame):
         self._activate_button.setStyleSheet(self._theme.get_style_class(
                 'QPushButton', 'toggle_button', {'margin': (0, 0, 3, 0)}))
         self._activate_button.setFont(self._theme.get_font('app', '@subhead'))
-        self._activate_button.r_function = self._liveparser.start
-        self._activate_button.l_function = self._liveparser.stop
+        self._activate_button.r_function = self._start_from_activate_button
+        self._activate_button.l_function = self._stop_from_activate_button
         bottom_layout.addWidget(self._activate_button, 0, 0, alignment=ALEFT | AVCENTER)
         icon_size = [self._theme.opt.default_icon_size * self._window_scale * 0.8] * 2
         copy_button = create_icon_button(
@@ -152,7 +187,7 @@ class LiveParserWindow(QFrame):
         close_button = create_icon_button(
                 self._theme, 'close', tr('Close Live Parser'),
                 style_override={'margin': (0, 0, 3, 0)}, icon_size=icon_size)
-        close_button.clicked.connect(lambda: self.toggle_window(False))
+        close_button.clicked.connect(self._close_popout)
         bottom_layout.addWidget(close_button, 0, 2, alignment=ALEFT | AVCENTER)
         time_label = create_label(self._theme, 'Duration: 0s')
         bottom_layout.addWidget(time_label, 0, 3, alignment=ALEFT | AVCENTER)
@@ -164,9 +199,8 @@ class LiveParserWindow(QFrame):
 
         layout.addLayout(bottom_layout)
         self.setLayout(layout)
-        self.update_table.connect(self.update_live_table)
-        self.update_table.connect(self.init_live_table_columns)
-        self.update_graph.connect(self.update_live_graph)
+        self.apply_runtime_settings()
+        self._sync_activate_button(self._parser_active)
         self._theme.scale = ui_scale_temp
 
     def create_live_graph(self) -> tuple[QFrame, list[PlotDataItem]]:
@@ -226,8 +260,8 @@ class LiveParserWindow(QFrame):
         """
         cells = list()
         curves = list()
-        for player, player_data in player_data.items():
-            cells.append([player, *player_data.values(), 5])
+        for player, values in player_data.items():
+            cells.append([player, *values.values(), 5])
         if self._graph_active:
             if len(self._graph_data_buffer) == 0:
                 self._graph_data_buffer.extend(([0] * 15, [0] * 15, [0] * 15, [0] * 15, [0] * 15))
@@ -240,58 +274,153 @@ class LiveParserWindow(QFrame):
             if len(curves) > 0:
                 self.update_graph.emit(curves)
 
-        if len(cells) > 0:
-            self.update_table.emit(cells)
-        self._duration_label.setText(f'Duration: {combat_time:.1f}s')
+        self._last_snapshot = [list(row) for row in cells]
+        self._last_combat_time = float(combat_time)
+        self.update_table.emit([list(row) for row in cells])
+        self.duration_updated.emit(float(combat_time))
+        self.snapshot_updated.emit([list(row) for row in cells], float(combat_time))
 
     def toggle_window(self, activate: bool):
         """
-        Activates / Deactivates LiveParser.
+        Preserve the inherited OSCR-UI Legacy one-button popout behavior.
 
         Parameters:
         - :param activate: True when parser should be shown; False when open parser should be
         closed.
         """
+        if self._command_console:
+            self.set_popout_visible(activate)
+            return
         if activate:
-            if not self._liveparser.set_log_path(self._settings.sto_log_path):
-                bad_logfile_message = tr(
-                    'Make sure to set the STO Logfile setting in the settings tab to a valid '
-                    'logfile before starting the live parser.')
-                self._dialogs.show_message(tr('Invalid Logfile'), bad_logfile_message, 'warning')
+            if not self._set_log_path(show_warning=True):
                 self._widgets.live_parser_button.setChecked(False)
                 return
-            if self._window_scale != self._settings.liveparser__window_scale:
-                QFrame().setLayout(self.layout())
-                self.build_window()
-            if self._settings.state__live_geometry:
-                self.restoreGeometry(self._settings.state__live_geometry)
-            self._data_buffer = list()
-            FIELD_INDEX_CONVERSION = {0: 0, 1: 2, 2: 3, 3: 4}
-            self._graph_column = FIELD_INDEX_CONVERSION[self._settings.liveparser__graph_field]
-            self._table_model.legend_column = self._graph_column
-            if self._settings.liveparser__graph_active:
-                self._graph_active = True
-                self._splitter.widget(0).show()
-                if self._settings.state__live_splitter:
-                    self._splitter.restoreState(self._settings.state__live_splitter)
-            else:
-                self._graph_active = False
-                self._splitter.widget(0).hide()
-            if self._settings.liveparser__player_display == 'Handle':
-                self._table_model.name_index = 1
-            else:
-                self._table_model.name_index = 0
-            if self._settings.liveparser__auto_enabled:
-                self._activate_button.flip()
-            self.setWindowOpacity(self._settings.liveparser__window_opacity)
-            self.update_shown_columns()
-            self.show()
+            self.set_popout_visible(True)
         else:
-            self.store_window_state()
-            self.hide()
-            if self._activate_button.isChecked():
-                self._activate_button.flip()
+            self.set_popout_visible(False, stop_parser=True)
             self._widgets.live_parser_button.setChecked(False)
+
+    def start_parser(self) -> bool:
+        """Start the inherited live parser without changing page or popout visibility."""
+        if self._parser_active:
+            return True
+        if not self._set_log_path(show_warning=True):
+            self.parser_active_changed.emit(False)
+            QTimer.singleShot(0, lambda: self._sync_activate_button(False))
+            return False
+        self._liveparser.settings.update(self.live_parser_settings)
+        self._liveparser.start()
+        self._parser_active = True
+        self.parser_active_changed.emit(True)
+        return True
+
+    def stop_parser(self) -> None:
+        """Stop the inherited live parser without hiding either presentation."""
+        if self._parser_active:
+            self._liveparser.stop()
+        self._parser_active = False
+        self.parser_active_changed.emit(False)
+
+    def set_popout_visible(self, visible: bool, stop_parser: bool = False) -> None:
+        """Show or hide the local meter independently from the live parser session."""
+        visible = bool(visible)
+        if visible:
+            self._prepare_popout()
+            self.show()
+            self._popout_visible = True
+            self.popout_visible_changed.emit(True)
+            if self._settings.liveparser__auto_enabled and not self._parser_active:
+                self.start_parser()
+            return
+
+        if self.isVisible() or self._popout_visible:
+            self.store_window_state()
+        self.hide()
+        self._popout_visible = False
+        self.popout_visible_changed.emit(False)
+        if stop_parser:
+            self.stop_parser()
+
+    def apply_runtime_settings(self) -> None:
+        """Apply the existing liveparser settings to the popout without creating parser state."""
+        self._liveparser.settings.update(self.live_parser_settings)
+        graph_column = LIVE_GRAPH_FIELD_TO_COLUMN.get(
+            self._settings.liveparser__graph_field, 0)
+        if graph_column != self._graph_column:
+            self._graph_data_buffer = list()
+        self._graph_column = graph_column
+        self._table_model.legend_column = graph_column
+        self._graph_active = bool(self._settings.liveparser__graph_active)
+        self._splitter.widget(0).setVisible(self._graph_active)
+        if self._graph_active and self._settings.state__live_splitter:
+            self._splitter.restoreState(self._settings.state__live_splitter)
+        self._table_model.name_index = (
+            1 if self._settings.liveparser__player_display == 'Handle' else 0)
+        self.setWindowOpacity(self._settings.liveparser__window_opacity)
+        self.update_shown_columns()
+
+    def shutdown(self) -> None:
+        """Persist the popout and stop background parser work during application exit."""
+        if self._shutting_down:
+            return
+        self._shutting_down = True
+        if self.isVisible() or self._popout_visible:
+            self.store_window_state()
+        self.hide()
+        self._popout_visible = False
+        self.popout_visible_changed.emit(False)
+        if self._parser_active:
+            self._liveparser.stop()
+        self._parser_active = False
+        self.parser_active_changed.emit(False)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Keep direct window closes aligned with the public popout state contract."""
+        if self._shutting_down:
+            event.accept()
+            return
+        self.set_popout_visible(False, stop_parser=not self._command_console)
+        if not self._command_console:
+            self._widgets.live_parser_button.setChecked(False)
+        event.ignore()
+
+    def _prepare_popout(self) -> None:
+        if self._window_scale != self._settings.liveparser__window_scale:
+            QFrame().setLayout(self.layout())
+            self.build_window()
+        if self._settings.state__live_geometry:
+            self.restoreGeometry(self._settings.state__live_geometry)
+        self.apply_runtime_settings()
+
+    def _set_log_path(self, show_warning: bool) -> bool:
+        if self._liveparser.set_log_path(self._settings.sto_log_path):
+            return True
+        if show_warning:
+            bad_logfile_message = tr(
+                'Make sure to set the STO Logfile setting in the settings tab to a valid '
+                'logfile before starting the live parser.')
+            self._dialogs.show_message(
+                tr('Invalid Logfile'), bad_logfile_message, 'warning')
+        return False
+
+    def _close_popout(self) -> None:
+        self.set_popout_visible(False, stop_parser=not self._command_console)
+        if not self._command_console:
+            self._widgets.live_parser_button.setChecked(False)
+
+    def _start_from_activate_button(self) -> bool:
+        self._activate_button_transition = True
+        try:
+            return self.start_parser()
+        finally:
+            self._activate_button_transition = False
+
+    def _stop_from_activate_button(self) -> None:
+        self._activate_button_transition = True
+        try:
+            self.stop_parser()
+        finally:
+            self._activate_button_transition = False
 
     @Slot()
     def update_live_table(self, data: list):
@@ -302,17 +431,27 @@ class LiveParserWindow(QFrame):
         - :param data: list containing the index and cell values
         """
         self._table_model.replace_data(data)
-        self._table.sortByColumn(0, Qt.SortOrder.DescendingOrder)
+        if data:
+            self._table.sortByColumn(0, Qt.SortOrder.DescendingOrder)
         self._table.resizeColumnsToContents()
         self._table.resizeRowsToContents()
-
-    @Slot()
-    def init_live_table_columns(self, _):
-        """
-        Triggers column visibilty update on first data insertion.
-        """
         self.update_shown_columns()
-        self.update_table.disconnect(self.init_live_table_columns)
+
+    @Slot(float)
+    def _update_duration_label(self, combat_time: float) -> None:
+        self._duration_label.setText(f'Duration: {combat_time:.1f}s')
+
+    @Slot(bool)
+    def _sync_activate_button(self, active: bool) -> None:
+        """Keep the inherited popout button aligned with page-driven parser state."""
+        if (not hasattr(self, '_activate_button')
+                or self._activate_button_transition):
+            return
+        blocked = self._activate_button.blockSignals(True)
+        self._activate_button._r = not active
+        self._activate_button.setChecked(active)
+        self._activate_button.setText(tr('Deactivate') if active else tr('Activate'))
+        self._activate_button.blockSignals(blocked)
 
     @Slot()
     def update_live_graph(self, curve_data: list[tuple[PlotDataItem, list[float]]]):

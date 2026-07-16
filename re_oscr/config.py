@@ -54,6 +54,9 @@ class OSCRSettings():
                  'liveparser__copy_kills', 'liveparser__graph_active', 'liveparser__graph_field',
                  'liveparser__player_display', 'liveparser__window_scale',
                  'liveparser__window_opacity', 'theme_id',
+                 'overlay__custom_css_path', 'overlay__feed_bind',
+                 'overlay__feed_enabled', 'overlay__feed_port', 'overlay__feed_token',
+                 'overlay__hotkey_hide_mode', 'overlay__hotkey_visibility',
                  'workbench_auto_enable_rules', 'workbench_auto_rules',
                  'workbench_auto_rule_set', 'workbench_rule_set')
 
@@ -105,6 +108,14 @@ class OSCRSettings():
         self.liveparser__window_scale: float = 1.0
         self.liveparser__window_opacity: float = 0.85
 
+        self.overlay__custom_css_path: str = ''
+        self.overlay__feed_bind: str = '127.0.0.1'
+        self.overlay__feed_enabled: bool = False
+        self.overlay__feed_port: int = 47025
+        self.overlay__feed_token: str = ''
+        self.overlay__hotkey_hide_mode: str = 'all'
+        self.overlay__hotkey_visibility: str = ''
+
         if os.name == 'nt':
             self._settings = QSettings(str(settings_file_path), QSettings.Format.IniFormat)
         else:
@@ -120,6 +131,10 @@ class OSCRSettings():
             self.command_console_palette_preset, self.command_console_accents))
         if self.analysis_presentation_mode not in ('simple', 'advanced'):
             self.analysis_presentation_mode = 'simple'
+        if self.overlay__hotkey_hide_mode not in ('all', 'popout'):
+            self.overlay__hotkey_hide_mode = 'all'
+        if not 1024 <= self.overlay__feed_port <= 65535:
+            self.overlay__feed_port = 47025
 
     def load_settings(self):
         """

@@ -30,6 +30,24 @@ class OSCRSettingsTests(unittest.TestCase):
             self.assertEqual(settings.ui_scale, 1.0)
             self.assertEqual(settings.dmg_columns, [True] * 21)
             self.assertEqual(settings.heal_columns, [True] * 13)
+            self.assertFalse(settings.liveparser__auto_enabled)
+            self.assertEqual(
+                settings.liveparser__columns,
+                [True, False, True, False, False, False, False],
+            )
+            self.assertFalse(settings.liveparser__copy_kills)
+            self.assertFalse(settings.liveparser__graph_active)
+            self.assertEqual(settings.liveparser__graph_field, 0)
+            self.assertEqual(settings.liveparser__player_display, "Handle")
+            self.assertEqual(settings.liveparser__window_scale, 1.0)
+            self.assertEqual(settings.liveparser__window_opacity, 0.85)
+            self.assertEqual(settings.overlay__custom_css_path, "")
+            self.assertEqual(settings.overlay__feed_bind, "127.0.0.1")
+            self.assertFalse(settings.overlay__feed_enabled)
+            self.assertEqual(settings.overlay__feed_port, 47025)
+            self.assertEqual(settings.overlay__feed_token, "")
+            self.assertEqual(settings.overlay__hotkey_hide_mode, "all")
+            self.assertEqual(settings.overlay__hotkey_visibility, "")
             self.assertEqual(settings.command_console_palette_preset, "command")
             self.assertEqual(
                 settings.command_console_accents,
@@ -58,6 +76,13 @@ class OSCRSettingsTests(unittest.TestCase):
             settings.dmg_columns[7] = False
             settings.heal_columns[2] = False
             settings.liveparser__columns = [True, False, True, True, False, False, True]
+            settings.overlay__custom_css_path = "C:/Styles/re-oscr.css"
+            settings.overlay__feed_bind = "192.168.1.25"
+            settings.overlay__feed_enabled = True
+            settings.overlay__feed_port = 49152
+            settings.overlay__feed_token = "portable_test_token_123456789"
+            settings.overlay__hotkey_hide_mode = "popout"
+            settings.overlay__hotkey_visibility = "Ctrl+Shift+L"
             settings.favorite_ladders = ["alpha", "beta"]
             settings.command_console_palette_preset = "custom"
             settings.command_console_accents = [
@@ -93,6 +118,14 @@ class OSCRSettingsTests(unittest.TestCase):
                 restored.liveparser__columns,
                 [True, False, True, True, False, False, True],
             )
+            self.assertEqual(restored.overlay__custom_css_path, "C:/Styles/re-oscr.css")
+            self.assertEqual(restored.overlay__feed_bind, "192.168.1.25")
+            self.assertTrue(restored.overlay__feed_enabled)
+            self.assertEqual(restored.overlay__feed_port, 49152)
+            self.assertEqual(
+                restored.overlay__feed_token, "portable_test_token_123456789")
+            self.assertEqual(restored.overlay__hotkey_hide_mode, "popout")
+            self.assertEqual(restored.overlay__hotkey_visibility, "Ctrl+Shift+L")
             self.assertEqual(restored.favorite_ladders, ["alpha", "beta"])
             self.assertEqual(restored.command_console_palette_preset, "custom")
             self.assertEqual(
@@ -167,6 +200,18 @@ class OSCRSettingsTests(unittest.TestCase):
             settings._settings.sync()
 
             self.assertEqual(OSCRSettings(settings_path).analysis_presentation_mode, "simple")
+
+    def test_invalid_overlay_controls_return_to_safe_defaults(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            settings_path = Path(temp_dir, "settings.ini")
+            settings = OSCRSettings(settings_path)
+            settings._settings.setValue("overlay__feed_port", 80)
+            settings._settings.setValue("overlay__hotkey_hide_mode", "everything")
+            settings._settings.sync()
+
+            restored = OSCRSettings(settings_path)
+            self.assertEqual(restored.overlay__feed_port, 47025)
+            self.assertEqual(restored.overlay__hotkey_hide_mode, "all")
 
 
 if __name__ == "__main__":

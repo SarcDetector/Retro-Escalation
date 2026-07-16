@@ -3,11 +3,11 @@
 ## Status
 
 The restart-based theme foundation and portable tester build are implemented. Command Console now
-has its own application shell plus dedicated Overview, Analysis, and League Standings presentations
-and a categorized Settings dashboard while retaining the shared parser, models, and callbacks. The
-Live Parser still uses its inherited window layout. League Standings can browse maps, search
-ladders, load local logs, and open or save downloaded parses. This document defines the acceptance
-matrix for experimental builds.
+has its own application shell plus dedicated Overview, Analysis, League Standings, Settings, and
+Live Control Center presentations while retaining the shared parser, models, and callbacks. The
+inherited Live Parser popout remains available from that page. League Standings can browse maps,
+search ladders, load local logs, and open or save downloaded parses. This document defines the
+acceptance matrix for experimental builds.
 
 ## Test environments
 
@@ -65,8 +65,8 @@ Run every item once in OSCR-UI Legacy and once in Command Console.
 - [x] Collapse and restore the sidebar. (Manual source-app visual check)
 - [x] Keep all five colour-rail segments visible while the sidebar is collapsed. (Automated and
   manual source-app visual check)
-- [x] Match the sidebar accent to Overview, Analysis, League, and Settings. (Automated and manual
-  source-app visual check)
+- [x] Match the sidebar accent to Overview, Analysis, League, Settings, and Live Parser.
+  (Automated and manual source-app visual check)
 - [ ] Collapse and restore the graph and table.
 - [ ] Sort the Overview table.
 - [ ] Scroll all columns horizontally.
@@ -141,31 +141,65 @@ python -m tests.league_live_probe --local "C:\path\to\CombatLog.log"
 
 ### Settings
 
-- [x] Open Core + Results, Live Parser, and Table Columns categories. (Automated and manual
-  source-app visual check)
-- [x] Retain every configured damage, heal, and Live Parser column toggle. (Automated)
+- [x] Open Core + Results, the Live Parser pointer, and Table Columns categories. (Automated and
+  manual source-app visual check)
+- [x] Retain every configured damage and heal column toggle; keep Live Parser columns on the
+  dedicated Live page under their existing settings keys. (Automated)
 - [x] Show custom palette and background-image controls only when their Custom options are
   selected; keep the Live Parser graph field disabled while its graph is off. (Automated)
 - [ ] Change a numeric setting and confirm persistence.
 - [ ] Exercise switches, sliders, and combo boxes.
-- [ ] Change Overview, Analysis, and Live Parser columns and apply them.
+- [ ] Change Overview and Analysis columns and apply them; change Live Parser columns from page 05.
 - [ ] Change UI scale and restart.
 - [ ] Change theme and verify the restart-required guidance.
 
 ### Live Parser
 
+- [x] Make 05 a real Command Console page without showing the popout; keep OSCR-UI Legacy's
+  inherited direct toggle. (Automated)
+- [x] Keep page selection, parser activity, and popout visibility independent; hiding the popout
+  or navigating elsewhere does not stop parsing. (Automated)
+- [x] Drive the embedded preview and popout from one normalized OSCR live-parser snapshot; clear
+  stale preview rows when telemetry is empty. (Automated)
+- [x] Keep all existing `liveparser__` keys and defaults unchanged, with one set of page controls
+  for graph, field, columns, display name, copy, auto-start, scale, and opacity. (Automated)
+- [x] Keep direct window close synchronized: Command Console hides without stopping; OSCR-UI
+  Legacy retains close-and-stop. (Automated)
+- [x] Register, replace, restore, clear, and shut down Windows global-hotkey bindings
+  transactionally; reject unsafe bare keys, reserved F12, and multi-key sequences. (Automated;
+  native Windows smoke plus fake-backend regression tests)
+- [x] Verify both visibility modes and prove that neither one stops the inherited parser.
+  (Automated)
+- [x] Start a real authenticated localhost websocket client, receive schema-v1 telemetry, reject
+  client messages, and dispose connected clients cleanly. (Automated)
+- [x] Generate the complete OBS folder, carry the active palette and selected metrics, sanitize
+  non-finite data, and remove all telemetry from hidden frames. (Automated)
+- [x] Reject wildcard, hostname, public, IPv6, stale-adapter, and privileged-port feed choices;
+  require explicit confirmation for unencrypted LAN mode and never auto-start LAN. (Automated)
+- [x] Load hotkey and browser-feed services only in Command Console; keep OSCR-UI Legacy isolated
+  from QtWebSockets and the new controller modules. (Automated subprocess startup checks)
 - [ ] Open and close the separate window.
 - [ ] Start and stop parsing.
 - [ ] Verify opacity, scale, and graph visibility.
 - [ ] Switch graph field and player display.
 - [ ] Resize and reposition the window, then restart.
 - [ ] Copy results in each supported format.
+- [ ] Assign a global visibility hotkey, focus or minimize RE-OSCR, and verify it while STO owns
+  keyboard focus.
+- [ ] Add the generated `overlay.html` as an OBS Browser source using Local file; verify
+  transparency, reconnect, selected metrics, palette changes, and both visibility modes.
+- [ ] Select a private LAN adapter, confirm the unencrypted feed warning, and connect from a
+  second device without opening any other interface.
+- [ ] Apply a small custom CSS file, refresh the OBS Browser source, then verify a broken or
+  oversized file falls back to the bundled style.
 
 ## Visual checks
 
 - [x] Command Console text and controls remain readable at 1280x960. (Manual source-app visual
   check)
 - [x] Text, chart axes, and controls remain readable at 1280x720. (Offscreen visual check)
+- [x] Live Control Center split layout remains readable at 1280x720 and 1800x1000 with graph
+  disabled and no configured combat log. (Offscreen visual checks)
 - [ ] Text and controls remain readable at other supported scales.
 - [ ] Tables distinguish headers, selected rows, alternate rows, hover, and focus.
 - [ ] Disabled controls are visibly disabled.

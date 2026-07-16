@@ -1,6 +1,7 @@
 name: Windows portable build
 
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     branches:
@@ -54,10 +55,47 @@ jobs:
             -OutputRoot ".artifacts\windows-package" `
             -Package
 
+      - name: Verify Live overlay package contents
+        shell: pwsh
+        run: |
+          $root = '.artifacts\windows-package\RE-OSCR\_internal'
+          $required = @(
+            'assets\overlay\overlay.html',
+            'assets\overlay\overlay.css',
+            'assets\overlay\overlay.js',
+            'PySide6\QtWebSockets.pyd',
+            'PySide6\Qt6WebSockets.dll'
+          )
+          foreach ($relativePath in $required) {
+            $path = Join-Path $root $relativePath
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "Missing Live overlay package file: $path"
+            }
+          }
+
       - name: Verify packaged startup
         shell: pwsh
         run: |
           $configDir = Join-Path $env:RUNNER_TEMP 're-oscr-package-settings'
+          $env:RE_OSCR_SMOKE_CONFIG = $configDir
+          @'
+          import os
+          import socket
+          from pathlib import Path
+          from re_oscr.config import OSCRSettings
+
+          config_dir = Path(os.environ['RE_OSCR_SMOKE_CONFIG'])
+          config_dir.mkdir(parents=True, exist_ok=True)
+          with socket.socket() as probe:
+              probe.bind(('127.0.0.1', 0))
+              port = probe.getsockname()[1]
+          settings = OSCRSettings(config_dir / 'RE_OSCR_settings.ini')
+          settings.overlay__feed_enabled = True
+          settings.overlay__feed_bind = '127.0.0.1'
+          settings.overlay__feed_port = port
+          settings.store_settings()
+          settings._settings.sync()
+          '@ | .\.venv\Scripts\python.exe -
           $process = Start-Process `
             -FilePath .\.artifacts\windows-package\RE-OSCR\RE-OSCR.exe `
             -ArgumentList @('--config_dir', $configDir, '--startup-check') `
@@ -65,6 +103,14 @@ jobs:
             -PassThru
           if ($process.ExitCode -ne 0) {
             throw "Packaged startup failed with exit code $($process.ExitCode)."
+          }
+          foreach ($name in @(
+              'overlay.html', 'overlay.css', 'overlay.js',
+              'overlay-config.js', 'overlay-custom.css')) {
+            $path = Join-Path $configDir "overlay\$name"
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "Packaged Live overlay did not generate: $path"
+            }
           }
 
       - name: Upload Windows tester package

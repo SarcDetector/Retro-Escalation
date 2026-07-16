@@ -91,7 +91,21 @@ class REOSCRApplication():
         self.detection_info: DetectionInfoDialog = DetectionInfoDialog(self.window, self.theme)
         self.status_bar: StatusBar = StatusBar(self.theme, self.window)
         self.live_parser: LiveParserWindow = LiveParserWindow(
-            self.settings, self.theme, self.dialogs, self.widgets)
+            self.settings, self.theme, self.dialogs, self.widgets,
+            command_console=self.active_theme_id == COMMAND_CONSOLE_THEME_ID)
+        self.live_overlay = None
+        if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
+            from .liveoverlay import LiveOverlayController
+
+            self.live_overlay = LiveOverlayController(
+                app=self.app,
+                settings=self.settings,
+                config_dir=Path(self.config.config_dir),
+                asset_dir=Path(self.app_dir) / 'assets' / 'overlay',
+                theme=self.theme,
+                live_parser=self.live_parser,
+                parent=self.window,
+            )
         self.parser: ParserBridge = ParserBridge(
             self.settings, self.config, self.widgets, self.dialogs)
         self.parser._tables = self.tables
@@ -278,8 +292,9 @@ class REOSCRApplication():
         """
         Executed when application is closed.
         """
-        if self.live_parser.isVisible():
-            self.live_parser.toggle_window(False)
+        if self.live_overlay is not None:
+            self.live_overlay.shutdown()
+        self.live_parser.shutdown()
         self.settings.state__geometry = self.window.saveGeometry()
         self.settings.state__overview_splitter = self.widgets.overview_splitter.saveState()
         self.settings.state__analysis_splitter = self.widgets.analysis_splitter.saveState()
@@ -303,6 +318,8 @@ class REOSCRApplication():
         formatted_path = format_path(logpath_entry.text())
         self.settings.sto_log_path = formatted_path
         logpath_entry.setText(formatted_path)
+        if hasattr(self, 'live_view'):
+            self.live_view.refresh_source()
 
     def copy_analysis_table_callback(self):
         """
@@ -345,6 +362,8 @@ class REOSCRApplication():
             if (self.widgets.ladder_table is not None
                     and hasattr(self.widgets.ladder_table, 'set_tokens')):
                 self.widgets.ladder_table.set_tokens(ConsoleTokens.from_theme(self.theme))
+            if self.live_overlay is not None:
+                self.live_overlay.set_theme(self.theme)
             self.widgets.apply_context_accent(self.widgets.active_main_tab)
         if change in ('all', 'background') and self.widgets.command_console_workspace is not None:
             self.widgets.command_console_workspace.apply_appearance(self.settings)
@@ -507,23 +526,22 @@ class REOSCRApplication():
         self.setup_analysis_frame()
         self.setup_league_standings_frame()
         self.setup_settings_frame()
+        if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
+            self.setup_live_parser_frame()
 
     def setup_main_tabber(self, frame: QFrame):
         """
-        Sets up the tabber switching between Overview, Analysis, League and Settings.
+        Sets up the tabber switching between the application pages.
 
         Parameters:
         - :param frame: QFrame -> parent frame of the sidebar
         """
         if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
-            o_frame, a_frame, l_frame, s_frame = (QFrame() for _ in range(4))
-            for index, page in enumerate((o_frame, a_frame, l_frame, s_frame), start=1):
+            pages = [QFrame() for _ in range(5)]
+            for index, page in enumerate(pages, start=1):
                 page.setObjectName(f'commandConsoleMainPage{index}')
         else:
-            o_frame = create_frame(self.theme)
-            a_frame = create_frame(self.theme)
-            l_frame = create_frame(self.theme)
-            s_frame = create_frame(self.theme)
+            pages = [create_frame(self.theme) for _ in range(4)]
 
         main_tabber = QTabWidget(frame)
         if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
@@ -535,26 +553,20 @@ class REOSCRApplication():
             main_tabber.setStyleSheet(self.theme.get_style_class('QTabWidget', 'tabber'))
         main_tabber.tabBar().hide()
         main_tabber.setSizePolicy(SMINMIN)
-        main_tabber.addTab(o_frame, '&O')
-        main_tabber.addTab(a_frame, '&A')
-        main_tabber.addTab(l_frame, '&L')
-        main_tabber.addTab(s_frame, '&S')
+        for page, label in zip(pages, ('&O', '&A', '&L', '&S', '&V')):
+            main_tabber.addTab(page, label)
 
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(main_tabber)
         frame.setLayout(layout)
 
-        self.widgets.main_menu_buttons[0].clicked.connect(lambda: self.widgets.switch_main_tab(0))
-        self.widgets.main_menu_buttons[1].clicked.connect(lambda: self.widgets.switch_main_tab(1))
-        self.widgets.main_menu_buttons[2].clicked.connect(lambda: self.widgets.switch_main_tab(2))
+        for index, button in enumerate(self.widgets.main_menu_buttons):
+            button.clicked.connect(
+                lambda checked=False, page=index: self.widgets.switch_main_tab(page))
         self.widgets.main_menu_buttons[2].clicked.connect(
             lambda: self.league.fetch_and_insert_maps())
-        self.widgets.main_menu_buttons[3].clicked.connect(lambda: self.widgets.switch_main_tab(3))
-        self.widgets.main_tab_frames.append(o_frame)
-        self.widgets.main_tab_frames.append(a_frame)
-        self.widgets.main_tab_frames.append(l_frame)
-        self.widgets.main_tab_frames.append(s_frame)
+        self.widgets.main_tab_frames.extend(pages)
         self.widgets.main_tabber = main_tabber
 
     def setup_overview_frame(self):
@@ -601,6 +613,21 @@ class REOSCRApplication():
             command_console=self.active_theme_id == COMMAND_CONSOLE_THEME_ID,
         ).build(self.widgets.main_tab_frames[2])
 
+    def setup_live_parser_frame(self):
+        """Build the Command Console-only Live Control Center page."""
+        from .views.live import LiveView
+
+        self.live_view = LiveView(
+            theme=self.theme,
+            settings=self.settings,
+            config=self.config,
+            widgets=self.widgets,
+            live_parser=self.live_parser,
+            overlay_controller=self.live_overlay,
+        )
+        self.live_view.build(self.widgets.main_tab_frames[4])
+        self.live_overlay.start_services()
+
     def create_master_layout(self) -> tuple[QVBoxLayout, QFrame]:
         """
         Creates and returns the selected RE-OSCR application shell.
@@ -627,6 +654,8 @@ class REOSCRApplication():
             formatted_path = format_path(str(path))
             self.widgets.sto_log_path_entry.setText(formatted_path)
             self.settings.sto_log_path = formatted_path
+            if hasattr(self, 'live_view'):
+                self.live_view.refresh_source()
 
     def setup_settings_frame(self):
         """
@@ -644,6 +673,7 @@ class REOSCRApplication():
                 browse_sto_logpath=self.browse_sto_logpath,
                 set_sto_logpath_callback=self.set_sto_logpath_callback,
                 appearance_changed=self.apply_command_console_appearance,
+                open_live_callback=lambda: self.widgets.switch_main_tab(4),
             ).build(settings_frame)
             return
         settings_layout = QHBoxLayout()

@@ -3,7 +3,7 @@
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from OSCR import HEAL_TREE_HEADER, LIVE_TABLE_HEADER, TABLE_HEADER, TREE_HEADER
+from OSCR import HEAL_TREE_HEADER, TABLE_HEADER, TREE_HEADER
 from PySide6.QtCore import QRegularExpression, QSignalBlocker, Qt
 from PySide6.QtGui import QColor, QIntValidator, QRegularExpressionValidator
 from PySide6.QtWidgets import (
@@ -28,7 +28,8 @@ class CommandSettingsView:
     def __init__(
             self, theme, settings, config, widgets, tables, live_parser,
             browse_sto_logpath: Callable, set_sto_logpath_callback: Callable,
-            appearance_changed: Callable[[str], None] | None = None):
+            appearance_changed: Callable[[str], None] | None = None,
+            open_live_callback: Callable[[], None] | None = None):
         self.theme = theme
         self.settings = settings
         self.config = config
@@ -38,6 +39,7 @@ class CommandSettingsView:
         self.browse_sto_logpath = browse_sto_logpath
         self.set_sto_logpath_callback = set_sto_logpath_callback
         self.appearance_changed = appearance_changed
+        self.open_live_callback = open_live_callback
         self.accents = command_console_accents(theme)
         self._appearance_colour_entries: list[QLineEdit] = []
         self._appearance_colour_pickers: list[QPushButton] = []
@@ -380,78 +382,27 @@ class CommandSettingsView:
 
     def _build_live_page(self) -> QScrollArea:
         content = self._page_content('commandConsoleSettingsLivePage')
-        layout = QGridLayout()
-        gap = round(10 * self.theme.scale)
+        layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setHorizontalSpacing(gap)
-        layout.setColumnStretch(0, 1)
-        layout.setColumnStretch(1, 1)
-
-        display_panel, display = self._panel(
-            'WINDOW & GRAPH', self.accents[1],
-            'commandConsoleLiveDisplaySettingsPanel')
-        row = 1
-        display.addWidget(self._field_label('Window Opacity:'), row, 0)
-        display.addLayout(create_annotated_slider(
-            self.theme, round(self.settings.liveparser__window_opacity * 20, 0), 1, 20,
-            callback=self.settings.set_liveparser_opacity,
-            style_override_slider={'::sub-page:horizontal': {'background-color': '@bc'}}), row, 1)
-        row += 1
-        graph_toggle = self._toggle(
-            self.settings.liveparser__graph_active,
-            lambda: self.settings.set('liveparser__graph_active', True),
-            lambda: self.settings.set('liveparser__graph_active', False),
-            self.accents[1], 'settingsLiveGraph')
-        self._add_field(display, row, 'Graph:', graph_toggle)
-        row += 1
-        graph_field = self._combo(
-            self.config.live_graph_fields, self.settings.liveparser__graph_field)
-        graph_field.setObjectName('settingsLiveGraphField')
-        graph_field.setEnabled(self.settings.liveparser__graph_active)
-        graph_field.currentIndexChanged.connect(
-            lambda index: self.settings.set('liveparser__graph_field', index))
-        graph_toggle.clicked.connect(
-            lambda: graph_field.setEnabled(self.settings.liveparser__graph_active))
-        self._add_field(display, row, 'Graph Field:', graph_field)
-        row += 1
-        player_display = self._combo(('Name', 'Handle'))
-        player_display.setCurrentText(self.settings.liveparser__player_display)
-        player_display.currentTextChanged.connect(
-            lambda text: self.settings.set('liveparser__player_display', text))
-        self._add_field(display, row, 'Player Display:', player_display)
-        row += 1
-        display.addWidget(self._field_label('Window Scale:'), row, 0)
-        display.addLayout(create_annotated_slider(
-            self.theme, round(self.settings.liveparser__window_scale * 50, 0), 25, 75,
-            callback=self.settings.set_liveparser_scale), row, 1)
-
-        behavior_panel, behavior = self._panel(
-            'LIVE PARSER STARTUP', self.accents[4],
-            'commandConsoleLiveBehaviorSettingsPanel')
-        row = 1
-        self._add_field(behavior, row, 'Default state:', self._toggle(
-            self.settings.liveparser__auto_enabled,
-            lambda: self.settings.set('liveparser__auto_enabled', True),
-            lambda: self.settings.set('liveparser__auto_enabled', False),
-            self.accents[4], 'settingsLiveDefault'))
-        row += 1
-        self._add_field(behavior, row, 'Include kills in copy:', self._toggle(
-            self.settings.liveparser__copy_kills,
-            lambda: self.settings.set('liveparser__copy_kills', True),
-            lambda: self.settings.set('liveparser__copy_kills', False),
-            self.accents[4], 'settingsLiveCopyKills'))
-        row += 1
+        panel, grid = self._panel(
+            'LIVE CONTROLS MOVED', self.accents[4],
+            'commandConsoleLiveSettingsPointerPanel')
         note = QLabel(
-            'Live Parser changes use the existing OSCR runtime and are stored in the local '
-            'RE-OSCR profile.')
+            'Live Parser controls, preview, columns, and window options now live together on '
+            'the dedicated 05 Live Parser page.')
         note.setWordWrap(True)
-        note.setStyleSheet(
-            'color: #8fa1aa; background: transparent; border: none;'
-            f'font-family: Overpass; font-size: {round(10 * self.theme.scale)}px;')
-        behavior.addWidget(note, row, 0, 1, 2)
-
-        layout.addWidget(display_panel, 0, 0)
-        layout.addWidget(behavior_panel, 0, 1)
+        note.setStyleSheet(self._field_label('').styleSheet())
+        grid.addWidget(note, 1, 0, 1, 3)
+        open_button = QPushButton('OPEN LIVE CONTROL CENTER')
+        open_button.setObjectName('settingsOpenLiveControlCenter')
+        open_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        open_button.setMinimumHeight(round(38 * self.theme.scale))
+        open_button.setStyleSheet(self._apply_button_style(self.accents[4]))
+        if self.open_live_callback is not None:
+            open_button.clicked.connect(self.open_live_callback)
+        grid.addWidget(open_button, 2, 0, 1, 3)
+        layout.addWidget(panel)
+        layout.addStretch(1)
         content.setLayout(layout)
         return self._scroll_page(content, 'commandConsoleSettingsLiveScroll')
 
@@ -480,17 +431,8 @@ class CommandSettingsView:
             self.tables.update_shown_heal_columns,
             'commandConsoleHealColumnsPanel', 'commandConsoleHealColumnToggle',
             'APPLY HEAL COLUMNS', columns=2)
-        live_panel, live_buttons = self._column_panel(
-            'LIVE PARSER COLUMNS', self.accents[4], tr(LIVE_TABLE_HEADER),
-            self.settings.liveparser__columns,
-            lambda index, state: self.settings.liveparser__columns.__setitem__(index, state),
-            self.live_parser.update_shown_columns,
-            'commandConsoleLiveColumnsPanel', 'commandConsoleLiveColumnToggle',
-            'APPLY LIVE COLUMNS', columns=2)
         self.widgets.settings_heal_column_buttons = heal_buttons
-        self.widgets.settings_live_column_buttons = live_buttons
-        layout.addWidget(heal_panel, 1, 0)
-        layout.addWidget(live_panel, 1, 1)
+        layout.addWidget(heal_panel, 1, 0, 1, 2)
         content.setLayout(layout)
         return self._scroll_page(content, 'commandConsoleSettingsColumnsScroll')
 

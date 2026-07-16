@@ -288,12 +288,14 @@ def _build_command_navigation(theme: AppTheme, widgets, live_parser) -> QFrame:
     layout.setContentsMargins(round(28 * theme.scale), margin, round(28 * theme.scale), margin)
     layout.setSpacing(round(7 * theme.scale))
 
-    page_names = (tr('Overview'), tr('Analysis'), tr('League'), tr('Settings'))
+    page_names = (
+        tr('Overview'), tr('Analysis'), tr('League'), tr('Settings'), tr('Live Parser'))
     buttons = []
-    object_names = ('Overview', 'Analysis', 'League', 'Settings')
+    object_names = ('Overview', 'Analysis', 'League', 'Settings', 'LiveParser')
     for index, (name, object_name) in enumerate(zip(page_names, object_names)):
         button = primary_navigation_button(
-            theme.scale, index + 1, name, index, f'commandNav{object_name}')
+            theme.scale, index + 1, name, index, f'commandNav{object_name}',
+            mirrored=index == 4)
         button.setCheckable(True)
         button.setAutoExclusive(True)
         button.setChecked(index == 0)
@@ -301,14 +303,7 @@ def _build_command_navigation(theme: AppTheme, widgets, live_parser) -> QFrame:
         layout.addWidget(button, 1)
         buttons.append(button)
     widgets.main_menu_buttons = buttons
-
-    live_parser_button = primary_navigation_button(
-        theme.scale, 5, tr('Live Parser'), 4, 'commandNavLiveParser', mirrored=True)
-    live_parser_button.setCheckable(True)
-    live_parser_button.clicked[bool].connect(live_parser.toggle_window)
-    live_parser_button.toggled.connect(widgets.set_live_parser_active)
-    layout.addWidget(live_parser_button, 1)
-    widgets.live_parser_button = live_parser_button
-    widgets.navigation_buttons = buttons + [live_parser_button]
+    widgets.live_parser_button = buttons[4]
+    widgets.navigation_buttons = buttons
     nav.setLayout(layout)
     return nav

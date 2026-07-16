@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
-    QComboBox, QFrame, QHBoxLayout, QLabel, QLineEdit, QListView, QListWidget, QPushButton,
-    QScrollArea, QSplitter, QTableView, QTabWidget)
+    QComboBox, QFrame, QHBoxLayout, QLabel, QKeySequenceEdit, QLineEdit, QListView,
+    QListWidget, QPushButton, QScrollArea, QSpinBox, QSplitter, QTableView, QTabWidget)
 
 from .widgets import FlipButton
 from .config import OSCRSettings
@@ -106,6 +106,30 @@ class WidgetManager():
         self.league_status: QLabel | None = None
 
         self.live_parser_button: QPushButton
+        self.live_parser_start_button: QPushButton | None = None
+        self.live_parser_popout_button: QPushButton | None = None
+        self.live_parser_copy_button: QPushButton | None = None
+        self.live_parser_status_chip: QLabel | None = None
+        self.live_parser_popout_chip: QLabel | None = None
+        self.live_parser_preview_status: QLabel | None = None
+        self.live_parser_preview_duration: QLabel | None = None
+        self.live_parser_preview_table: QTableView | None = None
+        self.live_parser_preview_model = None
+        self.live_parser_graph_toggle: QPushButton | None = None
+        self.live_parser_graph_field: QComboBox | None = None
+        self.live_parser_player_display: QComboBox | None = None
+        self.live_parser_column_buttons: list[QPushButton] = list()
+        self.live_overlay_feed_button: QPushButton | None = None
+        self.live_overlay_status_chip: QLabel | None = None
+        self.live_overlay_clients_chip: QLabel | None = None
+        self.live_overlay_bind: QComboBox | None = None
+        self.live_overlay_port: QSpinBox | None = None
+        self.live_overlay_endpoint: QLineEdit | None = None
+        self.live_overlay_output: QLineEdit | None = None
+        self.live_overlay_custom_css: QLineEdit | None = None
+        self.live_overlay_hotkey: QKeySequenceEdit | None = None
+        self.live_overlay_hotkey_mode: QComboBox | None = None
+        self.live_overlay_hotkey_status: QLabel | None = None
         self.sto_log_path_entry: QLineEdit
         self.theme_selector: QComboBox
         self.theme_restart_label: QLabel
@@ -227,7 +251,7 @@ class WidgetManager():
         Parameters:
         - :param tab_index: index of the tab to switch to
         """
-        SIDEBAR_TAB_CONVERSION = (0, 0, 1, 2)
+        SIDEBAR_TAB_CONVERSION = (0, 0, 1, 2, 3)
         self.main_tabber.setCurrentIndex(tab_index)
         self.active_main_tab = tab_index
         self.sidebar_tabber.setCurrentIndex(SIDEBAR_TAB_CONVERSION[tab_index])
@@ -265,6 +289,7 @@ class WidgetManager():
             ('AN', 'COMBAT LOG'),
             ('LG', 'LEAGUE ACCESS'),
             ('ST', 'SYSTEM SETTINGS'),
+            ('LV', 'LIVE TELEMETRY'),
         )
         if accent_index < len(drawer_labels):
             section, title = drawer_labels[accent_index]
@@ -273,7 +298,7 @@ class WidgetManager():
             if self.drawer_title_label:
                 self.drawer_title_label.setText(title)
 
-        visual_index = 4 if self.live_parser_active else accent_index
+        visual_index = accent_index
         for index, segment in enumerate(self.context_rail_segments):
             segment.setProperty('active', index == visual_index)
             refresh_style(segment)
@@ -282,9 +307,12 @@ class WidgetManager():
             refresh_style(button, descendants=False)
 
     def set_live_parser_active(self, active: bool):
-        """Make Live Parser the visual fifth context while its window is open."""
+        """Record popout visibility without replacing the selected page context."""
         self.live_parser_active = bool(active)
-        self.apply_context_accent(self.active_main_tab)
+        if getattr(self, 'live_parser_button', None) is not None:
+            self.live_parser_button.setProperty('popoutVisible', self.live_parser_active)
+            from .console.tokens import refresh_style
+            refresh_style(self.live_parser_button, descendants=False)
 
     def expand_analysis_graph(self):
         """

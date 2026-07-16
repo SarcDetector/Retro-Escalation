@@ -21,7 +21,7 @@ class ProductIdentityTests(unittest.TestCase):
             project["scripts"],
             {"re-oscr": "retro_escalation:RetroEscalationLauncher.launch"},
         )
-        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0.dev11")
+        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0.dev12")
         self.assertEqual(Launcher.__version__, RetroEscalationLauncher.__version__)
         self.assertNotIn("+", RetroEscalationLauncher.__version__)
 

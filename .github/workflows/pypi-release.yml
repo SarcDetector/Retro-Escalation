@@ -24,8 +24,37 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0
-      - name: Install application
-        run: python -m pip install .
+      - name: Build and install the test wheel
+        run: |
+          python -m pip install --upgrade build
+          python -m build --wheel --outdir "$RUNNER_TEMP/test-dist"
+          python -m pip install "$RUNNER_TEMP/test-dist/"*.whl
+      - name: Verify installed-wheel Live overlay outside checkout
+        working-directory: ${{ runner.temp }}
+        run: |
+          export RE_OSCR_SMOKE_CONFIG="$RUNNER_TEMP/re-oscr-wheel-settings"
+          python - <<'PY'
+          import os
+          import socket
+          from pathlib import Path
+          from re_oscr.config import OSCRSettings
+
+          config_dir = Path(os.environ["RE_OSCR_SMOKE_CONFIG"])
+          config_dir.mkdir(parents=True, exist_ok=True)
+          with socket.socket() as probe:
+              probe.bind(("127.0.0.1", 0))
+              port = probe.getsockname()[1]
+          settings = OSCRSettings(config_dir / "RE_OSCR_settings.ini")
+          settings.overlay__feed_enabled = True
+          settings.overlay__feed_port = port
+          settings.store_settings()
+          settings._settings.sync()
+          PY
+          re-oscr --config_dir "$RE_OSCR_SMOKE_CONFIG" --startup-check
+          for name in \
+              overlay.html overlay.css overlay.js overlay-config.js overlay-custom.css; do
+            test -f "$RE_OSCR_SMOKE_CONFIG/overlay/$name"
+          done
       - name: Run regression tests
         run: python -m unittest discover -s tests -v
 
@@ -47,11 +76,16 @@ jobs:
           import re
           from pathlib import Path
 
-          source = Path("retro_escalation.py").read_text(encoding="utf-8")
-          match = re.search(r"__version__ = '([^']+)'", source)
-          if match is None:
-              raise SystemExit("Could not find the application version")
-          print(match.group(1))
+          versions = {}
+          for filename in ("retro_escalation.py", "main.py"):
+              source = Path(filename).read_text(encoding="utf-8")
+              match = re.search(r"__version__ = '([^']+)'", source)
+              if match is None:
+                  raise SystemExit(f"Could not find the application version in {filename}")
+              versions[filename] = match.group(1)
+          if len(set(versions.values())) != 1:
+              raise SystemExit(f"Launcher versions do not match: {versions}")
+          print(versions["retro_escalation.py"])
           PY
           )"
           test "$actual" = "$expected"
@@ -60,6 +94,35 @@ jobs:
         run: |
           python -m pip install --upgrade build
           python -m build
+      - name: Verify Live overlay distribution contents
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import tarfile
+          import zipfile
+
+          required = (
+              "assets/overlay/overlay.html",
+              "assets/overlay/overlay.css",
+              "assets/overlay/overlay.js",
+              "re_oscr/liveoverlay.py",
+          )
+          for archive in Path("dist").iterdir():
+              if archive.suffix == ".whl":
+                  with zipfile.ZipFile(archive) as package:
+                      names = package.namelist()
+              elif archive.name.endswith(".tar.gz"):
+                  with tarfile.open(archive, "r:gz") as package:
+                      names = package.getnames()
+              else:
+                  continue
+              missing = [
+                  item for item in required
+                  if not any(name.endswith(item) for name in names)
+              ]
+              if missing:
+                  raise SystemExit(f"{archive.name} is missing: {missing}")
+          PY
       - name: Validate package metadata
         run: |
           python -m pip install --upgrade twine

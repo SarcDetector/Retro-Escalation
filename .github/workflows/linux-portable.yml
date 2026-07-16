@@ -1,6 +1,7 @@
 name: Linux portable build
 
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     branches:
@@ -57,13 +58,42 @@ jobs:
             --output-root .artifacts/linux-package \
             --package
 
+      - name: Verify Live overlay package contents
+        run: |
+          root=".artifacts/linux-package/RE-OSCR/_internal/assets/overlay"
+          test -f "$root/overlay.html"
+          test -f "$root/overlay.css"
+          test -f "$root/overlay.js"
+
       - name: Verify packaged startup
         run: |
           config_dir="$(mktemp -d)"
           trap 'rm -rf "$config_dir"' EXIT
+          export RE_OSCR_SMOKE_CONFIG="$config_dir"
+          .venv/bin/python - <<'PY'
+          import os
+          import socket
+          from pathlib import Path
+          from re_oscr.config import OSCRSettings
+
+          config_dir = Path(os.environ["RE_OSCR_SMOKE_CONFIG"])
+          with socket.socket() as probe:
+              probe.bind(("127.0.0.1", 0))
+              port = probe.getsockname()[1]
+          settings = OSCRSettings(config_dir / "RE_OSCR_settings.ini")
+          settings.overlay__feed_enabled = True
+          settings.overlay__feed_bind = "127.0.0.1"
+          settings.overlay__feed_port = port
+          settings.store_settings()
+          settings._settings.sync()
+          PY
           .artifacts/linux-package/RE-OSCR/RE-OSCR \
             --config_dir "$config_dir" \
             --startup-check
+          for name in \
+              overlay.html overlay.css overlay.js overlay-config.js overlay-custom.css; do
+            test -f "$config_dir/overlay/$name"
+          done
 
       - name: Upload Linux tester package
         uses: actions/upload-artifact@v4
