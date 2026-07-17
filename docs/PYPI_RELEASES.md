@@ -34,6 +34,7 @@ The same tag also runs fresh Windows and Linux portable builds, verifies their c
 creates or updates one GitHub prerelease with both packages attached. Release notes can be stored
 at `docs/releases/<tag>.md`; otherwise GitHub generates them from the commit history.
 
-For a development release such as `11.1.0.dev12`, tag `v11.1.0.dev12`. If it is the only PyPI
-release, users can install it normally with `pipx install re-oscr`; once a stable release exists,
-they opt in to later development builds with `pipx install re-oscr --pip-args="--pre"`.
+For a development release such as `11.1.0.dev14`, tag `v11.1.0.dev14`. If prereleases are the only
+published versions on PyPI, users can install normally with `pipx install re-oscr`; once a stable
+release exists, they opt in to later development builds with
+`pipx install re-oscr --pip-args="--pre"`.

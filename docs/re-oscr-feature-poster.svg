@@ -10,7 +10,7 @@
 <path d="M2366.0 37.0 H2481.0 A3 3 0 0 1 2484.0 40.0 V67.0 A12 12 0 0 1 2472.0 79.0 H2357.0 A3 3 0 0 1 2354.0 76.0 V49.0 A12 12 0 0 1 2366.0 37.0 Z" fill="#121D25" stroke="#30424E" stroke-width="1.5"/>
 <text x="2419.0" y="63.5" font-family="Roboto Mono" font-size="16" font-weight="500" fill="#AEBDC5" text-anchor="middle" letter-spacing="1.4" >GPL-3.0</text>
 <path d="M2165.0 37.0 H2335.0 A3 3 0 0 1 2338.0 40.0 V67.0 A12 12 0 0 1 2326.0 79.0 H2156.0 A3 3 0 0 1 2153.0 76.0 V49.0 A12 12 0 0 1 2165.0 37.0 Z" fill="#121D25" stroke="#30424E" stroke-width="1.5"/>
-<text x="2245.5" y="63.5" font-family="Roboto Mono" font-size="16" font-weight="500" fill="#AEBDC5" text-anchor="middle" letter-spacing="1.4" >BUILD DEV11</text>
+<text x="2245.5" y="63.5" font-family="Roboto Mono" font-size="16" font-weight="500" fill="#AEBDC5" text-anchor="middle" letter-spacing="1.4" >BUILD DEV14</text>
 <path d="M1899.0 37.0 H2134.0 A3 3 0 0 1 2137.0 40.0 V67.0 A12 12 0 0 1 2125.0 79.0 H1890.0 A3 3 0 0 1 1887.0 76.0 V49.0 A12 12 0 0 1 1899.0 37.0 Z" fill="#121D25" stroke="#4B7B58" stroke-width="1.5"/>
 <text x="2012.0" y="63.5" font-family="Roboto Mono" font-size="16" font-weight="500" fill="#85D997" text-anchor="middle" letter-spacing="1.4" >PHASE 1 COMPLETE</text>
 <rect x="0.0" y="118.0" width="2560.0" height="96.0" fill="#05080B" />
@@ -35,7 +35,7 @@
 <text x="1418.0" y="174.0" font-family="Roboto Mono" font-size="23" font-weight="700" fill="#BEA8A4" text-anchor="start" letter-spacing="1" >05</text>
 <text x="1468.0" y="174.0" font-family="Overpass" font-size="23" font-weight="700" fill="#F4EFE6" text-anchor="start" letter-spacing="1.6" >LIVE PARSER</text>
 <path d="M2140.0 145.0 H2481.0 A3 3 0 0 1 2484.0 148.0 V175.0 A12 12 0 0 1 2472.0 187.0 H2131.0 A3 3 0 0 1 2128.0 184.0 V157.0 A12 12 0 0 1 2140.0 145.0 Z" fill="#0B1116" stroke="#30424E" stroke-width="1.5"/>
-<text x="2306.0" y="171.5" font-family="Roboto Mono" font-size="16" font-weight="500" fill="#667B87" text-anchor="middle" letter-spacing="1.4" >OSCR-UI LEGACY // SELECTABLE</text>
+<text x="2306.0" y="171.5" font-family="Roboto Mono" font-size="16" font-weight="500" fill="#667B87" text-anchor="middle" letter-spacing="1.4" >LEGACY // SELECTABLE</text>
 <rect x="0.0" y="214.0" width="44.0" height="1226.0" fill="#0B1116" />
 <line x1="44" y1="214" x2="44" y2="1440" stroke="#293944" stroke-width="1.5"/>
 <path d="M19.0 246.0 H26.0 A2 2 0 0 1 28.0 248.0 V334.0 A4 4 0 0 1 24.0 338.0 H17.0 A2 2 0 0 1 15.0 336.0 V250.0 A4 4 0 0 1 19.0 246.0 Z" fill="#FF8A2A" />

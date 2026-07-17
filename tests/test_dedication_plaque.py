@@ -37,7 +37,9 @@ class DedicationPlaqueTests(unittest.TestCase):
         )
         plaque_text = " ".join(label.text() for label in dialog.findChildren(QLabel))
         self.assertIn("SARC", plaque_text)
+        self.assertIn("OSCR PROJECT", plaque_text)
         self.assertIn("ANOTHERNATHAN / CLA", plaque_text)
+        self.assertIn("UPSTREAM FRONTEND BASELINE", plaque_text)
         rails = [
             frame for frame in dialog.findChildren(QFrame)
             if frame.property("consoleRole") == "dedicationPlaqueRailSegment"

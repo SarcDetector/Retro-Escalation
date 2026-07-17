@@ -15,6 +15,17 @@ class OSCRSettingsTests(unittest.TestCase):
             config.link_cla,
             "https://github.com/AnotherNathan/STO_CombatLogAnalyzer",
         )
+        self.assertEqual(
+            config.link_github,
+            "https://github.com/SarcDetector/Retro-Escalation",
+        )
+        self.assertEqual(
+            config.link_downloads,
+            "https://github.com/SarcDetector/Retro-Escalation/releases",
+        )
+        self.assertFalse(hasattr(config, "link_" + "sto" + "cd"))
+        self.assertFalse(hasattr(config, "link_" + "sto" + "builds"))
+        self.assertFalse(hasattr(config, "link_website"))
 
     def test_fresh_settings_keep_parser_defaults_and_use_command_console(self):
         with tempfile.TemporaryDirectory() as temp_dir:

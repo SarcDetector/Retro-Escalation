@@ -8,7 +8,7 @@ from types import SimpleNamespace
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt  # noqa: E402
-from PySide6.QtWidgets import QWidget  # noqa: E402
+from PySide6.QtWidgets import QPushButton, QWidget  # noqa: E402
 
 from re_oscr.app import REOSCRApplication  # noqa: E402
 from re_oscr.config import OSCRSettings  # noqa: E402
@@ -38,13 +38,22 @@ def main() -> int:
     assert ui.settings.theme_id == expected_theme_id
     assert ui.widgets.theme_selector.currentData() == expected_theme_id
     assert ui.widgets.theme_selector.count() == 2
+    assert [ui.widgets.theme_selector.itemText(index) for index in range(2)] == [
+        "Legacy", "Command Console"]
     assert ui.widgets.ladder_table.objectName() == "leagueStandingsTable"
     assert ui.widgets.ladder_search.objectName() == "leagueSearchEntry"
     assert ui.widgets.league_search_button is not None
     assert ui.widgets.league_clear_button is not None
     assert ui.widgets.league_more_button is not None
+    about_description = ui.window.findChild(QWidget, "aboutProductDescription")
     analysis_credit = ui.window.findChild(QWidget, "analysisCreditAnotherNathan")
     cla_badge = ui.window.findChild(QWidget, "creditBadgeCLA")
+    assert about_description is not None
+    assert about_description.text() == (
+        "RE-OSCR (Retro Escalation) is an independent frontend for the OSCR parser. OSCR is "
+        "developed by the STO Community Developers. Not affiliated with STO"
+        "CD or the STO "
+        "Builds Discord.")
     assert analysis_credit is not None
     assert "AnotherNathan" in analysis_credit.text()
     assert analysis_credit.toolTip() == ui.config.link_cla
@@ -52,6 +61,11 @@ def main() -> int:
     assert not cla_badge.icon().isNull()
     assert "AnotherNathan" in cla_badge.toolTip()
     assert ui.config.link_cla in cla_badge.toolTip()
+    assert ui.window.findChild(QWidget, "creditBadge" + "STO" + "CD") is None
+    assert ui.window.findChild(QWidget, "creditBadge" + "STO" + "Builds") is None
+    button_texts = {button.text() for button in ui.window.findChildren(QPushButton)}
+    assert "Website" not in button_texts
+    assert {"Github", "Downloads"}.issubset(button_texts)
 
     command_shell = ui.window.findChild(QWidget, "commandConsoleApplicationShell")
     default_shell = ui.window.findChild(QWidget, "defaultApplicationShell")
@@ -541,6 +555,10 @@ def main() -> int:
         assert "PySide6.QtWebSockets" not in sys.modules
         assert default_shell is not None
         assert command_shell is None
+        legacy_banner = ui.window.findChild(QWidget, "legacyBanner")
+        assert legacy_banner is not None
+        assert not legacy_banner.p.isNull()
+        assert (legacy_banner.p.width(), legacy_banner.p.height()) == (2880, 126)
         original_scale = ui.config.ui_scale
         ui.config.ui_scale = 1.5
         assert ui.sidebar_item_width == int(

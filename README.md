@@ -7,7 +7,7 @@ packaging.
 
 Current development features include:
 
-- A restart-selected Command Console (default) or OSCR-UI Legacy appearance.
+- A restart-selected Command Console (default) or Legacy appearance.
 - A dedicated Command Console application shell with five segmented navigation controls and a
   persistent five-colour context rail plus page-matched sidebar accents.
 - Dedicated Command Console Overview, Analysis, League Standings, and categorized Settings layouts
@@ -28,6 +28,8 @@ Current development features include:
 - [Credits](docs/CREDITS.md)
 - [Tester plan](docs/TESTING.md)
 - [Development guide](docs/DEVELOPMENT.md)
+- [Dev12 protected baseline](docs/baselines/v11.1.0.dev12.md)
+- [CLA compatibility parity ledger](docs/CLA_PARITY.md)
 
 ## Parser dependency
 
@@ -104,11 +106,11 @@ RE-OSCR is produced and maintained by **Sarc**
 ([SarcDetector](https://github.com/SarcDetector)). See [Credits](docs/CREDITS.md) for the
 project's parser, analysis, appearance, and licensing acknowledgements.
 
-RE-OSCR began as a downstream fork of
-[STOCD/OSCR-UI 11.1.0](https://github.com/STOCD/OSCR-UI). Its source history and GPLv3 licensing
-are retained. It is an independent community frontend and is not an official STOCD release.
+RE-OSCR began from an inherited upstream GPLv3 frontend baseline. Its source history and GPLv3
+licensing are retained, and it is independently maintained as a community frontend.
 
-The parser is provided by the separate [STOCD/OSCR](https://github.com/STOCD/OSCR) project.
+The parser is provided by the separate
+[STO-OSCR 11.0.0](https://pypi.org/project/STO-OSCR/11.0.0/) project.
 
 The redesigned Analysis workflow draws inspiration from
 [STO_CombatLogAnalyzer (CLA)](https://github.com/AnotherNathan/STO_CombatLogAnalyzer), created by

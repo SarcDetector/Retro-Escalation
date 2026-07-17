@@ -78,7 +78,7 @@ else {
 }
 $buildInfo = @"
 RE-OSCR - Retro Escalation $version
-OSCR-UI baseline: 11.1.0
+Upstream GPLv3 frontend baseline: 11.1.0
 Commit: $commit
 Working tree: $workingTree
 Built: $([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))

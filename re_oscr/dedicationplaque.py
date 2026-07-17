@@ -54,9 +54,9 @@ class DedicationPlaqueDialog(QDialog):
         plaque_layout.addSpacing(px(18, theme.scale))
 
         for accent, role, attribution in (
-                (1, "PARSER", "STOCD / OSCR PROJECT"),
+                (1, "PARSER", "OSCR PROJECT"),
                 (2, "ANALYSIS DOCTRINE", "ANOTHERNATHAN / CLA"),
-                (3, "LEGACY APPEARANCE", "OSCR-UI, PRESERVED INTACT"),
+                (3, "LEGACY APPEARANCE", "UPSTREAM FRONTEND BASELINE"),
                 (4, "LICENSE", "GPL-3.0 • SOURCE TRAVELS WITH THE SHIP")):
             plaque_layout.addWidget(self._role_line(accent, role, attribution, plaque))
             plaque_layout.addSpacing(px(5, theme.scale))

@@ -168,8 +168,6 @@ class REOSCRApplication():
             'ladder': 'ladder.svg',
             'star-plus': 'star_plus.svg',
             'star-minus': 'star_minus.svg',
-            'stocd': 'section31badge.png',
-            'stobuilds': 'stobuildslogo.png',
             'cla': 'cla_credit.svg',
             'close': 'close.svg',
             'expand-top': 'expand-top.svg',

@@ -73,7 +73,7 @@ chmod +x "$app_output/$app_name"
 commit="$(git -c "safe.directory=$repo_root" -C "$repo_root" rev-parse HEAD 2>/dev/null || printf 'unknown')"
 cat > "$app_output/BUILD_INFO.txt" <<EOF
 RE-OSCR - Retro Escalation $version
-OSCR-UI baseline: 11.1.0
+Upstream GPLv3 frontend baseline: 11.1.0
 Commit: $commit
 Built: $(date -u +'%Y-%m-%dT%H:%M:%SZ')
 Platform: Linux $(uname -m)

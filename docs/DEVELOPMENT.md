@@ -1,8 +1,13 @@
 # Development baseline
 
 RE-OSCR currently targets Python 3.13 or newer and uses the official `STO-OSCR==11.0.0` parser.
-Its frontend baseline was inherited from OSCR-UI 11.1.0. Keep frontend work separate from parser
+Its frontend was inherited from an upstream GPLv3 baseline. Keep frontend work separate from parser
 behavior: changes inside the upstream parser dependency are outside this project's scope.
+
+The immutable pre-coprocessor checkpoint is
+[RE-OSCR v11.1.0.dev12](baselines/v11.1.0.dev12.md). The audited CLA calculation inventory is
+maintained separately in [CLA_PARITY.md](CLA_PARITY.md); it is a compatibility plan, not a claim
+about shipped dev12 behavior.
 
 ## Windows setup
 
@@ -31,13 +36,14 @@ GitHub runs the same command on Windows for every branch push and pull request.
 ## What the baseline protects
 
 - Command Console fresh-setting defaults and settings type persistence.
-- The complete OSCR-UI Legacy palette, including the ten chart colours.
+- The complete Legacy palette, including the ten chart colours.
 - Theme stylesheet generation and scaling.
-- Built-in theme registry construction, failure logging, and guaranteed OSCR-UI Legacy fallback.
+- Built-in theme registry construction, failure logging, and guaranteed Legacy fallback.
 - Theme selection persistence without changing the active theme before restart.
-- Construction of the real four-page RE-OSCR window in both built-in themes.
+- Construction of the real RE-OSCR window in both built-in themes: four Legacy tabs and five
+  Command Console pages.
 - Display-only Workbench derivation without mutating parser models or League upload coordinates.
 - Frozen Analysis identity columns sharing the original tree model, selection, sorting, and
   vertical navigation.
-- Identical parser totals in OSCR-UI Legacy, Command Console parser-truth, and unmodified derived
+- Identical parser totals in Legacy, Command Console parser-truth, and unmodified derived
   views.

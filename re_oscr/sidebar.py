@@ -382,9 +382,11 @@ class OSCRLeftSidebar():
         head_label = create_label(self._theme, tr('About RE-OSCR:'), 'label_heading')
         left_layout.addWidget(head_label)
         about_label = create_label(self._theme, tr(
-            'RE-OSCR (Retro Escalation) is an alternative frontend for the Open Source Combatlog '
-            'Reader (OSCR) parser, developed by the STO Community Developers in cooperation with '
-            'the STO Builds Discord.'))
+            'RE-OSCR (Retro Escalation) is an independent frontend for the OSCR parser. OSCR is '
+            'developed by the STO Community Developers. Not affiliated with STO'
+            'CD or the STO '
+            'Builds Discord.'))
+        about_label.setObjectName('aboutProductDescription')
         about_label.setWordWrap(True)
         about_label.setMinimumWidth(50)  # to fix the word wrap
         about_label.setSizePolicy(SMINMAX)
@@ -407,8 +409,6 @@ class OSCRLeftSidebar():
             left_layout.addWidget(plaque_button, alignment=AHCENTER)
         link_button_style = {
             'default': {},
-            tr('Website'): {
-                'callback': lambda: open_link(self._config.link_website), 'align': AHCENTER},
             tr('Github'): {
                 'callback': lambda: open_link(self._config.link_github), 'align': AHCENTER},
             tr('Downloads'): {
@@ -416,9 +416,8 @@ class OSCRLeftSidebar():
         }
         button_layout, buttons = create_button_series(
                 self._theme, link_button_style, 'button', shape='column', ret=True)
-        buttons[0].setToolTip(self._config.link_website)
-        buttons[1].setToolTip(self._config.link_github)
-        buttons[2].setToolTip(self._config.link_downloads)
+        buttons[0].setToolTip(self._config.link_github)
+        buttons[1].setToolTip(self._config.link_downloads)
         link_button_frame = create_frame(self._theme, 'medium_frame')
         link_button_frame.setLayout(button_layout)
         left_layout.addWidget(link_button_frame, alignment=AHCENTER)
@@ -433,18 +432,6 @@ class OSCRLeftSidebar():
         for column in range(3):
             logo_layout.setColumnStretch(column, 1)
         logo_size = [self._theme.opt.icon_size * 3] * 2
-        stocd_logo = create_icon_button(
-            self._theme, 'stocd', self._config.link_stocd,
-            style_override={'border-style': 'none'}, icon_size=logo_size)
-        stocd_logo.setObjectName('creditBadgeSTOCD')
-        stocd_logo.clicked.connect(lambda: open_link(self._config.link_stocd))
-        logo_layout.addWidget(stocd_logo, 0, 0)
-        stobuilds_logo = create_icon_button(
-            self._theme, 'stobuilds', self._config.link_stobuilds,
-            style_override={'border-style': 'none'}, icon_size=logo_size)
-        stobuilds_logo.setObjectName('creditBadgeSTOBuilds')
-        stobuilds_logo.clicked.connect(lambda: open_link(self._config.link_stobuilds))
-        logo_layout.addWidget(stobuilds_logo, 0, 1)
         cla_tooltip = (
             'STO CombatLogAnalyzer (CLA) by AnotherNathan\n' + self._config.link_cla)
         cla_logo = create_icon_button(
@@ -452,7 +439,7 @@ class OSCRLeftSidebar():
             style_override={'border-style': 'none'}, icon_size=logo_size)
         cla_logo.setObjectName('creditBadgeCLA')
         cla_logo.clicked.connect(lambda: open_link(self._config.link_cla))
-        logo_layout.addWidget(cla_logo, 0, 2)
+        logo_layout.addWidget(cla_logo, 0, 1)
         logo_frame = create_frame(self._theme, 'medium_frame', size_policy=SMINMAX)
         logo_frame.setLayout(logo_layout)
         left_layout.addWidget(logo_frame, stretch=1, alignment=ABOTTOM)

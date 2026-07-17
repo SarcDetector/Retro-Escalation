@@ -37,7 +37,7 @@ Reference logs are local test fixtures and must not be committed without explici
 - Hive Space Elite: second space map with different event distribution.
 - Bug Hunt Any: ground combat.
 
-Parser results from a given log and settings combination must match between OSCR-UI Legacy and
+Parser results from a given log and settings combination must match between Legacy and
 Command Console. Visual ordering may only differ where the existing user-configurable sort setting
 allows it.
 
@@ -47,14 +47,14 @@ allows it.
 - [x] Legacy `OSCR_UI_settings.ini` settings migrate to `RE_OSCR_settings.ini`. (Automated)
 - [x] Command Console selection is stored on normal shutdown. (Automated)
 - [x] Command Console appears after restart. (Automated)
-- [x] Returning to OSCR-UI Legacy works after restart. (Automated)
-- [x] Unknown theme ID falls back to OSCR-UI Legacy. (Automated)
+- [x] Returning to Legacy works after restart. (Automated)
+- [x] Unknown theme ID falls back to Legacy. (Automated)
 - [x] Missing theme asset falls back safely. (Automated)
 - [x] A theme exception is logged without preventing theme resolution. (Automated)
 
 ## Application smoke matrix
 
-Run every item once in OSCR-UI Legacy and once in Command Console.
+Run every item once in Legacy and once in Command Console.
 
 ### Overview
 
@@ -118,7 +118,7 @@ immediately below the original. (Automated)
 ### League
 
 - [x] Select a season and ladder from the Command Console League command bar; verify that its
-  live status reflects the selection while OSCR-UI Legacy keeps sidebar selection controls.
+  live status reflects the selection while Legacy keeps sidebar selection controls.
   (Automated startup and command-state checks)
 - [x] Keep the League rank, Name, and Handle visible while the remaining ladder metrics scroll;
   use the DPS meter toggle without changing the League model or sorter. (Automated)
@@ -155,7 +155,7 @@ python -m tests.league_live_probe --local "C:\path\to\CombatLog.log"
 
 ### Live Parser
 
-- [x] Make 05 a real Command Console page without showing the popout; keep OSCR-UI Legacy's
+- [x] Make 05 a real Command Console page without showing the popout; keep Legacy's
   inherited direct toggle. (Automated)
 - [x] Keep page selection, parser activity, and popout visibility independent; hiding the popout
   or navigating elsewhere does not stop parsing. (Automated)
@@ -163,8 +163,8 @@ python -m tests.league_live_probe --local "C:\path\to\CombatLog.log"
   stale preview rows when telemetry is empty. (Automated)
 - [x] Keep all existing `liveparser__` keys and defaults unchanged, with one set of page controls
   for graph, field, columns, display name, copy, auto-start, scale, and opacity. (Automated)
-- [x] Keep direct window close synchronized: Command Console hides without stopping; OSCR-UI
-  Legacy retains close-and-stop. (Automated)
+- [x] Keep direct window close synchronized: Command Console hides without stopping; Legacy
+  retains close-and-stop. (Automated)
 - [x] Register, replace, restore, clear, and shut down Windows global-hotkey bindings
   transactionally; reject unsafe bare keys, reserved F12, and multi-key sequences. (Automated;
   native Windows smoke plus fake-backend regression tests)
@@ -176,7 +176,7 @@ python -m tests.league_live_probe --local "C:\path\to\CombatLog.log"
   non-finite data, and remove all telemetry from hidden frames. (Automated)
 - [x] Reject wildcard, hostname, public, IPv6, stale-adapter, and privileged-port feed choices;
   require explicit confirmation for unencrypted LAN mode and never auto-start LAN. (Automated)
-- [x] Load hotkey and browser-feed services only in Command Console; keep OSCR-UI Legacy isolated
+- [x] Load hotkey and browser-feed services only in Command Console; keep Legacy isolated
   from QtWebSockets and the new controller modules. (Automated subprocess startup checks)
 - [ ] Open and close the separate window.
 - [ ] Start and stop parsing.
@@ -228,7 +228,7 @@ Steps to reproduce:
 2.
 3.
 
-Does the same problem occur in OSCR-UI Legacy? Yes / No / Not tested
+Does the same problem occur in Legacy? Yes / No / Not tested
 Screenshot or log excerpt:
 ```
 

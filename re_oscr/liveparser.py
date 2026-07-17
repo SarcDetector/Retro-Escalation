@@ -282,7 +282,7 @@ class LiveParserWindow(QFrame):
 
     def toggle_window(self, activate: bool):
         """
-        Preserve the inherited OSCR-UI Legacy one-button popout behavior.
+        Preserve the inherited Legacy one-button popout behavior.
 
         Parameters:
         - :param activate: True when parser should be shown; False when open parser should be

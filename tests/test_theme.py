@@ -51,7 +51,7 @@ class ThemeRegistryTests(unittest.TestCase):
         self.assertEqual(
             tuple((definition.theme_id, definition.display_name)
                   for definition in available_themes()),
-            ((DEFAULT_THEME_ID, "OSCR-UI Legacy"),
+            ((DEFAULT_THEME_ID, "Legacy"),
              (COMMAND_CONSOLE_THEME_ID, "Command Console")),
         )
 

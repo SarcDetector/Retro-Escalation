@@ -20,9 +20,6 @@ class OSCRConfig():
         self.link_downloads: str = 'https://github.com/SarcDetector/Retro-Escalation/releases'
         self.link_github: str = 'https://github.com/SarcDetector/Retro-Escalation'
         self.link_cla: str = 'https://github.com/AnotherNathan/STO_CombatLogAnalyzer'
-        self.link_stobuilds: str = 'https://discord.gg/stobuilds'
-        self.link_stocd: str = 'https://github.com/STOCD'
-        self.link_website: str = 'https://oscr.stobuilds.com'
         self.live_graph_fields: tuple[str] = ('DPS', 'Debuff', 'Attacks-in Share', 'HPS')
         self.live_parser_scale: float = 1.0
         self.minimum_window_width: int = 1280

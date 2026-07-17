@@ -1,6 +1,6 @@
 """Theme-selectable application shells for RE-OSCR.
 
-The inherited shell remains byte-for-byte equivalent in structure for OSCR-UI Legacy. The
+The inherited shell remains byte-for-byte equivalent in structure for Legacy. The
 Command Console shell owns only presentation and navigation widgets; page models, parser callbacks,
 and application state remain shared.
 """
@@ -135,6 +135,7 @@ def _build_default_shell(theme, widgets, live_parser, status_bar, app_dir):
     main_layout.setContentsMargins(0, 0, 0, 0)
     main_layout.setSpacing(0)
     label = BannerLabel(get_asset_path('oscrbanner-slim-dark-label.png', app_dir), bg_frame)
+    label.setObjectName('legacyBanner')
     main_layout.addWidget(label)
 
     menu_frame = create_frame(theme, style_override={'background-color': '@oscr'})

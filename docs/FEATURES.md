@@ -8,7 +8,7 @@ leaving parser truth, parser models, and League upload inputs intact.
 
 - **Command Console by default** — a data-first desktop workspace with five colour-coded areas:
   Overview, Analysis, League, Settings, and Live Parser.
-- **OSCR-UI Legacy included** — the inherited appearance remains selectable for users who prefer
+- **Legacy included** — the inherited appearance remains selectable for users who prefer
   it or need a known-good recovery path.
 - **Analysis built for reading** — a clean Simple view for fast answers and an Advanced view when
   the full investigation is needed.
@@ -46,7 +46,7 @@ second parser:
 
 The feed is presentation-only and accepts no commands. A private capability URL, strict bind
 validation, bounded clients, and empty hidden frames keep the browser output deliberately narrow.
-OSCR-UI Legacy retains its inherited direct popout behavior and does not load these services.
+Legacy retains its inherited direct popout behavior and does not load these services.
 
 ## Analysis: quick when it needs to be, deep when it matters
 
@@ -107,7 +107,7 @@ normal per-user application-data location, so upgrades do not discard them.
 
 RE-OSCR keeps `STO-OSCR` as a separate, unmodified parser dependency. It does not change parser
 logic and does not replace parser truth with Workbench views. It is a GPL-3.0 community frontend,
-independent from STOCD's official releases.
+independently maintained from upstream parser releases.
 
 Analysis workflow ideas were informed by AnotherNathan's STO CombatLogAnalyzer (CLA), while the
 RE-OSCR interface and implementation are original. See [CREDITS.md](CREDITS.md) for the complete

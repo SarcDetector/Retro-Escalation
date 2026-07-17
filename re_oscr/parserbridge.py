@@ -246,7 +246,7 @@ class ParserBridge(QObject):
         error_message = tr(
             'An error occurred while parsing the selected combatlog. You can try repairing the '
             'log file using the repair functionality in the "Manage Logfile" dialog. If the error '
-            'persists, please report it to the #oscr-support channel in the STOBuilds Discord.')
+            'persists, please report it through the RE-OSCR GitHub project.')
         self._dialogs.show_error(tr('Parser Error'), error_message, error_text)
 
     def show_combat(self, index: int = -1, combat: Combat | None = None):
