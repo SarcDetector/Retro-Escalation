@@ -25,6 +25,7 @@ Current development features include:
 - [Feature set](docs/FEATURES.md)
 - [Feature poster (2560x1440 SVG)](docs/re-oscr-feature-poster.svg) ·
   [PNG](docs/re-oscr-feature-poster-2560x1440.png)
+- [Support and issue reporting](docs/SUPPORT.md)
 - [Credits](docs/CREDITS.md)
 - [Tester plan](docs/TESTING.md)
 - [Development guide](docs/DEVELOPMENT.md)
