@@ -72,6 +72,25 @@ jobs:
               throw "Missing Live overlay package file: $path"
             }
           }
+          if (-not (Test-Path `
+                  -LiteralPath '.artifacts\windows-package\RE-OSCR\docs\v11.1.0.dev15.md' `
+                  -PathType Leaf)) {
+            throw 'Missing dev15 tester handoff release note.'
+          }
+
+      - name: Verify build provenance
+        shell: pwsh
+        run: |
+          $buildInfo = Get-Content `
+            -LiteralPath '.artifacts\windows-package\RE-OSCR\BUILD_INFO.txt' `
+            -Raw
+          $expectedCommit = [regex]::Escape($env:GITHUB_SHA)
+          if ($buildInfo -notmatch "(?m)^Commit: $expectedCommit\r?$") {
+            throw 'Portable BUILD_INFO commit does not match GITHUB_SHA.'
+          }
+          if ($buildInfo -notmatch "(?m)^Working tree: clean\r?$") {
+            throw 'Portable BUILD_INFO does not describe a clean working tree.'
+          }
 
       - name: Verify packaged startup
         shell: pwsh
@@ -99,6 +118,7 @@ jobs:
           $process = Start-Process `
             -FilePath .\.artifacts\windows-package\RE-OSCR\RE-OSCR.exe `
             -ArgumentList @('--config_dir', $configDir, '--startup-check') `
+            -WindowStyle Hidden `
             -Wait `
             -PassThru
           if ($process.ExitCode -ne 0) {

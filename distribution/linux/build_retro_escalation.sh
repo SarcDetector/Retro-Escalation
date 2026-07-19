@@ -41,6 +41,14 @@ done
     exit 1
 }
 
+# Capture source identity before PyInstaller creates or replaces any output files.
+commit="$(git -c "safe.directory=$repo_root" -C "$repo_root" rev-parse HEAD 2>/dev/null || printf 'unknown')"
+if [[ -z "$(git -c "safe.directory=$repo_root" -C "$repo_root" status --porcelain)" ]]; then
+    working_tree="clean"
+else
+    working_tree="uncommitted changes included"
+fi
+
 mkdir -p "$output_root" "$work_root"
 output_root="$(CDPATH= cd -- "$output_root" && pwd)"
 app_output="$output_root/$app_name"
@@ -67,14 +75,18 @@ mkdir -p "$app_output/docs" "$app_output/distribution/linux"
 for document in PROJECT_SCOPE.md TESTING.md DEVELOPMENT.md; do
     cp "$repo_root/docs/$document" "$app_output/docs/$document"
 done
+release_note="$repo_root/docs/releases/v$version.md"
+if [[ -f "$release_note" ]]; then
+    cp "$release_note" "$app_output/docs/"
+fi
 cp "$repo_root/distribution/linux/README.md" "$app_output/distribution/linux/README.md"
 chmod +x "$app_output/$app_name"
 
-commit="$(git -c "safe.directory=$repo_root" -C "$repo_root" rev-parse HEAD 2>/dev/null || printf 'unknown')"
 cat > "$app_output/BUILD_INFO.txt" <<EOF
 RE-OSCR - Retro Escalation $version
 Upstream GPLv3 frontend baseline: 11.1.0
 Commit: $commit
+Working tree: $working_tree
 Built: $(date -u +'%Y-%m-%dT%H:%M:%SZ')
 Platform: Linux $(uname -m)
 

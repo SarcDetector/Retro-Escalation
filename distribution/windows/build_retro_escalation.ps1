@@ -20,6 +20,16 @@ $localesData = "$(Join-Path $repoRoot 'locales');locales"
 $themeAssetsData = "$(Join-Path $repoRoot 'theme_assets');theme_assets"
 $iconPath = Join-Path $repoRoot 'assets\oscr_icon_small.ico'
 
+# Capture source identity before PyInstaller creates or replaces any output files.
+$commit = (& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot rev-parse HEAD).Trim()
+$workingTreeStatus = & git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot status --porcelain
+$workingTree = if ([string]::IsNullOrWhiteSpace($workingTreeStatus)) {
+    'clean'
+}
+else {
+    'uncommitted changes included'
+}
+
 if (-not (Test-Path -LiteralPath $python)) {
     throw 'The repository virtual environment is missing. Create .venv and install .[pyinst].'
 }
@@ -63,19 +73,15 @@ foreach ($document in @('PROJECT_SCOPE.md', 'TESTING.md', 'DEVELOPMENT.md')) {
         -Destination $docsOutput `
         -Force
 }
+$releaseNote = Join-Path $repoRoot "docs\releases\v$version.md"
+if (Test-Path -LiteralPath $releaseNote -PathType Leaf) {
+    Copy-Item -LiteralPath $releaseNote -Destination $docsOutput -Force
+}
 Copy-Item `
     -LiteralPath (Join-Path $repoRoot 'distribution\windows\README.md') `
     -Destination $windowsGuideOutput `
     -Force
 
-$commit = (& git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot rev-parse HEAD).Trim()
-$workingTreeStatus = & git -c "safe.directory=$($repoRoot.Replace('\', '/'))" -C $repoRoot status --porcelain
-$workingTree = if ([string]::IsNullOrWhiteSpace($workingTreeStatus)) {
-    'clean'
-}
-else {
-    'uncommitted changes included'
-}
 $buildInfo = @"
 RE-OSCR - Retro Escalation $version
 Upstream GPLv3 frontend baseline: 11.1.0

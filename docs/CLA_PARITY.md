@@ -1,22 +1,28 @@
 # CLA compatibility parity ledger
 
-Status: **SOURCE AUDIT COMPLETE; IMPLEMENTATION NOT STARTED**
+Status: **DEV15 DAMAGE OUT TECHNICAL PREVIEW IMPLEMENTED; GOLDEN VERIFICATION PENDING**
 
 Audit date: 2026-07-16
 
-RE-OSCR baseline: [v11.1.0.dev12](baselines/v11.1.0.dev12.md)
+RE-OSCR audit baseline: [v11.1.0.dev12](baselines/v11.1.0.dev12.md)
+
+Current preview: [v11.1.0.dev15](releases/v11.1.0.dev15.md)
 
 This is the living compatibility inventory for evolving RE-OSCR Analysis toward CLA without
 replacing the OSCR parser. It records what CLA calculates, whether the selected OSCR combat
-contains the required inputs, what dev12 already presents, and what must be proven with golden
-fixtures.
+contains the required inputs, what dev15 exposes as a technical preview, and what must still be
+proven with golden fixtures.
 
-The compatibility promise is deliberately precise:
+The eventual compatibility promise is deliberately precise:
 
 > **CLA-compatible calculations on the selected OSCR combat.**
 
 It is not an alternate CLA parser and it is not a promise that OSCR and CLA will discover the same
 combat from every raw log file.
+
+Dev15 has not earned that compatibility label. It exposes a source-audited, player-root Damage Out
+preview over the immutable parser-truth event set selected by OSCR. Its stable raw report is a
+comparison surface for testers; it is not a parity certificate or a League source.
 
 ## Pinned evidence
 
@@ -70,14 +76,15 @@ Compatibility obligation and implementation progress are separate axes:
 | `AUDITED` | Behavior is identified in pinned source, but no RE implementation claim is made. |
 | `DERIVABLE` | The selected OSCR event snapshot contains the inputs needed for an original implementation. |
 | `PARTIAL` | Dev12 has a related feature, but its semantics or formula are not compatible yet. |
+| `PREVIEW IMPLEMENTED` | A source-audited implementation is exposed for tester comparison, but known scope limits or parity gaps remain and golden proof is pending. |
 | `IMPLEMENTED` | Behavior exists with the intended semantics, but lacks golden proof. |
 | `VERIFIED` | Named golden fixtures pass the declared comparator. |
 
 `RE EXTENSION` is a separate disposition, not a compatibility obligation: labelled RE-OSCR
 behavior composes outside the CLA calculation profile and is recorded in transform provenance.
 
-No metric in this document is `VERIFIED` yet. `PARTIAL` describes progress only; it never weakens
-an `EXACT` obligation.
+No metric in this document is `VERIFIED` yet. `PARTIAL` and `PREVIEW IMPLEMENTED` describe progress
+only; neither weakens an `EXACT` obligation.
 
 ## Compatibility definition and divergence policy
 
@@ -134,11 +141,12 @@ The mapping to CLA terminology is complete for ordinary calculations:
 | Flags | `flags` | Critical, Flank, Kill, Immune, ShieldBreak, and Miss can be tokenized. |
 | Actual amount | `magnitudes` | Sign and raw floating value retained. |
 | Base/prevented amount | `magnitudes2` | Sign and raw floating value retained. |
-| Event ordinal | `source_ordinals` | Same-time duplicate records have no upstream event UID; ordinal is required. A stable snapshot identity/hash does not exist yet and must be added by the later coprocessor contract. |
+| Event ordinal | `source_ordinals` | Same-time duplicate records have no upstream event UID; ordinal is required. Dev15 includes it in the stable canonical snapshot identity. |
 
 CLA entity kind, missing-entity state, and unique-name matching are recoverable from the retained
-raw ID strings, but are not yet exposed as dedicated snapshot arrays. The coprocessor input adapter
-must extract and freeze those values instead of consulting the source `Combat`.
+raw ID strings, but are not exposed as dedicated snapshot arrays. The dev15 coprocessor derives
+the player identity needed by its limited preview from the frozen values instead of consulting the
+source `Combat`.
 
 The completed OSCR trees are not sufficient for compatibility math by themselves. They already
 apply OSCR-specific duration, base-damage, immune, drain, critical, accuracy, and aggregation
@@ -147,9 +155,9 @@ without parsing log text and without writing back to OSCR.
 
 ## Snapshot identity and result provenance contract
 
-Dev12 does not yet implement a stable snapshot identity. Before coprocessor results can ship, the
-adapter must freeze the official start/end, nullable map/difficulty, runtime parser version, and
-events at `CombatEventIndex` construction. Hashing must never dereference `source_combat` later.
+Dev15 implements stable snapshot identity for the technical preview. The adapter freezes the
+official start/end, nullable map/difficulty, runtime parser version, and events at
+`CombatEventIndex` construction. Hashing does not dereference `source_combat` later.
 
 The snapshot payload has this fixed semantic shape:
 
@@ -184,9 +192,10 @@ Installed `STO-OSCR` distribution metadata may cross-check it when present but c
 a packaged executable; a present-but-different value is a provenance error. An upstream parser
 change therefore cannot masquerade as a coprocessor regression.
 
-Immutable provenance retains the canonical transform descriptor as well as its digest. It includes
-transform schema, ordered full rule definitions and enabled states, filters/queries, time bounds,
-and selected source ordinals. The canonical empty descriptor is:
+The full provenance contract retains the canonical transform descriptor as well as its digest. It
+can describe ordered full rule definitions and enabled states, filters/queries, time bounds, and
+selected source ordinals. Dev15 deliberately blocks modified Workbench views, so its preview emits
+only this canonical empty descriptor:
 
 ```json
 {
@@ -215,13 +224,13 @@ this explicit RFC 8785 payload:
 
 `result_id` uses the same `sha256:` plus 64-lowercase-hexadecimal representation.
 
-CLA-compatible calculations use engine ID `re-oscr.cla-coprocessor`; native OSCR results use
-`re-oscr.oscr-native`. Result provenance also records the canonical transform descriptor, every
-declared boundary difference, the injected RE-OSCR product version, and an optional nullable build
-revision. Product version comes from `RetroEscalationLauncher.__version__` at the adapter boundary;
-the pure engine must not import the Qt launcher/application. Installed RE-OSCR metadata is packaging
-evidence only and may be absent or stale. Product/build provenance does not alter an otherwise
-identical calculation identity, and none of these fields grants League upload authority.
+The dev15 preview uses engine ID `re-oscr.cla-coprocessor`; native OSCR results use
+`re-oscr.oscr-native`. Result provenance records the empty transform descriptor, declared boundary
+differences, the injected RE-OSCR product version, and an optional nullable build revision. Product
+version comes from `RetroEscalationLauncher.__version__` at the adapter boundary; the pure engine
+does not import the Qt launcher/application. Installed RE-OSCR metadata is packaging evidence only
+and may be absent or stale. Product/build provenance does not alter an otherwise identical
+calculation identity, and none of these fields grants League upload authority.
 
 ## Parity gate 1: duration and rate clocks
 
@@ -231,15 +240,15 @@ official combat snapshot. Within that fixed event set, the CLA clocks are:
 
 | ID | Clock | CLA v1.4.0 behavior on the selected OSCR event set | Obligation / progress |
 |---|---|---|---|
-| `TIME-01` | Global **Combat Duration** | CLA's global summary clock, not a table-rate divisor. Normally first-to-last not-CLA-all-zero, non-immune damage whose `record.source` is a Player (`owner_*` in the snapshot). Direct self-damage counts and player exclusions do not affect it. `Combat::new` has a released first-record quirk: if the first record is Player-source damage, it seeds the clock before checking Immune or all-zero; later updates do check. | `EXACT` / `DERIVABLE`; OSCR encounter extent is a `BOUNDARY DIFFERENCE`. |
-| `TIME-02` | Global Active Duration | First to last successfully parsed valid record. In native CLA it drives separation and the Active Duration display, but no table rate. Over the fixed snapshot it is the first-to-last effective OSCR event. | `EXACT` / `DERIVABLE`; independently discovered CLA extent is a `BOUNDARY DIFFERENCE`. |
-| `TIME-03` | Player Damage Out divisor | First-to-last not-CLA-all-zero, non-immune, non-self outgoing damage remaining after that player's exclusion rules. Intervening quiet gaps remain in the duration. | `EXACT` / `DERIVABLE`. |
-| `TIME-04` | Player Active divisor | First-to-last outgoing record after exclusion, including heals and self/immune/all-zero records, or incoming damage including immune/all-zero damage. Incoming healing alone does not establish or extend it. | `EXACT` / `DERIVABLE`. |
+| `TIME-01` | Global **Combat Duration** | CLA's global summary clock, not a table-rate divisor. Normally first-to-last not-CLA-all-zero, non-immune damage whose `record.source` is a Player (`owner_*` in the snapshot). Direct self-damage counts and player exclusions do not affect it. `Combat::new` has a released first-record quirk: if the first record is Player-source damage, it seeds the clock before checking Immune or all-zero; later updates do check. | `EXACT` / `PREVIEW IMPLEMENTED`; golden pending. OSCR encounter extent is a `BOUNDARY DIFFERENCE`. |
+| `TIME-02` | Global Active Duration | First to last successfully parsed valid record. In native CLA it drives separation and the Active Duration display, but no table rate. Over the fixed snapshot it is the first-to-last effective OSCR event. | `EXACT` / `PREVIEW IMPLEMENTED`; golden pending. Independently discovered CLA extent is a `BOUNDARY DIFFERENCE`. |
+| `TIME-03` | Player Damage Out divisor | First-to-last not-CLA-all-zero, non-immune, non-self outgoing damage remaining after that player's exclusion rules. Intervening quiet gaps remain in the duration. | `EXACT` / `PREVIEW IMPLEMENTED`; golden pending. |
+| `TIME-04` | Player Active divisor | First-to-last outgoing record after exclusion, including heals and self/immune/all-zero records, or incoming damage including immune/all-zero damage. Incoming healing alone does not establish or extend it. | `EXACT` / `PREVIEW IMPLEMENTED`; golden pending. |
 | `TIME-05` | Rate-to-clock map | Every nested Damage Out row shares its player `TIME-03`; Damage In, Heal Out, and Heal In share that player's `TIME-04`. No child row invents a shorter clock. | `EXACT` / `DERIVABLE`. |
-| `TIME-06` | Missing and zero ranges | Either missing optional player range becomes Chrono 0.4.44's `Duration::MAX` (`i64::MAX` milliseconds) for metric calculation, while its summary display is zero. Incoming-heal-only HPS therefore approaches zero. A one-point range is zero and then uses the one-second rate floor. A missing global `TIME-01` displays as zero. | `EXACT` / `DERIVABLE`; golden edge fixtures required. |
+| `TIME-06` | Missing and zero ranges | Either missing optional player range becomes Chrono 0.4.44's `Duration::MAX` (`i64::MAX` milliseconds) for metric calculation, while its summary display is zero. Incoming-heal-only HPS therefore approaches zero. A one-point range is zero and then uses the one-second rate floor. A missing global `TIME-01` displays as zero. | `EXACT` / `PREVIEW IMPLEMENTED`; golden edge fixtures pending. |
 | `TIME-07` | Separation and gaps | Native CLA truncates its configured separation seconds to an integer and starts a new combat only when the gap after the previous valid record is strictly greater than the threshold; equality stays in one combat, invalid records do not refresh the endpoint, and no clock subtracts idle gaps. The compatibility engine does not rerun this separator. | Source behavior `EXACT` / `AUDITED`; selected OSCR boundary is a `BOUNDARY DIFFERENCE`. |
 | `TIME-08` | Graph-series extent | Gaussian rate lines use the selected series' own first-to-last event timestamps and minimum one-second span, not `TIME-01`, `TIME-03`, or `TIME-04`. | `EXACT` / `DERIVABLE`. |
-| `TIME-09` | Processing order | CLA overwrites each range's end in record-processing order; it does not sort or take timestamp minima/maxima, and signed millisecond offsets are cast to `u32`. A malformed backwards player range panics when converted for metrics. RE-OSCR must detect that same invalid range and return no numeric result. | Range construction and failure condition `EXACT` / `DERIVABLE`; typed containment disposition `RE EXTENSION`. |
+| `TIME-09` | Processing order | CLA overwrites each range's end in record-processing order; it does not sort or take timestamp minima/maxima, and signed millisecond offsets are cast to `u32`. A malformed backwards player range panics when converted for metrics. RE-OSCR must detect that same invalid range and return no numeric result. | Range construction and failure condition `EXACT` / `PREVIEW IMPLEMENTED`; golden pending. Typed containment disposition `RE EXTENSION`. |
 
 Every scalar rate divides by `max(selected_clock, 1 second)`. A one-timestamp range therefore has
 duration zero but uses a one-second divisor. The harness must prove every clock independently before
@@ -276,27 +285,28 @@ For the formulas below:
 - All/shield/hull variants shown in CLA cells are one metric family, not three unrelated formulas.
 
 Every formula and source-defined edge in this table is an `EXACT` obligation. The final column
-describes implementation progress and the nearest dev12 behavior; it does not grant latitude.
+describes implementation progress and the nearest audit-baseline behavior where relevant; it does
+not grant latitude.
 
-| ID | CLA label | Compatibility rule | OSCR availability | Dev12 / progress |
+| ID | CLA label | Compatibility rule | OSCR availability | Implementation progress |
 |---|---|---|---|---|
-| `DO-01` | DPS | `rate(D, Tdo)`; shield/hull variants divide by the same clock. | Event amounts + timestamps. | OSCR DPS exists, clock differs: `DERIVABLE`. |
-| `DO-02` | Total Damage | `D = Dh + Ds`; drain remains shield damage; immune damage contributes zero. | Directly derivable. | Related OSCR total exists: `DERIVABLE`. |
+| `DO-01` | DPS | `rate(D, Tdo)`; shield/hull variants divide by the same clock. | Event amounts + timestamps. | `PREVIEW IMPLEMENTED`; golden and exact aggregation-order proof pending. |
+| `DO-02` | Total Damage | `D = Dh + Ds`; drain remains shield damage; immune damage contributes zero. | Directly derivable. | `PREVIEW IMPLEMENTED`; golden and exact aggregation-order proof pending. |
 | `DO-03` | Damage % | Row damage divided by immediate parent damage; player root uses team total. | Hierarchy + totals. | No matching tree share: `DERIVABLE`. |
-| `DO-04` | Resistance % | `100 × (1 - (D - R) / B)`; blank when `B == 0`. | Both magnitudes + drain classification. | OSCR Debuff is not this metric: `DERIVABLE`. |
+| `DO-04` | Resistance % | `100 × (1 - (D - R) / B)`; blank when `B == 0`. | Both magnitudes + drain classification. | `PREVIEW IMPLEMENTED`; golden and exact aggregation-order proof pending. |
 | `DO-05` | Max One-Hit | Largest absolute stored shield or hull hit with CLA hierarchy-selected tooltip provenance, often the effect name but not necessarily the raw direct source; CLA replaces it only for a strictly larger value. RE may additionally retain the source ordinal. | Per-event amounts, hierarchy names, and ordinal. | Value exists, provenance differs: `DERIVABLE`. |
-| `DO-06` | Average Hit | `D/N`; shield and hull use their corresponding totals/counts. | Totals + record counts. | Not exposed with CLA denominator: `DERIVABLE`. |
+| `DO-06` | Average Hit | `D/N`; shield and hull use their corresponding totals/counts. | Totals + record counts. | `PREVIEW IMPLEMENTED`; golden and exact aggregation-order proof pending. |
 | `DO-07` | Critical % | `100 × C/Nh`. | Flags + hull classification. | OSCR removes misses from its denominator: `DERIVABLE`. |
 | `DO-08` | Flanking % | `100 × F/Nh`. | Flags + hull classification. | OSCR removes misses from its denominator: `DERIVABLE`. |
-| `DO-09` | Hits | Every damage record; a normal shield+hull attack counts twice. Immune records still count. | Exact record count. | Related OSCR Attacks exists: `DERIVABLE`. |
-| `DO-10` | Hits / s | `rate(N, Tdo)`. | Counts + clock. | No dev12 equivalent using the CLA clock: `DERIVABLE`. |
+| `DO-09` | Hits | Every damage record; a normal shield+hull attack counts twice. Immune records still count. | Exact record count. | `PREVIEW IMPLEMENTED`; golden pending. |
+| `DO-10` | Hits / s | `rate(N, Tdo)`. | Counts + clock. | `PREVIEW IMPLEMENTED`; golden pending. |
 | `DO-11` | Hits % | Row hit count divided by immediate parent hit count. | Hierarchy + counts. | Not exposed: `DERIVABLE`. |
 | `DO-12` | Misses | Non-immune records carrying `Miss`. | Flags + immune classification. | Related OSCR count differs at edges: `DERIVABLE`. |
 | `DO-13` | Accuracy % | `100 × (1 - M/Nh)`. | Hull hits + misses. | OSCR uses successful/hull with different edge handling: `DERIVABLE`. |
 | `DO-14` | Kills | Added Damage Out records carrying `Kill`, detailed by killed target. | Flags + target identity. | Related OSCR total exists: `DERIVABLE`. |
 | `DO-15` | Damage Types | Distinct raw types; blank ignored; `Shield` suppressed when another substantive type exists. | Raw `type`. | Not presented with CLA union rule: `DERIVABLE`. |
-| `DO-16` | Base DPS | `rate(B, Tdo)`. | Hull `magnitude2`, with CLA zero fallback. | OSCR fallback/clock differ: `DERIVABLE`. |
-| `DO-17` | Base Damage | Sum of CLA-classified hull base damage; shield drain excluded. | Both magnitudes + type/flags. | Existing OSCR base differs: `DERIVABLE`. |
+| `DO-16` | Base DPS | `rate(B, Tdo)`. | Hull `magnitude2`, with CLA zero fallback. | `PREVIEW IMPLEMENTED`; golden and exact aggregation-order proof pending. |
+| `DO-17` | Base Damage | Sum of CLA-classified hull base damage; shield drain excluded. | Both magnitudes + type/flags. | `PREVIEW IMPLEMENTED`; golden and exact aggregation-order proof pending. |
 | `DO-18` | Total Crit Damage | Critical hull damage only. | Per-event flags and hull damage. | Not exposed: `DERIVABLE`. |
 | `DO-19` | Total Non-Crit Hull Damage | Noncritical hull damage only. | Per-event flags and hull damage. | Not exposed: `DERIVABLE`. |
 | `DO-20` | Average Crit Hit | Total critical hull damage divided by `C`. | `DO-18` + count. | Not exposed: `DERIVABLE`. |
@@ -305,6 +315,13 @@ describes implementation progress and the nearest dev12 behavior; it does not gr
 Damage In uses the same 21 metric formulas and hierarchy machinery. Its rates use the player's CLA
 active duration rather than a separate incoming-damage duration. This is derivable, but no Damage
 In row is considered verified until separate golden fixtures cover attribution and clocks.
+
+Dev15 exposes only player-root rows and all/shield/hull values for the eight marked metric families.
+It accumulates those preview roots in frozen event order. CLA builds leaf metrics and aggregates
+them through its hierarchy using its own deterministic traversal order. That exact hierarchy
+aggregation traversal is not implemented yet. Because binary64 addition is not associative,
+arbitrary-decimal real-log totals and dependent metrics can differ at the bit level even when event
+membership and formulas agree. This is a known preview boundary, not a permitted parity tolerance.
 
 ### Damage edge behavior to freeze
 
@@ -491,6 +508,9 @@ No golden fixture is complete yet. The first harness should cover these in order
 
 ## Future profile state presentation
 
+Dev15 does not ship the profile switch described below. Its dedicated technical-preview action
+does not change the active Analysis profile and never labels a result `CLA COMPATIBLE`.
+
 The Analysis profile switch controls real calculation state, so its indicator is an earned console
 chip under the no-fake-readouts rule. It displays the active, versioned state—such as
 `OSCR NATIVE` or `CLA COMPATIBLE v1.4`—and the same value is recorded in copy/export provenance.
@@ -500,23 +520,26 @@ the CLA profile, both `CLA COMPATIBLE v1.4` and `MODIFIED VIEW` remain visible. 
 recalculates from the same immutable snapshot; it does not rerun or replace OSCR, mutate parser
 truth, or create a League upload source.
 
-## First implementation slice unlocked by this ledger
+## Dev15 implementation slice and next gates
 
-The first complete vertical slice is **Damage Out on the OSCR-selected event set**:
+Dev15 starts the first vertical slice: a **player-root Damage Out technical preview on the
+OSCR-selected event set**. It implements stable canonical snapshot/result provenance, the six
+marked clock contracts, and the eight marked Damage Out metric families with all/shield/hull values.
+It is available only for an unmodified parser-truth Workbench view. It does not implement the
+remaining metric families, parent-relative hierarchy, flags, graphs, exact CLA formatting, rule
+transforms, or a selectable compatibility profile, and it has no League authority.
 
-- all 21 Damage table metric families;
-- CLA classification, player clock, parent-relative hierarchy, and empty-value behavior;
-- direct/indirect/target attribution;
-- rule ordering and the CLA exclusion edge;
-- Damage Out graphs only after the table values pass the golden harness;
-- explicit provenance stating that OSCR supplied the combat and events.
+The preview table is rounded presentation and is never an oracle. **COPY RAW REPORT** is the stable
+tester comparison surface because it carries unrounded values, snapshot/result identities, parser
+and product provenance, and declared boundary differences. The raw report is still subject to the
+known hierarchy aggregation-order limitation above.
 
 The first real-log proof milestone is Raman's tester fixture once its exact input, permission, raw
-CLA oracle output, and hashes are archived. Acceptance is: **the same OSCR-selected combat, the same
-`cla-v1.4.0` Damage Out raw results and strings, presented in RE-OSCR meter rows**. That fixture is
-high-value regression and demonstration evidence; it supplements rather than replaces the exact
-synthetic fixtures.
+CLA oracle output, and hashes are archived. Acceptance for dev15 evaluation is reproducible
+comparison of only the implemented clocks and Damage Out fields on the same OSCR-selected event
+set. A difference is a useful preview finding, not evidence of certified parity. Real-log evidence
+supplements rather than replaces exact synthetic fixtures.
 
-The engine contract, profile selector, result provenance model, and golden-harness implementation
-are the next planned steps. They are intentionally not smuggled into this audit document as
-already-shipped features.
+The next gates are the golden harness and fixtures, exact CLA hierarchy construction and aggregation
+traversal, then the remaining metrics, flags, graphs, formatting/copy behavior, and an earned profile
+selector. None is claimed as shipped by dev15.

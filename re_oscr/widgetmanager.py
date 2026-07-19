@@ -90,6 +90,7 @@ class WidgetManager():
         self.analysis_modified_chip: QLabel | None = None
         self.analysis_event_count_chip: QLabel | None = None
         self.analysis_reset_button: QPushButton | None = None
+        self.analysis_cla_preview_button: QPushButton | None = None
         self.analysis_plot_style_buttons: list[QPushButton] = list()
 
         self.ladder_selector: QListWidget

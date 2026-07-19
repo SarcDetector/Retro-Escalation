@@ -3,7 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import tempfile
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -28,6 +28,8 @@ class ParserBridgeAnalysisRefreshTests(unittest.TestCase):
             seconds_between_combats=45,
             graph_resolution=0.2,
             combat_min_lines=20,
+            log_path="",
+            first_overview_tab=0,
         )
         config = SimpleNamespace(
             excluded_event_ids=[],
@@ -37,6 +39,8 @@ class ParserBridgeAnalysisRefreshTests(unittest.TestCase):
             log_duration_value=QLabel(),
             player_duration_value=QLabel(),
             update_overview_telemetry=Mock(),
+            switch_main_tab=Mock(),
+            switch_overview_tab=Mock(),
         )
         self.bridge = ParserBridge(settings, config, self.widgets, Mock())
         self.bridge._tables = Mock()
@@ -67,6 +71,22 @@ class ParserBridgeAnalysisRefreshTests(unittest.TestCase):
             self.bridge.heal_in_model.player_index,
         )
         self.bridge._tables.refresh_tables.assert_not_called()
+
+    def test_starting_a_new_valid_log_clears_previous_combat_consumers_immediately(self):
+        log_path = Path(self.temp_dir.name) / "new-combat.log"
+        log_path.write_text("", encoding="utf-8")
+        cleared = Mock()
+        self.bridge.combat_cleared.connect(cleared)
+        self.bridge.current_combat_id = 4
+        self.bridge._parser.reset_parser = Mock()
+
+        with patch("re_oscr.parserbridge.Thread") as thread:
+            self.bridge.analyze_log_file(log_path)
+
+        self.bridge._parser.reset_parser.assert_called_once_with()
+        cleared.assert_called_once_with()
+        self.assertEqual(self.bridge.current_combat_id, -1)
+        thread.return_value.start.assert_called_once_with()
 
 
 if __name__ == "__main__":

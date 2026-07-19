@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import re
 from shutil import copy2
 import sys
 
@@ -57,6 +58,7 @@ class REOSCRApplication():
         self.version: str = version
         self.args = args
         self.app_dir: str = app_dir_path
+        self.build_revision: str | None = self.read_build_revision(app_dir_path)
 
         # Setting up app base
         self.config: OSCRConfig = OSCRConfig()
@@ -119,6 +121,8 @@ class REOSCRApplication():
                 config_dir=self.config.config_dir,
                 settings=self.settings,
                 parent=self.window,
+                product_version=self.version,
+                build_revision=self.build_revision,
             )
             self.workbench.view_failed.connect(
                 lambda detail: self.status_bar.status_message.emit(
@@ -140,6 +144,36 @@ class REOSCRApplication():
             QTimer.singleShot(
                 100,
                 lambda: self.parser.analyze_log_file(Path(self.sidebar.log_path_widget.text())))
+
+    @staticmethod
+    def read_build_revision(app_dir_path: str | Path) -> str | None:
+        """Read the exact portable-build revision without depending on Git at runtime."""
+        app_dir = Path(app_dir_path).resolve()
+        candidates = []
+        if getattr(sys, "frozen", False):
+            candidates.append(Path(sys.executable).resolve().parent / "BUILD_INFO.txt")
+        candidates.append(app_dir / "BUILD_INFO.txt")
+        for candidate in dict.fromkeys(candidates):
+            try:
+                build_info = candidate.read_text(encoding="utf-8-sig")
+            except (OSError, UnicodeError):
+                continue
+            commit_match = re.search(
+                r"(?m)^Commit:\s*([0-9a-fA-F]{40}|[0-9a-fA-F]{64})\s*$",
+                build_info,
+            )
+            if commit_match is None:
+                continue
+            revision = commit_match.group(1).lower()
+            working_tree = re.search(r"(?m)^Working tree:\s*(.+?)\s*$", build_info)
+            if working_tree is None:
+                continue
+            state = working_tree.group(1).casefold()
+            if state == "clean":
+                return revision
+            if state in {"dirty", "uncommitted changes included"}:
+                return revision + "+dirty"
+        return None
 
     def run(self) -> int:
         """

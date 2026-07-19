@@ -27,6 +27,7 @@ class ParserBridge(QObject):
 
     completed_combat = Signal(Combat)
     combat_displayed = Signal(Combat)
+    combat_cleared = Signal()
     parser_error = Signal(object)
     parser_status = Signal(str)
     status_message = Signal(str, str)
@@ -151,6 +152,10 @@ class ParserBridge(QObject):
 
         self._parser.reset_parser()
         self.analyzed_combats.clear()
+        self.current_combat_id = -1
+        # Consumers must drop any result tied to the previous parser before the asynchronous
+        # parse starts.  A failed or empty log may never emit combat_displayed afterward.
+        self.combat_cleared.emit()
         self._parser.log_path = str(path)
         # Only analyze 1 combat for best performance, see self.insert_combat for remaining combats
         self._thread = Thread(target=self._parser.analyze_log_file, kwargs={'max_combats': 1})

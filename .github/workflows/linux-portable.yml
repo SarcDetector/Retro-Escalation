@@ -64,6 +64,13 @@ jobs:
           test -f "$root/overlay.html"
           test -f "$root/overlay.css"
           test -f "$root/overlay.js"
+          test -f ".artifacts/linux-package/RE-OSCR/docs/v11.1.0.dev15.md"
+
+      - name: Verify build provenance
+        run: |
+          build_info=".artifacts/linux-package/RE-OSCR/BUILD_INFO.txt"
+          grep -Fx "Commit: $GITHUB_SHA" "$build_info"
+          grep -Fx "Working tree: clean" "$build_info"
 
       - name: Verify packaged startup
         run: |

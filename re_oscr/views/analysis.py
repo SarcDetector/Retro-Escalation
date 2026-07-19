@@ -291,6 +291,15 @@ class AnalysisView:
                 lambda _checked=False, selected=mode:
                 self._set_analysis_presentation_mode(selected))
             presentation_layout.addWidget(button)
+
+        cla_preview_button = action_button(
+            'CLA v1.4 PREVIEW', 'analysisClaDamageOutPreview', 1)
+        cla_preview_button.setToolTip(
+            'Open the source-audited Damage Out technical preview for the unmodified '
+            'OSCR-selected combat')
+        cla_preview_button.setEnabled(False)
+        presentation_layout.addWidget(cla_preview_button)
+        self.widgets.analysis_cla_preview_button = cla_preview_button
         presentation_layout.addStretch(1)
 
         truth_chip = chip('PARSER TRUTH', 'analysisParserTruthChip')

@@ -12,6 +12,11 @@ from PySide6.QtWidgets import QDialog, QPushButton
 
 from OSCR.combat import Combat
 
+from .clacoprocessor import (
+    ClaCoprocessorError,
+    DamageOutPreviewResult,
+    analyze_damage_out_preview,
+)
 from .workbench import (
     BUNDLED_WORKBENCH_RULE_SETS,
     WorkbenchCombatView,
@@ -47,13 +52,16 @@ class AnalysisWorkbenchController(QObject):
 
     def __init__(
             self, parser, tables, widgets, config_dir: str | Path | None = None,
-            settings=None, parent=None):
+            settings=None, parent=None, product_version: str = "",
+            build_revision: str | None = None):
         super().__init__()
         self.parser = parser
         self.tables = tables
         self.widgets = widgets
         self.parent = parent
         self.settings = settings
+        self.product_version = product_version
+        self.build_revision = build_revision
         self.cache = WorkbenchIndexCache()
         self.state = WorkbenchState.parser_truth()
         self.source_combat: Combat | None = None
@@ -69,7 +77,11 @@ class AnalysisWorkbenchController(QObject):
         self._selected_rule_set_index = 0
         self._working_rule_set = _disabled_rule_set(self.rule_sets[0])
         self._rule_sets_loaded = False
+        self._cla_preview_dialog = None
         self.parser.combat_displayed.connect(self.bind_combat)
+        combat_cleared = getattr(self.parser, "combat_cleared", None)
+        if combat_cleared is not None:
+            combat_cleared.connect(self.unbind_combat)
 
     def attach_controls(self) -> None:
         """Connect controls after the Command Console Analysis page has constructed them."""
@@ -94,6 +106,9 @@ class AnalysisWorkbenchController(QObject):
                 self._time_text_changed)
         if self.widgets.analysis_reset_button is not None:
             self.widgets.analysis_reset_button.clicked.connect(self.reset)
+        cla_preview_button = getattr(self.widgets, "analysis_cla_preview_button", None)
+        if cla_preview_button is not None:
+            cla_preview_button.clicked.connect(self.open_cla_damage_out_preview)
         rule_selector = getattr(self.widgets, "analysis_rule_set_selector", None)
         if rule_selector is not None:
             rule_selector.currentIndexChanged.connect(self._rule_set_changed)
@@ -109,6 +124,7 @@ class AnalysisWorkbenchController(QObject):
     @Slot(Combat)
     def bind_combat(self, combat: Combat) -> None:
         """Open parser truth or the user's explicit auto-enabled preferred rule profile."""
+        self._close_cla_preview()
         self.source_combat = combat
         self.state = WorkbenchState.parser_truth()
         self.current_result = None
@@ -127,6 +143,22 @@ class AnalysisWorkbenchController(QObject):
             self._working_rule_set = _disabled_rule_set(self._selected_rule_set())
         self._update_controls(visible_count, total_count)
         self.state_changed.emit(self.state, visible_count, visible_count)
+
+    @Slot()
+    def unbind_combat(self) -> None:
+        """Drop every result tied to a parser that has begun loading a different log."""
+        self._close_cla_preview()
+        self.source_combat = None
+        self.state = WorkbenchState.parser_truth()
+        self.current_result = None
+        self.current_view = None
+        self.cache.clear()
+        self._working_rule_set = _disabled_rule_set(self._selected_rule_set())
+        self.tables.set_analysis_modified(False)
+        self._reset_modifier_controls()
+        self._clear_plots()
+        self._update_controls(0, 0)
+        self.state_changed.emit(self.state, 0, 0)
 
     @Slot(str)
     def apply_text_filter(self, text: str) -> None:
@@ -338,6 +370,7 @@ class AnalysisWorkbenchController(QObject):
             return False
 
         self._clear_plots()
+        self._close_cla_preview()
         self.parser.display_analysis(display_combat)
         self.tables.set_analysis_modified(candidate.is_modified)
         self.state = candidate
@@ -531,6 +564,52 @@ class AnalysisWorkbenchController(QObject):
         for plot in self.widgets.analysis_plots:
             plot.clear()
 
+    def build_cla_damage_out_preview(self) -> DamageOutPreviewResult:
+        """Build the parser-truth-only dev15 preview without touching visible OSCR models."""
+        if self.source_combat is None:
+            raise WorkbenchDataError("select an OSCR combat before opening the CLA preview")
+        if self.state.is_modified:
+            raise WorkbenchDataError(
+                "reset Analysis modifiers before opening the dev15 CLA preview")
+        index = self.cache.get(self.source_combat)
+        return analyze_damage_out_preview(
+            index.snapshot_json,
+            index.snapshot_id,
+            product_version=self.product_version,
+            build_revision=self.build_revision,
+        )
+
+    @Slot()
+    def open_cla_damage_out_preview(self) -> None:
+        """Open a dedicated, non-uploadable result surface for tester comparison."""
+        try:
+            result = self.build_cla_damage_out_preview()
+        except (ClaCoprocessorError, WorkbenchDataError, ValueError) as error:
+            self.view_failed.emit(str(error))
+            return
+
+        from .clapreview import ClaDamageOutPreviewDialog
+
+        self._close_cla_preview()
+        dialog = ClaDamageOutPreviewDialog(result, self.parent)
+        self._cla_preview_dialog = dialog
+        dialog.destroyed.connect(
+            lambda _object=None, opened=dialog:
+            self._forget_cla_preview(opened))
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    def _forget_cla_preview(self, dialog) -> None:
+        if self._cla_preview_dialog is dialog:
+            self._cla_preview_dialog = None
+
+    def _close_cla_preview(self) -> None:
+        dialog = self._cla_preview_dialog
+        self._cla_preview_dialog = None
+        if dialog is not None:
+            dialog.close()
+
     def _source_event_count(self) -> int | None:
         """Return the parser-consumed event count when the combat can be indexed."""
         if self.source_combat is None:
@@ -567,6 +646,16 @@ class AnalysisWorkbenchController(QObject):
             self.widgets.analysis_event_count_chip.setText(text)
         if self.widgets.analysis_reset_button is not None:
             self.widgets.analysis_reset_button.setEnabled(modified)
+        cla_preview_button = getattr(self.widgets, "analysis_cla_preview_button", None)
+        if cla_preview_button is not None:
+            cla_preview_button.setEnabled(has_combat and not modified)
+            if modified:
+                cla_preview_button.setToolTip(
+                    "Reset Analysis modifiers before opening the dev15 CLA preview")
+            else:
+                cla_preview_button.setToolTip(
+                    "Open the source-audited Damage Out technical preview for the unmodified "
+                    "OSCR-selected combat")
         self._sync_modifier_chips()
         self._update_add_filter_button()
 

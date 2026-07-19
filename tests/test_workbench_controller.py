@@ -4,7 +4,7 @@ import json
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -41,6 +41,7 @@ from tests.test_workbench import make_combat, make_line
 
 class FakeParserBridge(QObject):
     combat_displayed = Signal(object)
+    combat_cleared = Signal()
 
     def __init__(self, source_combat):
         super().__init__()
@@ -95,6 +96,7 @@ class FakeWidgets:
         self.analysis_modified_chip = QLabel()
         self.analysis_event_count_chip = QLabel()
         self.analysis_reset_button = QPushButton()
+        self.analysis_cla_preview_button = QPushButton()
         self.analysis_plots = [FakePlot() for _ in range(4)]
 
 
@@ -125,7 +127,9 @@ class AnalysisWorkbenchControllerTests(unittest.TestCase):
         self.tables = FakeTables()
         self.widgets = FakeWidgets()
         self.controller = AnalysisWorkbenchController(
-            self.parser, self.tables, self.widgets)
+            self.parser, self.tables, self.widgets,
+            product_version="11.1.0.dev15",
+            build_revision="f" * 40)
         self.controller.attach_controls()
 
     def bind_source(self):
@@ -174,8 +178,52 @@ class AnalysisWorkbenchControllerTests(unittest.TestCase):
         self.assertEqual(self.widgets.analysis_event_count_chip.text(), "3 EVENTS")
         self.assertEqual(len(self.controller.cache), 0)
         self.assertFalse(self.widgets.analysis_reset_button.isEnabled())
+        self.assertTrue(self.widgets.analysis_cla_preview_button.isEnabled())
         self.assertEqual(self.tables.modified_states[-1], False)
         self.assertTrue(all(plot.clear_count == 1 for plot in self.widgets.analysis_plots))
+
+    def test_cla_preview_builds_from_parser_truth_without_presenting_a_fake_combat(self):
+        self.bind_source()
+
+        result = self.controller.build_cla_damage_out_preview()
+
+        self.assertEqual(result.event_count, 3)
+        self.assertEqual(self.parser.displayed_analysis, [])
+        self.assertIs(self.parser._parser.current_combat, self.source)
+        self.assertFalse(result.provenance.to_dict()["league_eligible"])
+        self.assertEqual(result.provenance.build_revision, "f" * 40)
+        self.assertEqual(
+            json.loads(result.to_json())["provenance"]["build_revision"],
+            "f" * 40,
+        )
+
+    def test_cla_preview_is_unavailable_while_workbench_is_modified(self):
+        self.bind_source()
+        self.controller.apply_state(WorkbenchState(owner_query="Alice"))
+
+        self.assertFalse(self.widgets.analysis_cla_preview_button.isEnabled())
+        with self.assertRaisesRegex(ValueError, "reset Analysis modifiers"):
+            self.controller.build_cla_damage_out_preview()
+
+        self.controller.reset()
+        self.assertTrue(self.widgets.analysis_cla_preview_button.isEnabled())
+
+    def test_new_log_start_drops_stale_combat_cache_and_preview(self):
+        self.bind_source()
+        self.controller.build_cla_damage_out_preview()
+        dialog = Mock()
+        self.controller._cla_preview_dialog = dialog
+
+        self.parser.combat_cleared.emit()
+
+        dialog.close.assert_called_once_with()
+        self.assertIsNone(self.controller.source_combat)
+        self.assertIsNone(self.controller.current_result)
+        self.assertEqual(len(self.controller.cache), 0)
+        self.assertFalse(self.widgets.analysis_cla_preview_button.isEnabled())
+        self.assertEqual(self.widgets.analysis_event_count_chip.text(), "NO COMBAT")
+        with self.assertRaisesRegex(ValueError, "select an OSCR combat"):
+            self.controller.build_cla_damage_out_preview()
 
     def test_bundled_rule_selector_loads_read_only_definitions_default_off(self):
         self.assertEqual(

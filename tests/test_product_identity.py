@@ -3,10 +3,13 @@
 from pathlib import Path
 import hashlib
 import struct
+import tempfile
 import tomllib
 import unittest
+from unittest.mock import patch
 
 from main import Launcher
+from re_oscr.app import REOSCRApplication
 from retro_escalation import RetroEscalationLauncher
 
 
@@ -34,7 +37,7 @@ class ProductIdentityTests(unittest.TestCase):
             project["scripts"],
             {"re-oscr": "retro_escalation:RetroEscalationLauncher.launch"},
         )
-        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0.dev14")
+        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0.dev15")
         self.assertEqual(Launcher.__version__, RetroEscalationLauncher.__version__)
         self.assertNotIn("+", RetroEscalationLauncher.__version__)
 
@@ -77,6 +80,70 @@ class ProductIdentityTests(unittest.TestCase):
         )
         for filename in removed_assets:
             self.assertFalse((asset_dir / filename).exists())
+
+    def test_source_build_revision_reads_explicit_root_file_with_bom(self) -> None:
+        commit = "A" * 40
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "BUILD_INFO.txt").write_text(
+                f"Commit: {commit}\r\nWorking tree: clean\r\n",
+                encoding="utf-8-sig",
+            )
+
+            with patch("re_oscr.app.sys.frozen", False, create=True):
+                revision = REOSCRApplication.read_build_revision(root)
+
+        self.assertEqual(revision, commit.lower())
+
+    def test_frozen_build_revision_reads_executable_sibling_and_marks_dirty(self) -> None:
+        commit = "A" * 40
+        with tempfile.TemporaryDirectory() as temp_dir:
+            portable_root = Path(temp_dir)
+            internal = portable_root / "_internal"
+            internal.mkdir()
+            (portable_root / "BUILD_INFO.txt").write_text(
+                "\n".join((
+                    "RE-OSCR - Retro Escalation 11.1.0.dev15",
+                    f"Commit: {commit}",
+                    "Working tree: uncommitted changes included",
+                )),
+                encoding="utf-8",
+            )
+
+            with (
+                    patch("re_oscr.app.sys.frozen", True, create=True),
+                    patch("re_oscr.app.sys.executable", str(portable_root / "RE-OSCR.exe"))):
+                revision = REOSCRApplication.read_build_revision(internal)
+
+        self.assertEqual(revision, commit.lower() + "+dirty")
+
+    def test_nonfrozen_parent_build_info_is_ignored(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            child = root / "package"
+            child.mkdir()
+            (root / "BUILD_INFO.txt").write_text(
+                f"Commit: {'a' * 40}\nWorking tree: clean\n",
+                encoding="utf-8",
+            )
+            with patch("re_oscr.app.sys.frozen", False, create=True):
+                revision = REOSCRApplication.read_build_revision(child)
+
+        self.assertIsNone(revision)
+
+    def test_build_revision_fails_closed_for_bad_metadata(self) -> None:
+        invalid_build_info = (
+            "Commit: short\nWorking tree: clean\n",
+            f"Commit: {'a' * 40}\n",
+            f"Commit: {'a' * 40}\nWorking tree: unknown\n",
+        )
+        for build_info in invalid_build_info:
+            with self.subTest(build_info=build_info), tempfile.TemporaryDirectory() as temp_dir:
+                root = Path(temp_dir)
+                (root / "BUILD_INFO.txt").write_text(build_info, encoding="utf-8")
+                with patch("re_oscr.app.sys.frozen", False, create=True):
+                    revision = REOSCRApplication.read_build_revision(root)
+                self.assertIsNone(revision)
 
 
 if __name__ == "__main__":

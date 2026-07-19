@@ -10,15 +10,19 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, replace
 from datetime import timedelta
+import hashlib
+from importlib.metadata import PackageNotFoundError, version as distribution_version
 import json
 from math import isfinite
 import re
+import struct
 from typing import Any, Mapping
 from weakref import ReferenceType, WeakKeyDictionary, ref
 
 import numpy as np
 from numpy.typing import NDArray
 
+from OSCR import OSCR as OSCRParser
 from OSCR.combat import Combat
 from OSCR.constants import HEAL_TREE_HEADER, TREE_HEADER
 from OSCR.datamodels import LogLine, TreeItem, TreeModel
@@ -553,6 +557,21 @@ class CombatEventIndex:
         # Keep the cache weak in both directions.  A query can resolve its source while the
         # official parser still owns it, but an index never prolongs a Combat's lifetime.
         self._source_combat_ref: ReferenceType[Combat] = ref(combat)
+        self.start_time = combat.start_time
+        self.end_time = combat.end_time
+        self.map_name = _optional_snapshot_text(getattr(combat, "map", None))
+        self.difficulty = _optional_snapshot_text(getattr(combat, "difficulty", None))
+        self.parser_version = str(OSCRParser.__version__)
+        try:
+            installed_parser_version = distribution_version("STO-OSCR")
+        except PackageNotFoundError:
+            # Frozen executables may not carry distribution metadata; the parser's own
+            # runtime version remains authoritative in that environment.
+            installed_parser_version = None
+        if (installed_parser_version is not None
+                and installed_parser_version != self.parser_version):
+            raise WorkbenchDataError(
+                "STO-OSCR distribution version does not match the loaded parser runtime")
 
         effective = tuple(_effective_lines(combat))
         self.lines: tuple[LogLine, ...] = tuple(line for _, line in effective)
@@ -608,6 +627,10 @@ class CombatEventIndex:
             for flag in ("critical", "miss", "kill")
         )
 
+        self.snapshot_json = _canonical_snapshot_json(self)
+        self.snapshot_id = "sha256:" + hashlib.sha256(
+            self.snapshot_json.encode("utf-8")).hexdigest()
+
     def __len__(self) -> int:
         return len(self.lines)
 
@@ -615,6 +638,11 @@ class CombatEventIndex:
     def source_combat(self) -> Combat | None:
         """Return the official source combat while it is still owned by the parser."""
         return self._source_combat_ref()
+
+    @property
+    def snapshot_payload(self) -> dict[str, Any]:
+        """Return a detached copy of the stable coprocessor input identity payload."""
+        return json.loads(self.snapshot_json)
 
     def query(self, state: WorkbenchState | None = None) -> WorkbenchQueryResult:
         """Apply exclusions, AND-composed filters, and inclusive time bounds."""
@@ -1249,6 +1277,70 @@ def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
             raise ValueError(f"duplicate JSON key: {key}")
         result[key] = value
     return result
+
+
+def _optional_snapshot_text(value: object) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def _binary64_hex(value: float, field: str, ordinal: int) -> str:
+    value = float(value)
+    if not isfinite(value):
+        raise WorkbenchDataError(
+            f"event {ordinal} contains a non-finite {field} value")
+    return struct.pack(">d", value).hex()
+
+
+def _canonical_snapshot_json(index: CombatEventIndex) -> str:
+    """Freeze the documented RFC-8785-compatible snapshot identity payload.
+
+    This payload intentionally contains no JSON numbers that require ECMAScript number
+    canonicalization: ordinals and event counts are integers, while floating-point values are
+    represented by their exact binary64 bit strings.  Python's sorted compact JSON form is
+    therefore byte-identical to RFC 8785 for this schema.
+    """
+    events = []
+    for position, timestamp in enumerate(index.timestamps):
+        ordinal = int(index.source_ordinals[position])
+        if timestamp.microsecond % 1000:
+            raise WorkbenchDataError(
+                f"event {ordinal} timestamp is not aligned to a whole millisecond")
+        events.append([
+            ordinal,
+            timestamp.strftime("%Y-%m-%dT%H:%M:%S.%f"),
+            str(index.owner_names[position]),
+            str(index.owner_ids[position]),
+            str(index.source_names[position]),
+            str(index.source_ids[position]),
+            str(index.target_names[position]),
+            str(index.target_ids[position]),
+            str(index.event_names[position]),
+            str(index.event_ids[position]),
+            str(index.event_types[position]),
+            str(index.flags[position]),
+            _binary64_hex(index.magnitudes[position], "magnitude", ordinal),
+            _binary64_hex(index.magnitudes2[position], "magnitude2", ordinal),
+        ])
+
+    payload = {
+        "domain": "re-oscr.snapshot.v1",
+        "input_contract": "oscr-effective-logline.v1",
+        "parser_distribution": "STO-OSCR",
+        "parser_version": index.parser_version,
+        "combat": {
+            "start": index.start_time.strftime("%Y-%m-%dT%H:%M:%S.%f"),
+            "end": index.end_time.strftime("%Y-%m-%dT%H:%M:%S.%f"),
+            "map": index.map_name,
+            "difficulty": index.difficulty,
+        },
+        "event_count": len(events),
+        "events": events,
+    }
+    return json.dumps(
+        payload, ensure_ascii=False, allow_nan=False,
+        sort_keys=True, separators=(",", ":"))
 
 
 def _readonly_text(values) -> NDArray[np.str_]:
