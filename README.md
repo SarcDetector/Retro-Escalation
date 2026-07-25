@@ -16,6 +16,9 @@ Current development features include:
 - A fifth-tab Live Control Center with one inherited parser session, an embedded preview, the
   existing local popout, an optional Windows global visibility hotkey, and a read-only
   browser/OBS meter.
+- A presentation-only layer-shell popout on supported native Wayland sessions, with the existing
+  normal-window popout as a safe fallback. The main process remains the sole parser owner and the
+  browser/OBS source is unchanged.
 - A Command Console CLA v1.4 calculation coprocessor with Summary, Damage Out, Damage In,
   Heal Out, Heal In, expandable default hierarchy, and raw provenance export.
 - Isolated RE-OSCR settings that do not modify an installed OSCR application.
@@ -34,7 +37,7 @@ Current development features include:
 - [Development guide](docs/DEVELOPMENT.md)
 - [Dev12 protected baseline](docs/baselines/v11.1.0.dev12.md)
 - [CLA compatibility parity ledger](docs/CLA_PARITY.md)
-- [Dev16 Math coprocessor release notes](docs/releases/v11.1.0.dev16.md)
+- [Dev16 Math coprocessor and Wayland popout release notes](docs/releases/v11.1.0.dev16.md)
 
 ## Parser dependency
 
@@ -67,6 +70,27 @@ pipx install re-oscr
 re-oscr
 ```
 
+Linux Wayland testers who want pointer-driven layer-shell dragging can request the optional helper
+extra. Compatible LayerShellQt components are still required for native layer-shell placement;
+unsupported or failed native setups use the normal popout:
+
+```bash
+pipx install 're-oscr[wayland]'
+```
+
+`pywayland==0.4.18` does not publish a CPython 3.13 wheel on PyPI, so pipx builds that optional
+helper from source. The machine therefore needs GCC, `pkg-config`, Python development headers
+matching the Python used by pipx, libffi development headers, and Wayland headers/protocol tools
+before running the command. On Debian or Ubuntu, the usual packages are:
+
+```bash
+sudo apt-get install build-essential pkg-config python3-dev libffi-dev \
+  libwayland-dev libwayland-bin wayland-protocols
+```
+
+The `wayland` extra enables dragging only. It does not provide compositor support or install the
+separate ABI-compatible LayerShellQt plugin and interface needed for native layer-shell placement.
+
 Because the current PyPI release is a development release and no stable release exists yet,
 `pipx install re-oscr` selects it normally. Once stable releases exist, plain installs stay on the
 stable channel; opt in to a later development release with
@@ -97,7 +121,7 @@ To build on a Linux workstation instead:
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -e ".[pyinst]"
+.venv/bin/python -m pip install -e ".[pyinst,wayland]"
 ./distribution/linux/build_retro_escalation.sh --output-root dist --package
 ```
 

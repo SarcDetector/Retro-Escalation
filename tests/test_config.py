@@ -49,6 +49,10 @@ class OSCRSettingsTests(unittest.TestCase):
             self.assertFalse(settings.liveparser__copy_kills)
             self.assertFalse(settings.liveparser__graph_active)
             self.assertEqual(settings.liveparser__graph_field, 0)
+            self.assertEqual(settings.liveparser__overlay_left, 40)
+            self.assertEqual(settings.liveparser__overlay_top, 40)
+            self.assertEqual(settings.liveparser__overlay_width, 0)
+            self.assertEqual(settings.liveparser__overlay_height, 0)
             self.assertEqual(settings.liveparser__player_display, "Handle")
             self.assertEqual(settings.liveparser__window_scale, 1.0)
             self.assertEqual(settings.liveparser__window_opacity, 0.85)
@@ -87,6 +91,10 @@ class OSCRSettingsTests(unittest.TestCase):
             settings.dmg_columns[7] = False
             settings.heal_columns[2] = False
             settings.liveparser__columns = [True, False, True, True, False, False, True]
+            settings.liveparser__overlay_left = 91
+            settings.liveparser__overlay_top = 73
+            settings.liveparser__overlay_width = 612
+            settings.liveparser__overlay_height = 244
             settings.overlay__custom_css_path = "C:/Styles/re-oscr.css"
             settings.overlay__feed_bind = "192.168.1.25"
             settings.overlay__feed_enabled = True
@@ -129,6 +137,10 @@ class OSCRSettingsTests(unittest.TestCase):
                 restored.liveparser__columns,
                 [True, False, True, True, False, False, True],
             )
+            self.assertEqual(restored.liveparser__overlay_left, 91)
+            self.assertEqual(restored.liveparser__overlay_top, 73)
+            self.assertEqual(restored.liveparser__overlay_width, 612)
+            self.assertEqual(restored.liveparser__overlay_height, 244)
             self.assertEqual(restored.overlay__custom_css_path, "C:/Styles/re-oscr.css")
             self.assertEqual(restored.overlay__feed_bind, "192.168.1.25")
             self.assertTrue(restored.overlay__feed_enabled)

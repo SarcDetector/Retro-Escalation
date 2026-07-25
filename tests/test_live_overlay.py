@@ -77,7 +77,7 @@ class LiveOverlayTests(unittest.TestCase):
     def test_payload_is_versioned_sanitized_and_restored_after_hide(self):
         long_label = "R" * 180
         rows = [
-            [(long_label, "@raman"), 500_000.5, 12.0, math.nan, math.inf, 0, 4, 0, 2],
+            [(long_label, "@tester"), 500_000.5, 12.0, math.nan, math.inf, 0, 4, 0, 2],
         ]
         self.feed.publish_snapshot(rows, math.inf)
         payload = self.feed.last_payload
@@ -85,7 +85,7 @@ class LiveOverlayTests(unittest.TestCase):
         self.assertEqual(payload["type"], "snapshot")
         self.assertEqual(payload["version"], 1)
         self.assertEqual(payload["duration"], 0)
-        self.assertEqual(payload["rows"][0]["label"], "@raman")
+        self.assertEqual(payload["rows"][0]["label"], "@tester")
         self.assertEqual(payload["rows"][0]["color"], self.theme["plot"]["color_cycler"][2])
         self.assertTrue(all(math.isfinite(value) for value in payload["rows"][0]["values"]))
         cached_headers = payload["headers"]
@@ -100,7 +100,7 @@ class LiveOverlayTests(unittest.TestCase):
 
         self.feed.set_presentation_visible(True)
         self.assertEqual(self.feed.last_payload["headers"], cached_headers)
-        self.assertEqual(self.feed.last_payload["rows"][0]["label"], "@raman")
+        self.assertEqual(self.feed.last_payload["rows"][0]["label"], "@tester")
 
     def test_start_generates_complete_obs_folder_and_masks_state_token(self):
         self.assertTrue(self.feed.start())
@@ -135,7 +135,7 @@ class LiveOverlayTests(unittest.TestCase):
 
     def test_real_client_receives_snapshot_and_stop_disposes_it_once(self):
         self.feed.publish_snapshot(
-            [[("Raman", "@raman"), 1000, 10, 20, 30, 40, 5, 0, 0]], 10.0)
+            [[("Anonymous", "@tester"), 1000, 10, 20, 30, 40, 5, 0, 0]], 10.0)
         self.assertTrue(self.feed.start())
         client = QWebSocket()
         messages = []
@@ -146,7 +146,7 @@ class LiveOverlayTests(unittest.TestCase):
         self.assertTrue(self._wait_for(lambda: bool(messages)))
         payload = json.loads(messages[0])
         self.assertEqual(payload["version"], 1)
-        self.assertEqual(payload["rows"][0]["label"], "@raman")
+        self.assertEqual(payload["rows"][0]["label"], "@tester")
         self.assertEqual(self.feed.client_count, 1)
 
         self.feed.stop()

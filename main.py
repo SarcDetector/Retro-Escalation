@@ -3,8 +3,6 @@ from multiprocessing import freeze_support, set_start_method, get_start_method
 import os
 import sys
 
-from re_oscr import REOSCRApplication
-
 
 class Launcher():
 
@@ -25,6 +23,8 @@ class Launcher():
 
     @staticmethod
     def launch():
+        from re_oscr import REOSCRApplication
+
         argparser = ArgumentParser(
             prog='RE-OSCR',
             description='Retro Escalation frontend for the Open Source Combatlog Reader parser.')

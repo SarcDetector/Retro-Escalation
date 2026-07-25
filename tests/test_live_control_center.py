@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QModelIndex
+from PySide6.QtCore import QModelIndex, QObject, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtNetwork import QHostAddress, QTcpServer
 from PySide6.QtWidgets import QApplication, QFrame, QPushButton, QSlider
@@ -74,6 +74,48 @@ class FakeHotkeyBackend:
         self.registered.clear()
 
 
+class FakeWaylandPresenter(QObject):
+    ready = Signal()
+    close_requested = Signal()
+    parser_requested = Signal(bool)
+    geometry_changed = Signal(object)
+    unavailable = Signal(str)
+
+    def __init__(self):
+        super().__init__()
+        self.configurations = []
+        self.snapshots = []
+        self.parser_states = []
+        self.show_calls = []
+        self.hide_count = 0
+        self.shutdown_count = 0
+        self.running = False
+        self.ready_received = True
+
+    def show_presentation(
+            self, configuration, rows, duration, parser_active):
+        self.running = True
+        self.show_calls.append((
+            configuration, rows, duration, parser_active))
+        return True
+
+    def hide_presentation(self):
+        self.hide_count += 1
+
+    def send_configuration(self, configuration):
+        self.configurations.append(configuration)
+
+    def send_snapshot(self, rows, duration):
+        self.snapshots.append((rows, duration))
+
+    def send_parser_state(self, active):
+        self.parser_states.append(bool(active))
+
+    def shutdown(self):
+        self.running = False
+        self.shutdown_count += 1
+
+
 class LiveControlCenterTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -105,6 +147,31 @@ class LiveControlCenterTests(unittest.TestCase):
         self.addCleanup(window.close)
         self.addCleanup(window.shutdown)
         return window
+
+    def make_wayland_window(
+            self, command_console=True, platform_name="wayland"):
+        presenter = FakeWaylandPresenter()
+        parser_patcher = patch("re_oscr.liveparser.LiveParser", FakeLiveParser)
+        platform_patcher = patch(
+            "re_oscr.liveparser.QApplication.platformName",
+            return_value=platform_name)
+        presenter_patcher = patch(
+            "re_oscr.waylandoverlay.WaylandPresentationProcess.create_if_supported",
+            return_value=presenter,
+        )
+        parser_patcher.start()
+        platform_patcher.start()
+        presenter_patcher.start()
+        self.addCleanup(parser_patcher.stop)
+        self.addCleanup(platform_patcher.stop)
+        self.addCleanup(presenter_patcher.stop)
+        window = LiveParserWindow(
+            self.settings, self.theme, self.dialogs, self.widgets,
+            command_console=command_console,
+        )
+        self.addCleanup(window.close)
+        self.addCleanup(window.shutdown)
+        return window, presenter
 
     def make_overlay(self, window):
         backend = FakeHotkeyBackend()
@@ -203,6 +270,113 @@ class LiveControlCenterTests(unittest.TestCase):
         self.assertFalse(window.parser_active)
         self.assertEqual(window._liveparser.stop_count, 1)
 
+    def test_wayland_child_receives_display_rows_but_no_log_or_config_path(self):
+        window, presenter = self.make_wayland_window(command_console=True)
+        player_data = {
+            ("Anonymous", "@tester"): {
+                "dps": 123.0,
+                "combat_time": 9.0,
+                "local_debuff": 4.0,
+                "local_attacks_in_share": 5.0,
+                "hps": 6.0,
+                "kills": 7,
+                "deaths": 0,
+            }
+        }
+
+        window.update_live_display(player_data, 9.0)
+        window.set_popout_visible(True)
+        self.app.processEvents()
+
+        self.assertTrue(window.popout_visible)
+        self.assertFalse(window.isVisible())
+        self.assertEqual(presenter.snapshots[-1][1], 9.0)
+        self.assertEqual(presenter.snapshots[-1][0][0][0], ("Anonymous", "@tester"))
+        configuration = presenter.show_calls[-1][0]
+        serialized = repr(configuration).casefold()
+        for forbidden in ("sto_log", "log_path", "config_dir", "settings_path"):
+            self.assertNotIn(forbidden, serialized)
+        self.assertIsInstance(window._liveparser, FakeLiveParser)
+
+    def test_wayland_local_popout_stays_until_surface_ready(self):
+        window, presenter = self.make_wayland_window(command_console=True)
+        presenter.ready_received = False
+
+        window.set_popout_visible(True)
+        self.app.processEvents()
+
+        self.assertTrue(window.popout_visible)
+        self.assertTrue(window.isVisible())
+
+        presenter.ready_received = True
+        presenter.ready.emit()
+        self.app.processEvents()
+
+        self.assertTrue(window.popout_visible)
+        self.assertFalse(window.isVisible())
+
+    def test_wayland_platform_variant_uses_native_presenter(self):
+        window, presenter = self.make_wayland_window(
+            command_console=True, platform_name="wayland-egl")
+
+        self.assertIs(window._wayland_presenter, presenter)
+        window.set_popout_visible(True)
+        self.assertTrue(presenter.show_calls)
+
+    def test_wayland_child_close_preserves_command_parser_but_stops_legacy(self):
+        command_window, command_presenter = self.make_wayland_window(
+            command_console=True)
+        self.assertTrue(command_window.start_parser())
+        command_window.set_popout_visible(True)
+
+        command_presenter.close_requested.emit()
+        self.app.processEvents()
+
+        self.assertFalse(command_window.popout_visible)
+        self.assertTrue(command_window.parser_active)
+
+        legacy_window, legacy_presenter = self.make_wayland_window(
+            command_console=False)
+        self.assertTrue(legacy_window.start_parser())
+        legacy_window.set_popout_visible(True)
+
+        legacy_presenter.close_requested.emit()
+        self.app.processEvents()
+
+        self.assertFalse(legacy_window.popout_visible)
+        self.assertFalse(legacy_window.parser_active)
+
+    def test_wayland_failure_falls_back_without_stopping_parser(self):
+        window, presenter = self.make_wayland_window(command_console=True)
+        self.assertTrue(window.start_parser())
+        window.set_popout_visible(True)
+
+        with patch("re_oscr.liveparser.logger.warning"):
+            presenter.unavailable.emit("synthetic startup failure")
+        self.app.processEvents()
+
+        self.assertTrue(window.popout_visible)
+        self.assertTrue(window.isVisible())
+        self.assertTrue(window.parser_active)
+        self.assertIsNone(window._wayland_presenter)
+
+    def test_wayland_geometry_is_validated_into_parent_owned_settings(self):
+        window, presenter = self.make_wayland_window(command_console=True)
+
+        presenter.geometry_changed.emit({
+            "left": 84, "top": 61, "width": 720, "height": 280})
+        self.assertEqual(self.settings.liveparser__overlay_left, 84)
+        self.assertEqual(self.settings.liveparser__overlay_top, 61)
+        self.assertEqual(self.settings.liveparser__overlay_width, 720)
+        self.assertEqual(self.settings.liveparser__overlay_height, 280)
+
+        presenter.geometry_changed.emit({
+            "left": -5, "top": 999_999, "width": -1, "height": 99_999})
+        self.assertEqual(self.settings.liveparser__overlay_left, 0)
+        self.assertEqual(self.settings.liveparser__overlay_top, 100_000)
+        self.assertEqual(self.settings.liveparser__overlay_width, 0)
+        self.assertEqual(self.settings.liveparser__overlay_height, 16_384)
+
     def test_invalid_log_rejects_start_without_changing_visibility(self):
         self.settings.sto_log_path = str(Path(self.temp_dir.name) / "missing.log")
         window = self.make_window(command_console=True)
@@ -221,13 +395,13 @@ class LiveControlCenterTests(unittest.TestCase):
             self.theme, self.settings, OSCRConfig(), self.widgets, window)
         view.build(parent)
         player_data = {
-            ("Raman", "@ramanwaleczny"): {
-                "dps": 523_401.12,
+            ("Anonymous", "@tester"): {
+                "dps": 123_456.75,
                 "combat_time": 72.5,
-                "local_debuff": 75.21,
-                "local_attacks_in_share": 18.4,
-                "hps": 1_250.0,
-                "kills": 48,
+                "local_debuff": 12.5,
+                "local_attacks_in_share": 8.25,
+                "hps": 1_024.0,
+                "kills": 12,
                 "deaths": 0,
             }
         }

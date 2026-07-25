@@ -56,6 +56,51 @@ app_output="$output_root/$app_name"
 version="$($python -c 'import re, sys; text = open(sys.argv[1], encoding="utf-8").read(); match = re.search(r"__version__\s*=\s*[\"'"'"']([^\"'"'"']+)", text); print(match.group(1) if match else "")' "$repo_root/retro_escalation.py")"
 [[ -n "$version" ]] || { printf 'Unable to read the RE-OSCR version.\n' >&2; exit 1; }
 
+wayland_args=()
+layer_plugin=""
+layer_interface=""
+system_qt=""
+layer_candidate_found=false
+if command -v qtpaths6 >/dev/null 2>&1; then
+    plugin_root="$(qtpaths6 --plugin-dir 2>/dev/null || true)"
+    library_root="$(qtpaths6 --query QT_INSTALL_LIBS 2>/dev/null || true)"
+    system_qt="$(qtpaths6 --qt-version 2>/dev/null || true)"
+    plugin_candidate="$plugin_root/wayland-shell-integration/liblayer-shell.so"
+    interface_candidate="$library_root/libLayerShellQtInterface.so.6"
+    if [[ -f "$plugin_candidate" || -f "$interface_candidate" ]]; then
+        layer_candidate_found=true
+    fi
+    if [[ -n "$plugin_root" && -n "$library_root" \
+            && -f "$plugin_candidate" && -f "$interface_candidate" ]]; then
+        # Both paths come from the same qtpaths6 installation.  Never combine
+        # a plugin from one system Qt with an interface library from another.
+        layer_plugin="$plugin_candidate"
+        layer_interface="$interface_candidate"
+    fi
+fi
+
+pyside_qt="$($python -c 'from PySide6.QtCore import qVersion; print(qVersion())')"
+if [[ -n "$layer_plugin" && -n "$layer_interface" && -n "$system_qt" \
+        && "${pyside_qt%.*}" == "${system_qt%.*}" ]]; then
+    printf 'Bundling LayerShellQt for the Wayland presentation process (Qt %s).\n' "$pyside_qt"
+    wayland_args+=(
+        --add-binary "$layer_plugin:layershellqt/wayland-shell-integration"
+        --add-binary "$layer_interface:."
+    )
+    if "$python" -c 'import pywayland' >/dev/null 2>&1; then
+        wayland_args+=(--collect-all pywayland)
+    else
+        printf 'Warning: pywayland is absent; the layer-shell popout will not be draggable.\n' >&2
+    fi
+elif [[ -n "$layer_plugin" || -n "$layer_interface" ]]; then
+    printf 'Warning: LayerShellQt was not bundled because its Qt (%s) does not match PySide6 (%s).\n' \
+        "${system_qt:-unknown}" "$pyside_qt" >&2
+elif $layer_candidate_found; then
+    printf 'Warning: LayerShellQt was not bundled because qtpaths6 did not identify a complete plugin/interface pair from one Qt installation.\n' >&2
+else
+    printf 'Warning: a coherent LayerShellQt installation was not found through qtpaths6; Wayland builds will use the normal popout fallback.\n' >&2
+fi
+
 "$python" -m PyInstaller \
     --noconfirm \
     --clean \
@@ -67,6 +112,7 @@ version="$($python -c 'import re, sys; text = open(sys.argv[1], encoding="utf-8"
     --add-data "$repo_root/assets:assets" \
     --add-data "$repo_root/locales:locales" \
     --add-data "$repo_root/theme_assets:theme_assets" \
+    "${wayland_args[@]}" \
     "$repo_root/retro_escalation.py"
 
 cp "$repo_root/LICENSE" "$app_output/LICENSE"

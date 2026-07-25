@@ -73,9 +73,9 @@ jobs:
             }
           }
           if (-not (Test-Path `
-                  -LiteralPath '.artifacts\windows-package\RE-OSCR\docs\v11.1.0.dev15.md' `
+                  -LiteralPath '.artifacts\windows-package\RE-OSCR\docs\v11.1.0.dev16.md' `
                   -PathType Leaf)) {
-            throw 'Missing dev15 tester handoff release note.'
+            throw 'Missing dev16 tester handoff release note.'
           }
 
       - name: Verify build provenance

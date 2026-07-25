@@ -49,6 +49,8 @@ class OSCRSettings():
                  'state__workbench_rule_editor_geometry',
                  'liveparser__auto_enabled', 'liveparser__columns',
                  'liveparser__copy_kills', 'liveparser__graph_active', 'liveparser__graph_field',
+                 'liveparser__overlay_height', 'liveparser__overlay_left',
+                 'liveparser__overlay_top', 'liveparser__overlay_width',
                  'liveparser__player_display', 'liveparser__window_scale',
                  'liveparser__window_opacity', 'theme_id',
                  'overlay__custom_css_path', 'overlay__feed_bind',
@@ -101,6 +103,10 @@ class OSCRSettings():
         self.liveparser__copy_kills: bool = False
         self.liveparser__graph_active: bool = False
         self.liveparser__graph_field: int = 0
+        self.liveparser__overlay_height: int = 0
+        self.liveparser__overlay_left: int = 40
+        self.liveparser__overlay_top: int = 40
+        self.liveparser__overlay_width: int = 0
         self.liveparser__player_display: str = 'Handle'
         self.liveparser__window_scale: float = 1.0
         self.liveparser__window_opacity: float = 0.85

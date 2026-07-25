@@ -513,7 +513,7 @@ class LiveView(QObject):
         self._add_field(grid, 0, 'When popout opens', auto)
         kills = self._toggle_button(
             self.settings.liveparser__copy_kills, 'settingsLiveCopyKills',
-            lambda state: self.settings.set('liveparser__copy_kills', state),
+            self._set_copy_kills,
             'KILLS INCLUDED', 'DPS ONLY')
         self._add_field(grid, 1, 'Copy result', kills)
         note = QLabel(
@@ -840,7 +840,13 @@ class LiveView(QObject):
         return label
 
     def _set_scale(self, value: int) -> str:
-        return self.settings.set_liveparser_scale(value)
+        label = self.settings.set_liveparser_scale(value)
+        self.live_parser.apply_runtime_settings()
+        return label
+
+    def _set_copy_kills(self, state: bool) -> None:
+        self.settings.set('liveparser__copy_kills', bool(state))
+        self.live_parser.apply_runtime_settings()
 
     def _set_graph_active(self, state: bool) -> None:
         self.settings.set('liveparser__graph_active', bool(state))

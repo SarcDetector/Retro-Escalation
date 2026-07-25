@@ -35,6 +35,9 @@ dynamic = ["version"]
 pyinst = [
     "pyinstaller==6.21.0"
 ]
+wayland = [
+    "pywayland==0.4.18"
+]
 
 [project.urls]
 Homepage = "https://github.com/SarcDetector/Retro-Escalation"

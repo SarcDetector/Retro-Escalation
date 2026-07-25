@@ -94,7 +94,8 @@ class REOSCRApplication():
         self.status_bar: StatusBar = StatusBar(self.theme, self.window)
         self.live_parser: LiveParserWindow = LiveParserWindow(
             self.settings, self.theme, self.dialogs, self.widgets,
-            command_console=self.active_theme_id == COMMAND_CONSOLE_THEME_ID)
+            command_console=self.active_theme_id == COMMAND_CONSOLE_THEME_ID,
+            app_dir=self.app_dir)
         self.live_overlay = None
         if self.active_theme_id == COMMAND_CONSOLE_THEME_ID:
             from .liveoverlay import LiveOverlayController
@@ -396,6 +397,7 @@ class REOSCRApplication():
                 self.widgets.ladder_table.set_tokens(ConsoleTokens.from_theme(self.theme))
             if self.live_overlay is not None:
                 self.live_overlay.set_theme(self.theme)
+            self.live_parser.apply_runtime_settings()
             self.widgets.apply_context_accent(self.widgets.active_main_tab)
         if change in ('all', 'background') and self.widgets.command_console_workspace is not None:
             self.widgets.command_console_workspace.apply_appearance(self.settings)

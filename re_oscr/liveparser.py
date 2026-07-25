@@ -1,3 +1,6 @@
+import logging
+from pathlib import Path
+
 from pyqtgraph import mkPen, PlotDataItem, PlotWidget
 from PySide6.QtCore import QPoint, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QMouseEvent
@@ -19,6 +22,7 @@ from .widgets import CustomPlotAxis, FlipButton, SizeGrip
 
 
 LIVE_GRAPH_FIELD_TO_COLUMN = {0: 0, 1: 2, 2: 3, 3: 4}
+logger = logging.getLogger(__name__)
 
 
 class LiveParserWindow(QFrame):
@@ -32,7 +36,8 @@ class LiveParserWindow(QFrame):
 
     def __init__(
             self, global_settings: OSCRSettings, theme: AppTheme, dialogs: DialogsWrapper,
-            widgets: WidgetManager, command_console: bool = False):
+            widgets: WidgetManager, command_console: bool = False,
+            app_dir: str | Path | None = None):
         """
         Parameters:
         - :param global_settings: OSCRSettings
@@ -46,6 +51,7 @@ class LiveParserWindow(QFrame):
         self._dialogs: DialogsWrapper = dialogs
         self._widgets: WidgetManager = widgets
         self._command_console = bool(command_console)
+        self._app_dir = str(app_dir or Path(__file__).resolve().parents[1])
         self._liveparser: LiveParser = LiveParser(
             update_callback=self.update_live_display, settings=self.live_parser_settings)
         self._move_start_pos: QPoint
@@ -65,6 +71,8 @@ class LiveParserWindow(QFrame):
         self._shutting_down: bool = False
         self._last_snapshot: list[list] = list()
         self._last_combat_time: float = 0.0
+        self._wayland_presenter = None
+        self._using_wayland_presentation: bool = False
         self.build_window()
         self.update_table.connect(self.update_live_table)
         self.update_graph.connect(self.update_live_graph)
@@ -72,6 +80,7 @@ class LiveParserWindow(QFrame):
         self.parser_active_changed.connect(self._sync_activate_button)
         if self._command_console:
             self.popout_visible_changed.connect(self._widgets.set_live_parser_active)
+        self._initialize_wayland_presenter()
 
     @property
     def parser_active(self) -> bool:
@@ -111,7 +120,7 @@ class LiveParserWindow(QFrame):
             | Qt.WindowType.WindowStaysOnTopHint
             | Qt.WindowType.WindowDoesNotAcceptFocus
             | Qt.WindowType.FramelessWindowHint)
-        if QApplication.platformName() == 'wayland':
+        if QApplication.platformName().casefold().startswith('wayland'):
             self.mousePressEvent = self.live_parser_move_wayland
         else:
             self.mousePressEvent = self.live_parser_press_event
@@ -240,7 +249,7 @@ class LiveParserWindow(QFrame):
         frame.setLayout(layout)
         return frame, curves
 
-    def update_shown_columns(self):
+    def update_shown_columns(self, publish: bool = True):
         """Shows/Hides appropriate table columns"""
         for index, state in enumerate(self._settings.liveparser__columns):
             if state:
@@ -249,6 +258,8 @@ class LiveParserWindow(QFrame):
                 self._table.hideColumn(index)
             # self._table.setColumnHidden(index, not state)
         self._table.resizeColumnsToContents()
+        if publish:
+            self._publish_wayland_configuration()
 
     def update_live_display(self, player_data: dict[tuple, dict], combat_time: float):
         """
@@ -326,16 +337,39 @@ class LiveParserWindow(QFrame):
         visible = bool(visible)
         if visible:
             self._prepare_popout()
-            self.show()
+            using_wayland = False
+            if self._wayland_presenter is not None:
+                try:
+                    rows, duration = self.last_snapshot
+                    using_wayland = bool(self._wayland_presenter.show_presentation(
+                        self._wayland_configuration(), rows, duration, self._parser_active))
+                except Exception as error:
+                    self._handle_wayland_unavailable(str(error))
+            self._using_wayland_presentation = using_wayland
+            if using_wayland:
+                if bool(getattr(
+                        self._wayland_presenter, 'ready_received', False)):
+                    self.hide()
+                else:
+                    # Keep the ordinary popout visible until the child confirms
+                    # that LayerShellQt configured and showed a real surface.
+                    self.show()
+            else:
+                self.show()
             self._popout_visible = True
             self.popout_visible_changed.emit(True)
             if self._settings.liveparser__auto_enabled and not self._parser_active:
                 self.start_parser()
             return
 
-        if self.isVisible() or self._popout_visible:
+        if self._using_wayland_presentation and self._wayland_presenter is not None:
+            self._wayland_presenter.hide_presentation()
+            if self.isVisible():
+                self.store_window_state()
+        elif self.isVisible() or self._popout_visible:
             self.store_window_state()
         self.hide()
+        self._using_wayland_presentation = False
         self._popout_visible = False
         self.popout_visible_changed.emit(False)
         if stop_parser:
@@ -357,15 +391,21 @@ class LiveParserWindow(QFrame):
         self._table_model.name_index = (
             1 if self._settings.liveparser__player_display == 'Handle' else 0)
         self.setWindowOpacity(self._settings.liveparser__window_opacity)
-        self.update_shown_columns()
+        self.update_shown_columns(publish=False)
+        self._publish_wayland_configuration()
 
     def shutdown(self) -> None:
         """Persist the popout and stop background parser work during application exit."""
         if self._shutting_down:
             return
         self._shutting_down = True
-        if self.isVisible() or self._popout_visible:
+        if self.isVisible() and not self._using_wayland_presentation:
             self.store_window_state()
+        presenter = self._wayland_presenter
+        self._wayland_presenter = None
+        self._using_wayland_presentation = False
+        if presenter is not None:
+            presenter.shutdown()
         self.hide()
         self._popout_visible = False
         self.popout_visible_changed.emit(False)
@@ -383,6 +423,125 @@ class LiveParserWindow(QFrame):
         if not self._command_console:
             self._widgets.live_parser_button.setChecked(False)
         event.ignore()
+
+    def _initialize_wayland_presenter(self) -> None:
+        """Create the isolated renderer only on a supported native Wayland session."""
+        if not QApplication.platformName().casefold().startswith('wayland'):
+            return
+        try:
+            from .waylandoverlay import WaylandPresentationProcess
+
+            presenter = WaylandPresentationProcess.create_if_supported(
+                self._app_dir, parent=self)
+        except Exception as error:
+            logger.warning("Wayland live presentation is unavailable: %s", error)
+            return
+        if presenter is None:
+            return
+        self._wayland_presenter = presenter
+        presenter.ready.connect(self._handle_wayland_ready)
+        presenter.close_requested.connect(self._handle_wayland_close_requested)
+        presenter.parser_requested.connect(self._handle_wayland_parser_requested)
+        presenter.geometry_changed.connect(self._handle_wayland_geometry_changed)
+        presenter.unavailable.connect(self._handle_wayland_unavailable)
+        self.snapshot_updated.connect(presenter.send_snapshot)
+        self.parser_active_changed.connect(presenter.send_parser_state)
+
+    def _wayland_configuration(self) -> dict:
+        """Return display-only settings; never include a log or settings path."""
+        return {
+            'theme_id': self._settings.theme_id,
+            'ui_scale': float(self._settings.ui_scale),
+            'palette': list(self._theme['plot']['color_cycler'][:5]),
+            'style': {
+                'background': self._theme['defaults']['bg'],
+                'raised': self._theme['defaults']['mbg'],
+                'overlay': self._theme['defaults']['lbg'],
+                'deep': self._theme['app']['bg'],
+                'border': self._theme['defaults']['bc'],
+                'text': self._theme['defaults']['fg'],
+                'secondary': self._theme['defaults']['mfg'],
+                'muted': self._theme['defaults']['mfg'],
+            },
+            'live': {
+                'columns': [bool(value) for value in self._settings.liveparser__columns],
+                'graph_active': bool(self._settings.liveparser__graph_active),
+                'graph_field': int(self._settings.liveparser__graph_field),
+                'player_display': str(self._settings.liveparser__player_display),
+                'window_scale': float(self._settings.liveparser__window_scale),
+                'opacity': float(self._settings.liveparser__window_opacity),
+                'overlay_left': int(self._settings.liveparser__overlay_left),
+                'overlay_top': int(self._settings.liveparser__overlay_top),
+                'overlay_width': int(self._settings.liveparser__overlay_width),
+                'overlay_height': int(self._settings.liveparser__overlay_height),
+                'copy_kills': bool(self._settings.liveparser__copy_kills),
+            },
+            'labels': {
+                'activate': tr('Activate'),
+                'deactivate': tr('Deactivate'),
+                'copy': tr('Copy Result'),
+                'close': tr('Close Live Parser'),
+                'duration': tr('Duration'),
+            },
+            'header': list(tr(LIVE_TABLE_HEADER)),
+        }
+
+    def _publish_wayland_configuration(self) -> None:
+        presenter = getattr(self, '_wayland_presenter', None)
+        if presenter is not None:
+            presenter.send_configuration(self._wayland_configuration())
+
+    @Slot()
+    def _handle_wayland_ready(self) -> None:
+        if self._popout_visible and self._using_wayland_presentation:
+            self.hide()
+
+    @Slot()
+    def _handle_wayland_close_requested(self) -> None:
+        if not self._using_wayland_presentation:
+            return
+        self.set_popout_visible(False, stop_parser=not self._command_console)
+        if not self._command_console:
+            self._widgets.live_parser_button.setChecked(False)
+
+    @Slot(bool)
+    def _handle_wayland_parser_requested(self, active: bool) -> None:
+        if active:
+            self.start_parser()
+        else:
+            self.stop_parser()
+
+    @Slot(object)
+    def _handle_wayland_geometry_changed(self, geometry: object) -> None:
+        if not isinstance(geometry, dict):
+            return
+        bounds = {
+            'left': ('liveparser__overlay_left', 0, 100_000),
+            'top': ('liveparser__overlay_top', 0, 100_000),
+            'width': ('liveparser__overlay_width', 0, 16_384),
+            'height': ('liveparser__overlay_height', 0, 16_384),
+        }
+        for key, (setting, minimum, maximum) in bounds.items():
+            try:
+                value = int(geometry[key])
+            except (KeyError, TypeError, ValueError, OverflowError):
+                return
+            setattr(self._settings, setting, max(minimum, min(maximum, value)))
+
+    @Slot(str)
+    def _handle_wayland_unavailable(self, reason: str) -> None:
+        """Fall back to the ordinary window without touching parser or browser state."""
+        if self._shutting_down:
+            return
+        logger.warning(
+            "Wayland live presentation failed; using the normal popout: %s",
+            reason or "unknown error")
+        self._wayland_presenter = None
+        was_presented = self._using_wayland_presentation
+        self._using_wayland_presentation = False
+        if self._popout_visible and was_presented:
+            self._prepare_popout()
+            self.show()
 
     def _prepare_popout(self) -> None:
         if self._window_scale != self._settings.liveparser__window_scale:
@@ -435,7 +594,7 @@ class LiveParserWindow(QFrame):
             self._table.sortByColumn(0, Qt.SortOrder.DescendingOrder)
         self._table.resizeColumnsToContents()
         self._table.resizeRowsToContents()
-        self.update_shown_columns()
+        self.update_shown_columns(publish=False)
 
     @Slot(float)
     def _update_duration_label(self, combat_time: float) -> None:

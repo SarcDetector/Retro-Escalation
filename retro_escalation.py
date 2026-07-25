@@ -7,9 +7,6 @@ from pathlib import Path
 from shutil import copytree
 import sys
 
-from PySide6.QtCore import QTimer
-
-from re_oscr import REOSCRApplication
 from main import Launcher
 
 
@@ -68,12 +65,29 @@ class RetroEscalationLauncher:
             description='Retro Escalation frontend for the Open Source Combatlog Reader parser.')
         argparser.add_argument(
             '--config_dir', type=str, required=False,
-            default=RetroEscalationLauncher.default_config_dir(),
             help='Change configuration directory (must be readable and writable)')
         argparser.add_argument(
             '--startup-check', action='store_true',
             help='Create the application and exit automatically (used by package validation)')
+        argparser.add_argument(
+            '--wayland-live-presenter', action='store_true',
+            help='Internal presentation-only Wayland process')
+        argparser.add_argument(
+            '--app-dir', type=str, required=False,
+            help='Internal application asset directory')
         args, _ = argparser.parse_known_args()
+
+        if args.wayland_live_presenter:
+            from re_oscr.waylandpresenter import run_presenter
+
+            sys.exit(run_presenter(args.app_dir or Launcher.base_path()))
+
+        if args.config_dir is None:
+            args.config_dir = RetroEscalationLauncher.default_config_dir()
+
+        from PySide6.QtCore import QTimer
+        from re_oscr import REOSCRApplication
+
         application = REOSCRApplication(
             args=args,
             app_dir_path=Launcher.base_path(),

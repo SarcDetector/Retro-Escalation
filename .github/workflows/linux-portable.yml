@@ -37,16 +37,27 @@ jobs:
           python-version: "3.13"
           cache: pip
 
-      - name: Install Linux desktop runtime libraries
+      - name: Install Linux build and desktop libraries
         run: |
           sudo apt-get update
-          sudo apt-get install --yes libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0
+          sudo apt-get install --yes \
+            build-essential \
+            pkg-config \
+            libffi-dev \
+            libwayland-dev \
+            libwayland-bin \
+            wayland-protocols \
+            libegl1 \
+            libgl1 \
+            libxkbcommon-x11-0 \
+            libxcb-cursor0
 
-      - name: Install application and packager
+      - name: Install application, Wayland helper, and packager
         run: |
           python -m venv .venv
           .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install -e ".[pyinst]"
+          .venv/bin/python -m pip install -e ".[pyinst,wayland]"
+          .venv/bin/python -c "import pywayland; print('pywayland source build: OK')"
 
       - name: Run regression tests
         run: .venv/bin/python -m unittest discover -s tests -v
@@ -64,7 +75,7 @@ jobs:
           test -f "$root/overlay.html"
           test -f "$root/overlay.css"
           test -f "$root/overlay.js"
-          test -f ".artifacts/linux-package/RE-OSCR/docs/v11.1.0.dev15.md"
+          test -f ".artifacts/linux-package/RE-OSCR/docs/v11.1.0.dev16.md"
 
       - name: Verify build provenance
         run: |
