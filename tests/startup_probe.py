@@ -217,7 +217,7 @@ def main() -> int:
             ui.widgets.analysis_event_count_chip)
         assert ui.window.findChild(QWidget, "analysisWorkbenchReset") is (
             ui.widgets.analysis_reset_button)
-        assert ui.window.findChild(QWidget, "analysisClaDamageOutPreview") is (
+        assert ui.window.findChild(QWidget, "analysisClaAnalysis") is (
             ui.widgets.analysis_cla_preview_button)
         assert ui.widgets.analysis_filter_scope.currentData() == "ANY"
         assert tuple(
@@ -250,7 +250,7 @@ def main() -> int:
         assert ui.widgets.analysis_modified_chip.isHidden()
         assert ui.widgets.analysis_event_count_chip.text() == "NO COMBAT"
         assert not ui.widgets.analysis_reset_button.isEnabled()
-        assert ui.widgets.analysis_cla_preview_button.text() == "CLA v1.4 PREVIEW"
+        assert ui.widgets.analysis_cla_preview_button.text() == "CLA v1.4 ANALYSIS"
         assert not ui.widgets.analysis_cla_preview_button.isEnabled()
         analysis_graph_panel = ui.window.findChild(
             QWidget, "commandConsoleAnalysisGraphPanel")
@@ -585,7 +585,7 @@ def main() -> int:
         assert ui.window.findChild(QWidget, "analysisModifiedViewChip") is None
         assert ui.window.findChild(QWidget, "analysisWorkbenchEventCount") is None
         assert ui.window.findChild(QWidget, "analysisWorkbenchReset") is None
-        assert ui.window.findChild(QWidget, "analysisClaDamageOutPreview") is None
+        assert ui.window.findChild(QWidget, "analysisClaAnalysis") is None
         assert ui.window.findChild(QWidget, "commandConsoleOverviewSummaryDeck") is None
         assert ui.window.findChild(QWidget, "commandConsoleOverviewMetricBar") is None
         assert (

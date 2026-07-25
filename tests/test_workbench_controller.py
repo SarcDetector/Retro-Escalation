@@ -128,7 +128,7 @@ class AnalysisWorkbenchControllerTests(unittest.TestCase):
         self.widgets = FakeWidgets()
         self.controller = AnalysisWorkbenchController(
             self.parser, self.tables, self.widgets,
-            product_version="11.1.0.dev15",
+            product_version="11.1.0.dev16",
             build_revision="f" * 40)
         self.controller.attach_controls()
 

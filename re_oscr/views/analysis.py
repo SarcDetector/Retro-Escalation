@@ -293,9 +293,9 @@ class AnalysisView:
             presentation_layout.addWidget(button)
 
         cla_preview_button = action_button(
-            'CLA v1.4 PREVIEW', 'analysisClaDamageOutPreview', 1)
+            'CLA v1.4 ANALYSIS', 'analysisClaAnalysis', 1)
         cla_preview_button.setToolTip(
-            'Open the source-audited Damage Out technical preview for the unmodified '
+            'Open CLA v1.4 Summary, Damage, and Healing analysis for the unmodified '
             'OSCR-selected combat')
         cla_preview_button.setEnabled(False)
         presentation_layout.addWidget(cla_preview_button)

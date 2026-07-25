@@ -1,16 +1,16 @@
 # CLA compatibility parity ledger
 
-Status: **DEV15 DAMAGE OUT TECHNICAL PREVIEW IMPLEMENTED; GOLDEN VERIFICATION PENDING**
+Status: **DEV16 FIVE SCALAR SLICES IMPLEMENTED; DAMAGE OUT FIELD-VALIDATED**
 
-Audit date: 2026-07-16
+Audit date: 2026-07-25
 
 RE-OSCR audit baseline: [v11.1.0.dev12](baselines/v11.1.0.dev12.md)
 
-Current preview: [v11.1.0.dev15](releases/v11.1.0.dev15.md)
+Current calculation release: [v11.1.0.dev16](releases/v11.1.0.dev16.md)
 
 This is the living compatibility inventory for evolving RE-OSCR Analysis toward CLA without
 replacing the OSCR parser. It records what CLA calculates, whether the selected OSCR combat
-contains the required inputs, what dev15 exposes as a technical preview, and what must still be
+contains the required inputs, what dev16 exposes as a calculation surface, and what must still be
 proven with golden fixtures.
 
 The eventual compatibility promise is deliberately precise:
@@ -20,9 +20,11 @@ The eventual compatibility promise is deliberately precise:
 It is not an alternate CLA parser and it is not a promise that OSCR and CLA will discover the same
 combat from every raw log file.
 
-Dev15 has not earned that compatibility label. It exposes a source-audited, player-root Damage Out
-preview over the immutable parser-truth event set selected by OSCR. Its stable raw report is a
-comparison surface for testers; it is not a parity certificate or a League source.
+Dev16 implements all scalar Summary, Damage Out, Damage In, Heal Out, and Heal In families over the
+immutable parser-truth event set selected by OSCR, including the default hierarchy. Damage Out
+player-root clocks and visible scalars have also matched a private real-combat CLA v1.4 comparison.
+The raw report is a tester and audit surface; it is not a full graph/rule parity certificate or a
+League source.
 
 ## Pinned evidence
 
@@ -141,10 +143,10 @@ The mapping to CLA terminology is complete for ordinary calculations:
 | Flags | `flags` | Critical, Flank, Kill, Immune, ShieldBreak, and Miss can be tokenized. |
 | Actual amount | `magnitudes` | Sign and raw floating value retained. |
 | Base/prevented amount | `magnitudes2` | Sign and raw floating value retained. |
-| Event ordinal | `source_ordinals` | Same-time duplicate records have no upstream event UID; ordinal is required. Dev15 includes it in the stable canonical snapshot identity. |
+| Event ordinal | `source_ordinals` | Same-time duplicate records have no upstream event UID; ordinal is required. The coprocessor includes it in the stable canonical snapshot identity. |
 
 CLA entity kind, missing-entity state, and unique-name matching are recoverable from the retained
-raw ID strings, but are not exposed as dedicated snapshot arrays. The dev15 coprocessor derives
+raw ID strings, but are not exposed as dedicated snapshot arrays. The coprocessor derives
 the player identity needed by its limited preview from the frozen values instead of consulting the
 source `Combat`.
 
@@ -155,7 +157,7 @@ without parsing log text and without writing back to OSCR.
 
 ## Snapshot identity and result provenance contract
 
-Dev15 implements stable snapshot identity for the technical preview. The adapter freezes the
+The coprocessor implements stable snapshot identity. The adapter freezes the
 official start/end, nullable map/difficulty, runtime parser version, and events at
 `CombatEventIndex` construction. Hashing does not dereference `source_combat` later.
 
@@ -194,7 +196,7 @@ change therefore cannot masquerade as a coprocessor regression.
 
 The full provenance contract retains the canonical transform descriptor as well as its digest. It
 can describe ordered full rule definitions and enabled states, filters/queries, time bounds, and
-selected source ordinals. Dev15 deliberately blocks modified Workbench views, so its preview emits
+selected source ordinals. Dev16 deliberately blocks modified Workbench views, so its result emits
 only this canonical empty descriptor:
 
 ```json
@@ -216,7 +218,7 @@ this explicit RFC 8785 payload:
   "domain": "re-oscr.result.v1",
   "snapshot_id": "sha256:...",
   "engine_id": "re-oscr.cla-coprocessor",
-  "engine_version": "1",
+  "engine_version": "2",
   "profile_id": "cla-v1.4.0",
   "transform_digest": "sha256:..."
 }
@@ -224,7 +226,7 @@ this explicit RFC 8785 payload:
 
 `result_id` uses the same `sha256:` plus 64-lowercase-hexadecimal representation.
 
-The dev15 preview uses engine ID `re-oscr.cla-coprocessor`; native OSCR results use
+The dev16 calculation result uses engine ID `re-oscr.cla-coprocessor`; native OSCR results use
 `re-oscr.oscr-native`. Result provenance records the empty transform descriptor, declared boundary
 differences, the injected RE-OSCR product version, and an optional nullable build revision. Product
 version comes from `RetroEscalationLauncher.__version__` at the adapter boundary; the pure engine
@@ -253,6 +255,11 @@ official combat snapshot. Within that fixed event set, the CLA clocks are:
 Every scalar rate divides by `max(selected_clock, 1 second)`. A one-timestamp range therefore has
 duration zero but uses a one-second divisor. The harness must prove every clock independently before
 any dependent rate can become `VERIFIED`.
+
+**Dev16 progress:** `TIME-01` through `TIME-06` and `TIME-09` are implemented for all five scalar
+surfaces. Synthetic fixtures cover zero/missing ranges, the one-second floor, incoming-heal-only
+players, direct self-damage, and contained backwards ranges. The private field comparison covers
+the displayed global, Damage Out, and Active durations for one real combat.
 
 ## CLA damage classification
 
@@ -288,7 +295,7 @@ Every formula and source-defined edge in this table is an `EXACT` obligation. Th
 describes implementation progress and the nearest audit-baseline behavior where relevant; it does
 not grant latitude.
 
-| ID | CLA label | Compatibility rule | OSCR availability | Implementation progress |
+| ID | CLA label | Compatibility rule | OSCR availability | Dev15 checkpoint (superseded below) |
 |---|---|---|---|---|
 | `DO-01` | DPS | `rate(D, Tdo)`; shield/hull variants divide by the same clock. | Event amounts + timestamps. | `PREVIEW IMPLEMENTED`; golden and exact aggregation-order proof pending. |
 | `DO-02` | Total Damage | `D = Dh + Ds`; drain remains shield damage; immune damage contributes zero. | Directly derivable. | `PREVIEW IMPLEMENTED`; golden and exact aggregation-order proof pending. |
@@ -312,16 +319,23 @@ not grant latitude.
 | `DO-20` | Average Crit Hit | Total critical hull damage divided by `C`. | `DO-18` + count. | Not exposed: `DERIVABLE`. |
 | `DO-21` | Average Non-Crit Hull Hit | Noncritical hull damage divided by `(Nh - C)`. The official optimized release wraps the unsigned subtraction modulo `2^64` when malformed flags make `C > Nh`. | `DO-19` + counts. | Released behavior `DERIVABLE`; malformed fixture required. |
 
+**Dev16 progress:** `DO-01` through `DO-21` are implemented for Damage Out and Damage In at
+player-root and default-hierarchy levels. Anonymous synthetic fixtures cover the formulas, blanks,
+flags, immune/zero records, kill/type sets, maximum-hit provenance, and the released malformed
+denominator wrap. Damage Out player-root display values also have private real-combat field
+validation. The binary64 hierarchy traversal boundary described below remains open.
+
 Damage In uses the same 21 metric formulas and hierarchy machinery. Its rates use the player's CLA
 active duration rather than a separate incoming-damage duration. This is derivable, but no Damage
 In row is considered verified until separate golden fixtures cover attribution and clocks.
 
-Dev15 exposes only player-root rows and all/shield/hull values for the eight marked metric families.
-It accumulates those preview roots in frozen event order. CLA builds leaf metrics and aggregates
-them through its hierarchy using its own deterministic traversal order. That exact hierarchy
-aggregation traversal is not implemented yet. Because binary64 addition is not associative,
-arbitrary-decimal real-log totals and dependent metrics can differ at the bit level even when event
-membership and formulas agree. This is a known preview boundary, not a permitted parity tolerance.
+Dev16 exposes all 21 families for player roots and every default-hierarchy descendant, with
+all/shield/hull values where defined. It builds leaf metrics in frozen event order and aggregates
+them through a deterministic hierarchy traversal. The pinned Rust release walks an internal
+`HashMap<NameHandle, ...>` whose bucket iteration is not a Rust API guarantee. Until raw
+instrumentation proves or emulates that toolchain-specific traversal, arbitrary-decimal hierarchy
+totals can differ at the final binary64 bits even when event membership and formulas agree. This is
+an explicitly displayed verification boundary, not a permitted formula or event-set tolerance.
 
 ### Damage edge behavior to freeze
 
@@ -347,10 +361,11 @@ CLA uses the same hierarchy engine for Healing Out and Healing In. Let `H`, `Hh`
 hull, and shield healing; `Q`, `Qh`, `Qs` the tick counts; `HC` critical tick count; and `Ta` the
 player active duration.
 
-Every source-defined healing formula is an `EXACT` obligation; all eight are currently
-`DERIVABLE` from the snapshot.
+Every source-defined healing formula is an `EXACT` obligation. All eight are implemented in dev16
+for Heal Out and Heal In, including player roots, descendants, parent shares, and anonymous
+synthetic edge fixtures.
 
-| ID | CLA label | Compatibility rule | Progress |
+| ID | CLA label | Compatibility rule | Dev15 checkpoint |
 |---|---|---|---|
 | `HEAL-01` | HPS | `rate(H, Ta)` with shield/hull variants. | `DERIVABLE` |
 | `HEAL-02` | Total Heal | `H = Hh + Hs`. | `DERIVABLE` |
@@ -385,6 +400,11 @@ Every source-defined summary calculation is an `EXACT` obligation.
 | `SUM-10` | Summary charts for DPS, outgoing damage, and incoming damage. | `EXACT` / `PARTIAL`; dev12 has related charts. |
 | `SUM-11` | Summary-copy field and selected-aspect ordering, sorting, headers, separators, handle extraction, duration, blank-selection behavior, and suffix formatting. Damage Resistance Out/In can be included. | `EXACT` / `DERIVABLE`; copy parity not started. |
 
+Dev16 implements raw `SUM-01` through `SUM-08`. CLA-formatted encounter identity (`SUM-09`),
+`SUM-10` graph parity, and exact `SUM-11` CLA-formatted summary-copy behavior remain open; OSCR map
+and difficulty stay visible as declared boundary metadata. The dev16 current-tab copy and raw JSON
+export are explicit RE-OSCR audit surfaces rather than claims of `SUM-11` equivalence.
+
 ## Hierarchy and rule ledger
 
 Default CLA shapes:
@@ -395,6 +415,10 @@ Default CLA shapes:
 | Damage In | Player → Attacker → Effect | Player → Attacker → Indirect Source → Effect |
 | Heal Out | Player → Target → Effect | Player → Target → Indirect Source → Effect |
 | Heal In | Player → Source → Effect | Player → Source → Indirect Source → Effect |
+
+Dev16 implements these four default direct/indirect shapes, same-name leaf/branch promotion, and
+immediate-parent percentages. The optional reversal, custom-group, and exclusion transforms remain
+open profile work and are not silently borrowed from RE-OSCR's display-only Workbench rules.
 
 The first seven rule rows are `EXACT` obligations. `PARTIAL` records only the state of dev12.
 
@@ -508,8 +532,8 @@ No golden fixture is complete yet. The first harness should cover these in order
 
 ## Future profile state presentation
 
-Dev15 does not ship the profile switch described below. Its dedicated technical-preview action
-does not change the active Analysis profile and never labels a result `CLA COMPATIBLE`.
+Dev16 does not ship the profile switch described below. Its dedicated calculation-analysis action
+does not change the active OSCR Analysis models and never labels a result `CLA COMPATIBLE`.
 
 The Analysis profile switch controls real calculation state, so its indicator is an earned console
 chip under the no-fake-readouts rule. It displays the active, versioned state—such as
@@ -520,26 +544,25 @@ the CLA profile, both `CLA COMPATIBLE v1.4` and `MODIFIED VIEW` remain visible. 
 recalculates from the same immutable snapshot; it does not rerun or replace OSCR, mutate parser
 truth, or create a League upload source.
 
-## Dev15 implementation slice and next gates
+## Dev16 implementation slice and next gates
 
-Dev15 starts the first vertical slice: a **player-root Damage Out technical preview on the
-OSCR-selected event set**. It implements stable canonical snapshot/result provenance, the six
-marked clock contracts, and the eight marked Damage Out metric families with all/shield/hull values.
-It is available only for an unmodified parser-truth Workbench view. It does not implement the
-remaining metric families, parent-relative hierarchy, flags, graphs, exact CLA formatting, rule
-transforms, or a selectable compatibility profile, and it has no League authority.
+Dev16 completes the five scalar analysis surfaces on the **OSCR-selected event set**: Summary,
+Damage Out, Damage In, Heal Out, and Heal In. It implements all 21 damage and eight healing metric
+families, the CLA clock map, direct/indirect attribution, default hierarchy, parent-relative shares,
+all/shield/hull aspects, and stable canonical snapshot/result provenance.
 
-The preview table is rounded presentation and is never an oracle. **COPY RAW REPORT** is the stable
-tester comparison surface because it carries unrounded values, snapshot/result identities, parser
-and product provenance, and declared boundary differences. The raw report is still subject to the
-known hierarchy aggregation-order limitation above.
+The result is available only for an unmodified parser-truth Workbench view. Its Summary and four
+expandable direction tabs are rounded presentation and are never the raw oracle. **COPY RAW JSON**
+and **EXPORT JSON** carry unrounded values, hierarchy, clocks, metric manifests, snapshot/result
+identities, parser/product provenance, and declared boundary differences.
 
-The first real-log proof milestone is Raman's tester fixture once its exact input, permission, raw
-CLA oracle output, and hashes are archived. Acceptance for dev15 evaluation is reproducible
-comparison of only the implemented clocks and Damage Out fields on the same OSCR-selected event
-set. A difference is a useful preview finding, not evidence of certified parity. Real-log evidence
-supplements rather than replaces exact synthetic fixtures.
+Anonymous synthetic conformance fixtures cover every direction and the high-risk source edges.
+A separately retained private real-combat fixture matched CLA v1.4's displayed player-root Damage
+Out duration and every visible scalar column. The private input, player identity, hashes, and raw
+reports are not tracked or packaged. Rounded field evidence supplements rather than replaces exact
+synthetic fixtures.
 
-The next gates are the golden harness and fixtures, exact CLA hierarchy construction and aggregation
-traversal, then the remaining metrics, flags, graphs, formatting/copy behavior, and an earned profile
-selector. None is claimed as shipped by dev15.
+The remaining gates are rule-transform parity, graph topology/binning, exact CLA copy/formatter
+behavior, and a raw-instrumented decision on the pinned Rust release's internal `HashMap`
+floating-point aggregation order. Until those gates pass, dev16 truthfully claims complete scalar
+calculation slices, not complete application-level CLA parity.

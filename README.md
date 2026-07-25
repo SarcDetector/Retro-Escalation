@@ -16,6 +16,8 @@ Current development features include:
 - A fifth-tab Live Control Center with one inherited parser session, an embedded preview, the
   existing local popout, an optional Windows global visibility hotkey, and a read-only
   browser/OBS meter.
+- A Command Console CLA v1.4 calculation coprocessor with Summary, Damage Out, Damage In,
+  Heal Out, Heal In, expandable default hierarchy, and raw provenance export.
 - Isolated RE-OSCR settings that do not modify an installed OSCR application.
 - League Standings browsing with season/map selection, handle search, local-log loading, and
   selected-parse open/save actions.
@@ -32,6 +34,7 @@ Current development features include:
 - [Development guide](docs/DEVELOPMENT.md)
 - [Dev12 protected baseline](docs/baselines/v11.1.0.dev12.md)
 - [CLA compatibility parity ledger](docs/CLA_PARITY.md)
+- [Dev16 Math coprocessor release notes](docs/releases/v11.1.0.dev16.md)
 
 ## Parser dependency
 

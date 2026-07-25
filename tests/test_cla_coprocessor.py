@@ -1,4 +1,4 @@
-"""Golden-pending contracts for the dev15 CLA Damage Out technical preview."""
+"""Contracts retained for the dev15 CLA Damage Out compatibility projection."""
 
 import hashlib
 import json
@@ -324,7 +324,7 @@ class DamageOutPreviewTests(unittest.TestCase):
         self.assertEqual(provenance["transform"]["selected_ordinals"], "all")
         self.assertRegex(provenance["snapshot_id"], r"^sha256:[0-9a-f]{64}$")
         self.assertRegex(provenance["result_id"], r"^sha256:[0-9a-f]{64}$")
-        self.assertIn("GOLDEN VERIFICATION PENDING", result.audit_status)
+        self.assertIn("FIELD-VALIDATED", result.audit_status)
         self.assertEqual(json.loads(result.to_json())["rows"][0]["player"], "Alice@handle")
 
 

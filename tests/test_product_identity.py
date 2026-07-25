@@ -37,7 +37,7 @@ class ProductIdentityTests(unittest.TestCase):
             project["scripts"],
             {"re-oscr": "retro_escalation:RetroEscalationLauncher.launch"},
         )
-        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0.dev15")
+        self.assertEqual(RetroEscalationLauncher.__version__, "11.1.0.dev16")
         self.assertEqual(Launcher.__version__, RetroEscalationLauncher.__version__)
         self.assertNotIn("+", RetroEscalationLauncher.__version__)
 
@@ -103,7 +103,7 @@ class ProductIdentityTests(unittest.TestCase):
             internal.mkdir()
             (portable_root / "BUILD_INFO.txt").write_text(
                 "\n".join((
-                    "RE-OSCR - Retro Escalation 11.1.0.dev15",
+                    "RE-OSCR - Retro Escalation 11.1.0.dev16",
                     f"Commit: {commit}",
                     "Working tree: uncommitted changes included",
                 )),

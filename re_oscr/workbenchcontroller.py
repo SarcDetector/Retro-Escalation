@@ -13,9 +13,9 @@ from PySide6.QtWidgets import QDialog, QPushButton
 from OSCR.combat import Combat
 
 from .clacoprocessor import (
+    ClaAnalysisResult,
     ClaCoprocessorError,
-    DamageOutPreviewResult,
-    analyze_damage_out_preview,
+    analyze_cla_profile,
 )
 from .workbench import (
     BUNDLED_WORKBENCH_RULE_SETS,
@@ -108,7 +108,7 @@ class AnalysisWorkbenchController(QObject):
             self.widgets.analysis_reset_button.clicked.connect(self.reset)
         cla_preview_button = getattr(self.widgets, "analysis_cla_preview_button", None)
         if cla_preview_button is not None:
-            cla_preview_button.clicked.connect(self.open_cla_damage_out_preview)
+            cla_preview_button.clicked.connect(self.open_cla_analysis)
         rule_selector = getattr(self.widgets, "analysis_rule_set_selector", None)
         if rule_selector is not None:
             rule_selector.currentIndexChanged.connect(self._rule_set_changed)
@@ -564,34 +564,38 @@ class AnalysisWorkbenchController(QObject):
         for plot in self.widgets.analysis_plots:
             plot.clear()
 
-    def build_cla_damage_out_preview(self) -> DamageOutPreviewResult:
-        """Build the parser-truth-only dev15 preview without touching visible OSCR models."""
+    def build_cla_analysis(self) -> ClaAnalysisResult:
+        """Build all CLA slices from parser truth without touching visible OSCR models."""
         if self.source_combat is None:
-            raise WorkbenchDataError("select an OSCR combat before opening the CLA preview")
+            raise WorkbenchDataError("select an OSCR combat before opening CLA analysis")
         if self.state.is_modified:
             raise WorkbenchDataError(
-                "reset Analysis modifiers before opening the dev15 CLA preview")
+                "reset Analysis modifiers before opening CLA analysis")
         index = self.cache.get(self.source_combat)
-        return analyze_damage_out_preview(
+        return analyze_cla_profile(
             index.snapshot_json,
             index.snapshot_id,
             product_version=self.product_version,
             build_revision=self.build_revision,
         )
 
+    def build_cla_damage_out_preview(self) -> ClaAnalysisResult:
+        """Compatibility alias retained for dev15 callers."""
+        return self.build_cla_analysis()
+
     @Slot()
-    def open_cla_damage_out_preview(self) -> None:
-        """Open a dedicated, non-uploadable result surface for tester comparison."""
+    def open_cla_analysis(self) -> None:
+        """Open the dedicated, non-uploadable CLA analysis surface."""
         try:
-            result = self.build_cla_damage_out_preview()
+            result = self.build_cla_analysis()
         except (ClaCoprocessorError, WorkbenchDataError, ValueError) as error:
             self.view_failed.emit(str(error))
             return
 
-        from .clapreview import ClaDamageOutPreviewDialog
+        from .clapreview import ClaAnalysisDialog
 
         self._close_cla_preview()
-        dialog = ClaDamageOutPreviewDialog(result, self.parent)
+        dialog = ClaAnalysisDialog(result, self.parent)
         self._cla_preview_dialog = dialog
         dialog.destroyed.connect(
             lambda _object=None, opened=dialog:
@@ -599,6 +603,11 @@ class AnalysisWorkbenchController(QObject):
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()
+
+    @Slot()
+    def open_cla_damage_out_preview(self) -> None:
+        """Compatibility alias retained for the dev15 signal name."""
+        self.open_cla_analysis()
 
     def _forget_cla_preview(self, dialog) -> None:
         if self._cla_preview_dialog is dialog:
@@ -651,10 +660,10 @@ class AnalysisWorkbenchController(QObject):
             cla_preview_button.setEnabled(has_combat and not modified)
             if modified:
                 cla_preview_button.setToolTip(
-                    "Reset Analysis modifiers before opening the dev15 CLA preview")
+                    "Reset Analysis modifiers before opening CLA v1.4 analysis")
             else:
                 cla_preview_button.setToolTip(
-                    "Open the source-audited Damage Out technical preview for the unmodified "
+                    "Open CLA v1.4 Summary, Damage, and Healing analysis for the unmodified "
                     "OSCR-selected combat")
         self._sync_modifier_chips()
         self._update_add_filter_button()
